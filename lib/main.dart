@@ -14,13 +14,14 @@ void main() {
 }
 
 enum UserRole {
-  owner('Proprietario', Icons.storefront),
-  professional('Profissional', Icons.content_cut),
-  customer('Cliente', Icons.person);
+  owner('Proprietario', 'Gestor', Icons.storefront),
+  professional('Profissional', 'Profissional', Icons.content_cut),
+  customer('Cliente', 'Cliente', Icons.person);
 
-  const UserRole(this.label, this.icon);
+  const UserRole(this.label, this.selectorLabel, this.icon);
 
   final String label;
+  final String selectorLabel;
   final IconData icon;
 }
 
@@ -123,26 +124,33 @@ class _RoleGatePageState extends State<RoleGatePage> {
                   final selected = selectedRole == role;
                   return ChoiceChip(
                     avatar: Icon(role.icon, size: 18),
-                    label: Text(role.label),
+                    label: Text(role.selectorLabel),
                     selected: selected,
                     onSelected: (_) => _selectRole(role),
                   );
                 }).toList(),
               ),
               const Spacer(),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DashboardShell(role: selectedRole),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return SizedBox(
+                    width: constraints.maxWidth,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => DashboardShell(role: selectedRole),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('Continuar'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 52),
+                      ),
                     ),
                   );
                 },
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('Continuar'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
               ),
             ],
           ),
@@ -426,7 +434,7 @@ class _MetricGrid extends StatelessWidget {
       mainAxisSpacing: 10,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.55,
+      childAspectRatio: 1.25,
       children: metrics.map((metric) => _MetricCard(metric)).toList(),
     );
   }

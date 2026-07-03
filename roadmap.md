@@ -36,6 +36,8 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 - [x] Comentarios de manutencao em portugues do Brasil
 - [x] Tratamento global de excecoes do aplicativo
 - [x] Commit e rollback para alteracoes locais de estado
+- [x] Testes visuais por golden file em viewport mobile
+- [x] Correcao de overflow nos cards de metricas do proprietario
 - [ ] Autenticacao real com API
 - [ ] Persistencia de token
 - [ ] Onboarding de estabelecimento
@@ -56,6 +58,7 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 - [x] `flutter test` executa sem erros
 - [x] Teste automatizado cobre commit e rollback de estado local
 - [x] Teste automatizado cobre troca de perfil antes do dashboard
+- [x] Golden tests cobrem entrada, proprietario, profissional e cliente
 - [ ] Login funcional com token Sanctum
 - [ ] Proprietario consegue cadastrar cliente, servico, profissional e plano
 - [ ] Cliente consegue solicitar agendamento permitido pelo plano
@@ -69,6 +72,7 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 |---|---|---|---|---|
 | 2026-07-03 | Codex | Parcial aprovado | `flutter analyze` e `flutter test` passaram | Integrar API, autenticar, persistir token e implementar fluxos reais |
 | 2026-07-03 | Codex | Parcial aprovado | Handler global de excecoes, transacao local de estado, comentarios em PT-BR e testes passaram | Ainda falta aplicar o padrao nos fluxos reais quando a API for integrada |
+| 2026-07-03 | Codex | Parcial aprovado | Golden tests em 390x844 passaram e overflow dos cards de metricas foi corrigido | Testar em dispositivo Android real quando o SDK estiver configurado |
 
 ## Fase 1 - Cobranca Automatica e Base Operacional
 
