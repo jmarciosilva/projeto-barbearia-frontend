@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 /// Simula as respostas do backend Laravel (`backend/docs/api.md`) o
-/// suficiente para exercitar o login e o dashboard do proprietario em
-/// testes de widget, sem precisar de uma API real rodando.
+/// suficiente para exercitar login e os fluxos dos 3 perfis em testes de
+/// widget, sem precisar de uma API real rodando.
 ///
 /// O "token" retornado no login e literalmente o papel do usuario
 /// (`owner-token`, `professional-token`, `customer-token`), o que permite
@@ -53,6 +53,23 @@ http.Client buildFakeBackend() {
       return http.Response('', 204);
     }
 
+    if (method == 'GET' && path.endsWith('/me/professional')) {
+      return _jsonResponse(200, _professionalMeJson);
+    }
+
+    if (method == 'PATCH' && path.endsWith('/me/professional')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(200, {
+        ..._professionalMeJson,
+        if (body['specialty'] != null) 'specialty': body['specialty'],
+        if (body['phone'] != null) 'phone': body['phone'],
+      });
+    }
+
+    if (method == 'GET' && path.endsWith('/me/client')) {
+      return _jsonResponse(200, _meClientJson);
+    }
+
     if (method == 'GET' && path.endsWith('/clients')) {
       return _jsonResponse(200, _clientsJson);
     }
@@ -74,6 +91,10 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, _servicesJson);
     }
 
+    if (method == 'GET' && path.endsWith('/professionals')) {
+      return _jsonResponse(200, _professionalsJson);
+    }
+
     if (method == 'GET' && path.endsWith('/subscription-plans')) {
       return _jsonResponse(200, _plansJson);
     }
@@ -87,6 +108,29 @@ http.Client buildFakeBackend() {
         'usage_limit': body['usage_limit'],
         'is_active': true,
         'services': <dynamic>[],
+      });
+    }
+
+    if (method == 'POST' &&
+        path.contains('/appointments/') &&
+        path.endsWith('/complete')) {
+      return _jsonResponse(200, {
+        ..._appointmentsJson.first,
+        'status': 'completed',
+      });
+    }
+
+    if (method == 'POST' && path.endsWith('/appointments')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 77,
+        'starts_at': body['starts_at'],
+        'ends_at': body['starts_at'],
+        'status': 'scheduled',
+        'client': {'name': 'Carlos Mendes'},
+        'professional': {'name': 'Ana Souza'},
+        'service': {'name': 'Corte masculino'},
+        'notes': null,
       });
     }
 
@@ -159,6 +203,30 @@ const _customerJson = {
   'tenant': {'name': 'Clube do Salao Demo'},
 };
 
+const _professionalMeJson = {
+  'id': 10,
+  'name': 'Ana Souza',
+  'email': 'ana.souza@clubedosalao.com',
+  'phone': '11999990000',
+  'specialty': 'Cortes e barba',
+  'commission_percentage': 40,
+  'is_active': true,
+  'user_id': 2,
+};
+
+final _professionalsJson = [
+  _professionalMeJson,
+  {
+    'id': 11,
+    'name': 'Rafael Souza',
+    'email': 'rafael.souza@clubedosalao.com',
+    'specialty': 'Sobrancelha e coloracao',
+    'commission_percentage': 35,
+    'is_active': true,
+    'user_id': 3,
+  },
+];
+
 const _bronzePlanJson = {
   'id': 1,
   'name': 'Bronze',
@@ -223,6 +291,32 @@ final _clientsJson = [
     'subscriptions': <dynamic>[],
   },
 ];
+
+final _meClientJson = {
+  'id': 1,
+  'name': 'Carlos Mendes',
+  'phone': '11988881234',
+  'email': 'carlos.mendes@clubedosalao.com',
+  'notes': null,
+  'status': 'active',
+  'subscriptions': [
+    {
+      'id': 1,
+      'client_id': 1,
+      'subscription_plan_id': 1,
+      'status': 'active',
+      'payment_status': 'paid',
+      'renews_on': '2026-08-01',
+      'plan': _bronzePlanJson,
+      'usages': [
+        {
+          'used_at': '2026-06-20T10:00:00.000000Z',
+          'service': {'name': 'Corte masculino'},
+        },
+      ],
+    },
+  ],
+};
 
 final _servicesJson = [
   {

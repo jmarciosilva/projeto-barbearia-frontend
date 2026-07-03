@@ -1,5 +1,6 @@
 import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/core/formatting.dart';
+import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
@@ -174,10 +175,12 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
 /// Agenda do dia. O profissional ainda usa dados mockados nesta fase
 /// ([appointmentsRepository] omitido); o proprietario ja recebe dados reais.
+/// Agenda do dia. Proprietario ve o estabelecimento inteiro; profissional
+/// ve so os proprios atendimentos (o backend ja aplica esse recorte).
 class AgendaPage extends StatefulWidget {
-  const AgendaPage({super.key, this.appointmentsRepository});
+  const AgendaPage({super.key, required this.appointmentsRepository});
 
-  final AppointmentsRepository? appointmentsRepository;
+  final AppointmentsRepository appointmentsRepository;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -186,14 +189,13 @@ class AgendaPage extends StatefulWidget {
 class _AgendaPageState extends State<AgendaPage> {
   bool _isLoading = true;
   String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
   List<AppScheduleItem> _items = [];
 
   @override
   void initState() {
     super.initState();
-    if (widget.appointmentsRepository != null) {
-      _load();
-    }
+    _load();
   }
 
   Future<void> _load() async {
@@ -206,13 +208,14 @@ class _AgendaPageState extends State<AgendaPage> {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
-      final appointments = await widget.appointmentsRepository!.index(
+      final appointments = await widget.appointmentsRepository.index(
         from: startOfDay,
         to: endOfDay,
       );
 
       if (!mounted) return;
       setState(() {
+        _appointments = appointments;
         _items = appointments
             .map(
               (appointment) => AppScheduleItem(
@@ -237,34 +240,22 @@ class _AgendaPageState extends State<AgendaPage> {
     }
   }
 
+  Future<void> _openDetail(AppScheduleItem item) async {
+    final appointment = _appointments[_items.indexOf(item)];
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppointmentDetailPage(
+          appointment: appointment,
+          appointmentsRepository: widget.appointmentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Profissional: dados mockados, comportamento inalterado desta fase.
-    if (widget.appointmentsRepository == null) {
-      return AppScheduleList(
-        title: 'Agenda',
-        items: const [
-          AppScheduleItem(
-            '09:00',
-            'Corte masculino',
-            'Carlos Mendes',
-            notes: 'Cliente prefere maquina numero 2 nas laterais.',
-          ),
-          AppScheduleItem('10:30', 'Barba completa', 'Joao Ribeiro'),
-          AppScheduleItem('14:00', 'Sobrancelha', 'Marina Alves'),
-          AppScheduleItem(
-            '16:30',
-            'Coloracao',
-            'Patricia Lima',
-            duration: '1h 30min',
-          ),
-        ],
-        onItemTap: (item) => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => AppointmentDetailPage(item: item)),
-        ),
-      );
-    }
-
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -277,7 +268,11 @@ class _AgendaPageState extends State<AgendaPage> {
       return const Center(child: Text('Nenhum agendamento para hoje.'));
     }
 
-    return AppScheduleList(title: 'Agenda', items: _items);
+    return AppScheduleList(
+      title: 'Agenda',
+      items: _items,
+      onItemTap: _openDetail,
+    );
   }
 }
 

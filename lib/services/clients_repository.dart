@@ -14,6 +14,14 @@ class ClientsRepository {
         .toList();
   }
 
+  /// Ficha do cliente logado (`GET /me/client`), com plano, pagamento e
+  /// historico de uso reais. So funciona para quem tem papel `customer`.
+  Future<ClientModel> me() async {
+    final response = await _client.get('/me/client') as Map<String, dynamic>;
+
+    return ClientModel.fromJson(response);
+  }
+
   Future<ClientModel> create({
     required String name,
     required String phone,

@@ -1,64 +1,231 @@
+import 'package:clube_do_salao/core/app_exception.dart';
+import 'package:clube_do_salao/core/formatting.dart';
+import 'package:clube_do_salao/models/appointment_model.dart';
+import 'package:clube_do_salao/models/professional_model.dart';
+import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 
-class ProfessionalHomePage extends StatelessWidget {
-  const ProfessionalHomePage({super.key});
+/// Atendimentos de hoje do profissional logado (o backend ja filtra pela
+/// propria agenda, nunca mostra a de colegas).
+class ProfessionalHomePage extends StatefulWidget {
+  const ProfessionalHomePage({super.key, required this.appointmentsRepository});
+
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<ProfessionalHomePage> createState() => _ProfessionalHomePageState();
+}
+
+class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
+  List<AppScheduleItem> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final appointments = await widget.appointmentsRepository.index(
+        from: startOfDay,
+        to: endOfDay,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _items = appointments
+            .map(
+              (appointment) => AppScheduleItem(
+                formatTime(appointment.startsAt),
+                appointment.serviceName ?? 'Servico',
+                appointment.clientName ?? 'Cliente',
+                duration: formatDuration(
+                  appointment.endsAt.difference(appointment.startsAt),
+                ),
+                notes: appointment.notes ?? 'Sem observacoes registradas.',
+              ),
+            )
+            .toList();
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openDetail(AppScheduleItem item) async {
+    final appointment = _appointments[_items.indexOf(item)];
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppointmentDetailPage(
+          appointment: appointment,
+          appointmentsRepository: widget.appointmentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return AppLoadingError(message: _errorMessage!, onRetry: _load);
+    }
+
+    if (_items.isEmpty) {
+      return const Center(child: Text('Nenhum atendimento para hoje.'));
+    }
+
     return AppScheduleList(
       title: 'Atendimentos de hoje',
-      items: const [
-        AppScheduleItem(
-          '09:00',
-          'Corte masculino',
-          'Carlos Mendes',
-          notes: 'Cliente prefere maquina numero 2 nas laterais.',
-        ),
-        AppScheduleItem('10:30', 'Barba completa', 'Joao Ribeiro'),
-        AppScheduleItem('14:00', 'Sobrancelha', 'Marina Alves'),
-      ],
-      onItemTap: (item) => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => AppointmentDetailPage(item: item)),
-      ),
+      items: _items,
+      onItemTap: _openDetail,
     );
   }
 }
 
-class ProfessionalProfilePage extends StatelessWidget {
-  const ProfessionalProfilePage({super.key});
+class ProfessionalProfilePage extends StatefulWidget {
+  const ProfessionalProfilePage({
+    super.key,
+    required this.professionalsRepository,
+    required this.appointmentsRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<ProfessionalProfilePage> createState() =>
+      _ProfessionalProfilePageState();
+}
+
+class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  ProfessionalModel? _professional;
+  int _completedThisMonth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month);
+      final startOfNextMonth = DateTime(now.year, now.month + 1);
+
+      final professional = await widget.professionalsRepository.me();
+      final appointments = await widget.appointmentsRepository.index(
+        from: startOfMonth,
+        to: startOfNextMonth,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _professional = professional;
+        _completedThisMonth = appointments
+            .where((appointment) => appointment.status == 'completed')
+            .length;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return AppLoadingError(message: _errorMessage!, onRetry: _load);
+    }
+
+    final professional = _professional!;
+
     return AppProfileSummary(
       title: 'Perfil profissional',
-      rows: const [
-        AppInfoRow('Especialidade', 'Cortes e barba'),
-        AppInfoRow('Comissao', '40%'),
-        AppInfoRow('Atendimentos no mes', '86'),
+      rows: [
+        AppInfoRow('Especialidade', professional.specialty ?? 'Nao informada'),
+        AppInfoRow(
+          'Comissao',
+          professional.commissionPercentage == null
+              ? 'Nao definida'
+              : '${professional.commissionPercentage}%',
+        ),
+        AppInfoRow('Atendimentos no mes', '$_completedThisMonth'),
       ],
       footer: [
         const SizedBox(height: 16),
         AppActionTile(
           icon: Icons.edit,
           title: 'Editar perfil',
-          subtitle: 'Atualize especialidade, comissao e dados de contato.',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const EditProfessionalProfilePage(),
-            ),
-          ),
+          subtitle: 'Atualize especialidade e dados de contato.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => EditProfessionalProfilePage(
+                  professionalsRepository: widget.professionalsRepository,
+                  professional: professional,
+                ),
+              ),
+            );
+            _load();
+          },
         ),
       ],
     );
   }
 }
 
-/// Detalhe mockado de um atendimento da agenda, com acao para concluir.
+/// Detalhe de um atendimento da agenda, com acao real de concluir.
 class AppointmentDetailPage extends StatefulWidget {
-  const AppointmentDetailPage({super.key, required this.item});
+  const AppointmentDetailPage({
+    super.key,
+    required this.appointment,
+    required this.appointmentsRepository,
+  });
 
-  final AppScheduleItem item;
+  final AppointmentModel appointment;
+  final AppointmentsRepository appointmentsRepository;
 
   @override
   State<AppointmentDetailPage> createState() => _AppointmentDetailPageState();
@@ -66,17 +233,43 @@ class AppointmentDetailPage extends StatefulWidget {
 
 class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   bool _completed = false;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  Future<void> _complete() async {
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.appointmentsRepository.complete(widget.appointment.id);
+
+      if (!mounted) return;
+      setState(() {
+        _completed = true;
+        _isSaving = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
+    final appointment = widget.appointment;
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Detalhe do atendimento')),
       body: _completed
           ? AppMockSuccessPanel(
               title: 'Atendimento concluido',
-              message: '${item.service} de ${item.client} foi marcado como concluido.',
+              message:
+                  '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluido.',
               buttonLabel: 'Voltar para a agenda',
               onDone: () => Navigator.of(context).pop(),
             )
@@ -88,19 +281,25 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                     children: [
                       ListTile(
                         title: const Text('Cliente'),
-                        trailing: Text(item.client),
+                        trailing: Text(appointment.clientName ?? '-'),
                       ),
                       ListTile(
                         title: const Text('Servico'),
-                        trailing: Text(item.service),
+                        trailing: Text(appointment.serviceName ?? '-'),
                       ),
                       ListTile(
                         title: const Text('Horario'),
-                        trailing: Text(item.time),
+                        trailing: Text(formatTime(appointment.startsAt)),
                       ),
                       ListTile(
                         title: const Text('Duracao'),
-                        trailing: Text(item.duration),
+                        trailing: Text(
+                          formatDuration(
+                            appointment.endsAt.difference(
+                              appointment.startsAt,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -110,13 +309,30 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(item.notes),
+                    child: Text(
+                      appointment.notes ?? 'Sem observacoes registradas.',
+                    ),
                   ),
                 ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: () => setState(() => _completed = true),
-                  icon: const Icon(Icons.check),
+                  onPressed: _isSaving ? null : _complete,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check),
                   label: const Text('Concluir atendimento'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(double.infinity, 52),
@@ -128,9 +344,17 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   }
 }
 
-/// Formulario mockado de edicao do perfil profissional.
+/// Autoedicao do perfil profissional. Comissao nao entra aqui — continua
+/// decisao exclusiva do proprietario.
 class EditProfessionalProfilePage extends StatefulWidget {
-  const EditProfessionalProfilePage({super.key});
+  const EditProfessionalProfilePage({
+    super.key,
+    required this.professionalsRepository,
+    required this.professional,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final ProfessionalModel professional;
 
   @override
   State<EditProfessionalProfilePage> createState() =>
@@ -140,23 +364,51 @@ class EditProfessionalProfilePage extends StatefulWidget {
 class _EditProfessionalProfilePageState
     extends State<EditProfessionalProfilePage> {
   final _formKey = GlobalKey<FormState>();
-  final _specialtyController = TextEditingController(text: 'Cortes e barba');
-  final _commissionController = TextEditingController(text: '40');
+  late final _specialtyController = TextEditingController(
+    text: widget.professional.specialty ?? '',
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.professional.phone ?? '',
+  );
+
+  bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
     _specialtyController.dispose();
-    _commissionController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Perfil atualizado (mock).')),
-    );
-    Navigator.of(context).pop();
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.professionalsRepository.updateMe(
+        specialty: _specialtyController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Perfil atualizado.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
   }
 
   @override
@@ -171,24 +423,36 @@ class _EditProfessionalProfilePageState
             TextFormField(
               controller: _specialtyController,
               decoration: const InputDecoration(labelText: 'Especialidade'),
-              validator: (value) =>
-                  (value == null || value.isEmpty) ? 'Informe a especialidade' : null,
+              validator: (value) => (value == null || value.isEmpty)
+                  ? 'Informe a especialidade'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _commissionController,
-              decoration: const InputDecoration(labelText: 'Comissao (%)'),
-              keyboardType: TextInputType.number,
-              validator: (value) =>
-                  (value == null || value.isEmpty) ? 'Informe a comissao' : null,
+              controller: _phoneController,
+              decoration: const InputDecoration(labelText: 'Telefone'),
+              keyboardType: TextInputType.phone,
             ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _save,
+              onPressed: _isSaving ? null : _save,
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
               ),
-              child: const Text('Salvar'),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
             ),
           ],
         ),

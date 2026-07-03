@@ -8,6 +8,7 @@ import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
+import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
@@ -510,15 +511,49 @@ class _DashboardShellState extends State<DashboardShell> {
           ClientsPage(clientsRepository: ClientsRepository(apiClient)),
         ),
       ],
-      UserRole.professional => const [
-        _ShellPage('Hoje', Icons.today, ProfessionalHomePage()),
-        _ShellPage('Agenda', Icons.calendar_month, AgendaPage()),
-        _ShellPage('Perfil', Icons.badge, ProfessionalProfilePage()),
+      UserRole.professional => [
+        _ShellPage(
+          'Hoje',
+          Icons.today,
+          ProfessionalHomePage(
+            appointmentsRepository: AppointmentsRepository(apiClient),
+          ),
+        ),
+        _ShellPage(
+          'Agenda',
+          Icons.calendar_month,
+          AgendaPage(appointmentsRepository: AppointmentsRepository(apiClient)),
+        ),
+        _ShellPage(
+          'Perfil',
+          Icons.badge,
+          ProfessionalProfilePage(
+            professionalsRepository: ProfessionalsRepository(apiClient),
+            appointmentsRepository: AppointmentsRepository(apiClient),
+          ),
+        ),
       ],
-      UserRole.customer => const [
-        _ShellPage('Clube', Icons.workspace_premium, CustomerHomePage()),
-        _ShellPage('Agendar', Icons.add_task, BookingPage()),
-        _ShellPage('Perfil', Icons.person, CustomerProfilePage()),
+      UserRole.customer => [
+        _ShellPage(
+          'Clube',
+          Icons.workspace_premium,
+          CustomerHomePage(clientsRepository: ClientsRepository(apiClient)),
+        ),
+        _ShellPage(
+          'Agendar',
+          Icons.add_task,
+          BookingPage(
+            clientsRepository: ClientsRepository(apiClient),
+            servicesRepository: ServicesRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
+            appointmentsRepository: AppointmentsRepository(apiClient),
+          ),
+        ),
+        _ShellPage(
+          'Perfil',
+          Icons.person,
+          CustomerProfilePage(clientsRepository: ClientsRepository(apiClient)),
+        ),
       ],
     };
   }

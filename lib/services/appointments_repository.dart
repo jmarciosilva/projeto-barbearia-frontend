@@ -23,4 +23,43 @@ class AppointmentsRepository {
         )
         .toList();
   }
+
+  /// Marca um atendimento como concluido (`POST /appointments/{id}/complete`).
+  /// Profissional so consegue concluir os proprios; o backend recusa o resto.
+  Future<AppointmentModel> complete(int appointmentId) async {
+    final response =
+        await _client.post('/appointments/$appointmentId/complete')
+            as Map<String, dynamic>;
+
+    return AppointmentModel.fromJson(response);
+  }
+
+  /// Cria um agendamento (`POST /appointments`). Quando quem chama e um
+  /// `customer`, o backend ignora o `clientId` enviado e usa o proprio
+  /// cliente vinculado ao login — o parametro fica so para o caso de
+  /// proprietario/profissional agendarem em nome de um cliente.
+  Future<AppointmentModel> create({
+    required int clientId,
+    required int professionalId,
+    required int serviceId,
+    required DateTime startsAt,
+    int? clientSubscriptionId,
+    String? notes,
+  }) async {
+    final response =
+        await _client.post(
+              '/appointments',
+              body: {
+                'client_id': clientId,
+                'professional_id': professionalId,
+                'service_id': serviceId,
+                'starts_at': startsAt.toIso8601String(),
+                'client_subscription_id': ?clientSubscriptionId,
+                'notes': ?notes,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return AppointmentModel.fromJson(response);
+  }
 }

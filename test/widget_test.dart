@@ -34,7 +34,7 @@ void main() {
     expect(find.text('Clube do Salao'), findsOneWidget);
   });
 
-  testWidgets('entra como profissional (ainda mockado) via atalho de demo', (
+  testWidgets('entra como profissional e ve a propria agenda real', (
     tester,
   ) async {
     await pumpMobileApp(tester);
@@ -44,9 +44,10 @@ void main() {
 
     expect(find.text('Profissional'), findsWidgets);
     expect(find.text('Atendimentos de hoje'), findsOneWidget);
+    expect(find.text('Corte masculino'), findsOneWidget);
   });
 
-  testWidgets('entra como cliente (ainda mockado) via atalho de demo', (
+  testWidgets('entra como cliente e ve a propria assinatura real', (
     tester,
   ) async {
     await pumpMobileApp(tester);
@@ -55,5 +56,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cliente'), findsWidgets);
+    expect(find.text('Plano Bronze'), findsOneWidget);
   });
 }

@@ -51,9 +51,7 @@ void main() {
     expect(find.text('Nenhum pagamento pendente.'), findsOneWidget);
   });
 
-  testWidgets('profissional conclui atendimento a partir da agenda (mock)', (
-    tester,
-  ) async {
+  testWidgets('profissional conclui atendimento pela API', (tester) async {
     await pumpMobileApp(tester);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Profissional'));
@@ -75,7 +73,7 @@ void main() {
     expect(find.text('Atendimentos de hoje'), findsOneWidget);
   });
 
-  testWidgets('cliente percorre o fluxo completo de agendamento (mock)', (
+  testWidgets('cliente percorre o fluxo completo de agendamento pela API', (
     tester,
   ) async {
     await pumpMobileApp(tester);
@@ -90,11 +88,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Escolher servico'), findsOneWidget);
 
-    await tester.tap(find.text('Continuar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
     await tester.pumpAndSettle();
     expect(find.text('Escolher profissional'), findsOneWidget);
 
-    await tester.tap(find.text('Continuar'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
     await tester.pumpAndSettle();
     expect(find.text('Confirmar horario'), findsOneWidget);
 
