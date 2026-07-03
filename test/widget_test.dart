@@ -1,29 +1,59 @@
-import 'package:clube_do_salao/main.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/pump_app.dart';
+
 void main() {
-  testWidgets('shows role gate and opens owner dashboard', (tester) async {
-    await tester.pumpWidget(const ClubeDoSalaoApp());
+  testWidgets('mostra o login e entra no dashboard do proprietario', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
 
     expect(find.text('Clube do Salao'), findsOneWidget);
-    expect(find.text('Entrar como'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
 
-    await tester.tap(find.text('Continuar'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Proprietario'), findsOneWidget);
     expect(find.text('MRR previsto'), findsOneWidget);
-    expect(find.text('Assinantes'), findsOneWidget);
   });
 
-  testWidgets('changes role before opening dashboard', (tester) async {
-    await tester.pumpWidget(const ClubeDoSalaoApp());
+  testWidgets('mostra erro quando as credenciais sao invalidas', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
 
-    await tester.tap(find.text('Profissional'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Continuar'));
+    await loginAs(
+      tester,
+      email: 'nao-existe@example.com',
+      password: 'senhaerrada',
+    );
+
+    expect(find.text('Credenciais invalidas.'), findsOneWidget);
+    expect(find.text('Clube do Salao'), findsOneWidget);
+  });
+
+  testWidgets('entra como profissional (ainda mockado) via atalho de demo', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Profissional'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Profissional'), findsOneWidget);
+    expect(find.text('Profissional'), findsWidgets);
     expect(find.text('Atendimentos de hoje'), findsOneWidget);
+  });
+
+  testWidgets('entra como cliente (ainda mockado) via atalho de demo', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cliente'), findsWidgets);
   });
 }

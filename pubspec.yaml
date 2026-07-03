@@ -35,6 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  http: ^1.2.0
+  flutter_secure_storage: ^9.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,6 +48,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -64,6 +68,22 @@ flutter:
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
+  assets:
+    - assets/images/
+    - assets/icon/
+
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope.ttf
+        - asset: assets/fonts/Manrope.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope.ttf
+          weight: 800
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
@@ -87,3 +107,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo_mark.png"
+  adaptive_icon_background: "#F7F5F0"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
