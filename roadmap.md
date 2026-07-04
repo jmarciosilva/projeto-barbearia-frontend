@@ -21,7 +21,7 @@ Fonte da verdade de produto: `clube-do-salao-especificacao-produto.md`. Toda fas
 
 ## Fase 0 - Fundacao e Validacao
 
-Status: `Em andamento`
+Status: `Em auditoria`
 
 Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, validando recorrencia, agenda e pagamento manual.
 
@@ -42,18 +42,18 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 - [x] Correcao de overflow nos cards de metricas do proprietario
 - [x] Autenticacao real com API
 - [x] Persistencia de token
-- [ ] Onboarding de estabelecimento
-- [ ] Cadastro de profissionais
-- [ ] Cadastro de servicos
-- [ ] Servicos habilitados por profissional (spec 4.1: restricao de quem executa cada servico)
+- [x] Onboarding de estabelecimento
+- [x] Cadastro de profissionais
+- [x] Cadastro de servicos
+- [x] Servicos habilitados por profissional (spec 4.1: restricao de quem executa cada servico)
 - [x] Cadastro de clientes
 - [x] Criacao de planos
-- [ ] Profissionais habilitados por plano (spec 4.2: restricao de quem atende assinantes de cada plano)
-- [ ] Contratacao/troca de assinatura pelo proprio cliente
+- [x] Profissionais habilitados por plano (spec 4.2: restricao de quem atende assinantes de cada plano)
+- [x] Contratacao/troca de assinatura pelo proprio cliente
 - [x] Agenda com dados reais para proprietario e profissional (profissional auto-escopado a propria agenda pela API)
 - [x] Autoedicao de perfil do profissional (especialidade/telefone; comissao continua exclusiva do proprietario)
 - [x] Agendamento real pelo cliente (com validacao das regras do plano: dia, horario, limite de uso, conflito)
-- [ ] Cancelamento e remarcacao de agendamento
+- [x] Cancelamento e remarcacao de agendamento
 - [x] Confirmacao manual de pagamento
 - [x] Estados de loading, vazio e erro
 
@@ -65,7 +65,7 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 - [x] Teste automatizado cobre troca de perfil antes do dashboard
 - [x] Golden tests cobrem entrada, proprietario, profissional e cliente
 - [x] Login funcional com token Sanctum
-- [ ] Proprietario consegue cadastrar cliente, servico, profissional e plano
+- [x] Proprietario consegue cadastrar cliente, servico, profissional e plano
 - [x] Cliente consegue solicitar agendamento permitido pelo plano
 - [x] Profissional consegue visualizar agenda do dia
 - [x] App validado em Android
@@ -80,6 +80,8 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 | 2026-07-03 | Codex | Parcial aprovado | Golden tests em 390x844 passaram e overflow dos cards de metricas foi corrigido | Testar em dispositivo Android real quando o SDK estiver configurado |
 | 2026-07-03 | Claude | Parcial aprovado | Login real com Sanctum + persistencia de token (`flutter_secure_storage`); `RoleGatePage` virou tela de login (com atalhos para as 3 contas de demo do seed); proprietario 100% real (metricas, agenda, planos, clientes, pagamentos) contra a API real, com loading/erro/vazio em cada tela; validado ponta a ponta no emulador Android contra o backend real — pagamento confirmado pelo app apareceu no banco com o `paid_at` correto; `flutter analyze` limpo e 15/15 testes passando (nova suite usa `MockClient` para simular o backend, sem depender de servidor real nem platform channels) | Profissional e cliente continuam mockados (proxima etapa); sem cadastro de profissional/servico nem contratacao de assinatura pelo app; iOS nao testado |
 | 2026-07-03 | Claude | Parcial aprovado | Profissional e cliente ligados a API real: backend ganhou `GET /me/client`, `GET /me/professional`, `PATCH /me/professional` e `GET /appointments` auto-escopado por profissional (20/20 testes de backend); app mostra agenda real do profissional, autoedicao de perfil (sem comissao), assinatura/historico real do cliente e fluxo completo de agendamento contra a API; validado ponta a ponta no emulador — edicao de especialidade persistiu no banco, tentativa de agendar fora do dia permitido pelo plano retornou o erro real da API na tela, e um agendamento avulso valido foi aceito; `flutter analyze` limpo e 15/15 testes passando | Onboarding de estabelecimento, cadastro de profissional/servico e contratacao/troca de plano pelo cliente continuam sem tela no app; cancelamento/remarcacao de agendamento ainda nao existe; iOS nao testado |
+| 2026-07-04 | Claude | Parcial aprovado | Fechados os itens restantes da Fase 0. Backend: `AppointmentController` passou a validar as restricoes de servico-por-profissional (spec 4.1) e profissional-por-plano (spec 4.2) na hora de agendar (antes so existiam no cadastro); `ProfessionalController::update` ganhou sync de `service_ids` sem apagar em updates parciais; `GET /appointments` e `GET /subscription-plans` passaram a aceitar o papel `customer` (escopado ao proprio cliente e a planos ativos, respectivamente) — sem isso o cliente nao tinha como listar planos pra assinar nem ver o proprio agendamento pra cancelar; 32/32 testes de backend passando (8 novos em `PhaseZeroBookingRestrictionsTest`). App: onboarding cria estabelecimento+dono via `POST /auth/register-owner` e loga direto; nova aba "Catalogo" (com sub-abas Servicos/Profissionais) para o dono cadastrar e editar catalogo, com selecao de servicos habilitados por profissional; `NewPlanPage` ganhou selecao de profissionais habilitados; cliente ganhou fluxo completo de assinar/trocar/cancelar plano (`ChoosePlanPage` + `ClientSubscriptionsRepository`) e tela "Meus agendamentos" para cancelar/remarcar os proprios horarios; dono/profissional ganharam cancelar/remarcar na tela de detalhe do atendimento existente; `flutter analyze` limpo e 21/21 testes passando (golden de login e do dashboard do proprietario atualizados para refletir a nova aba e o link de cadastro) | iOS/simulador iOS continua sem validacao — ambiente desta sessao nao tem Mac disponivel |
+| 2026-07-04 | Claude | Aprovado | Validacao ponta a ponta em emulador Android real contra o backend real (nao mockado), cobrindo os fluxos novos da linha anterior: onboarding criou tenant+dono reais e autenticou direto; cadastro de servico e de profissional com servico habilitado persistiram e refletiram na edicao do profissional; plano criado com servico e profissional habilitados persistiu; cliente assinou o plano, tentou agendar com um profissional fora da lista do plano e recebeu o erro real da API ("Profissional nao atende este plano" — spec 4.2 confirmada em producao), agendou com o profissional correto, remarcou e cancelou o proprio agendamento pela tela "Meus agendamentos"; dono tambem remarcou e cancelou o mesmo tipo de agendamento pela agenda (mesma tela `AppointmentDetailPage`, com o botao extra "Concluir atendimento" visivel so para dono/profissional). Um bug real foi encontrado e corrigido nessa validacao: o bottom sheet de remarcacao (`AppointmentDetailPage._pickRescheduleSlot`) estourava a altura do modal e lancava uma excecao de overflow porque a lista de horarios usava `Column` dentro de um container de altura limitada; corrigido trocando para `ListView` (agora rola em vez de estourar), e reconfirmado sem overflow tanto na visao do cliente quanto na do dono apos a correcao. `flutter analyze` limpo e 21/21 testes passando apos a correcao | iOS/simulador iOS continua sem validacao — ambiente desta sessao nao tem Mac disponivel |
 
 ## Fase 1 - Planos SaaS e Controle de Acesso
 

@@ -25,6 +25,7 @@ class SubscriptionPlansRepository {
     String? allowedStartTime,
     String? allowedEndTime,
     List<int> serviceIds = const [],
+    List<int> professionalIds = const [],
   }) async {
     final response =
         await _client.post(
@@ -39,6 +40,7 @@ class SubscriptionPlansRepository {
                 'services': serviceIds
                     .map((id) => {'id': id})
                     .toList(),
+                'professional_ids': professionalIds,
               },
             )
             as Map<String, dynamic>;

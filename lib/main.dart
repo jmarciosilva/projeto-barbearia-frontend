@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:clube_do_salao/core/error_reporter.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
+import 'package:clube_do_salao/pages/onboarding_pages.dart';
 import 'package:clube_do_salao/pages/owner_pages.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
+import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
@@ -357,6 +359,19 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => RegisterOwnerPage(
+                                        authSession: widget.authSession,
+                                      ),
+                                    ),
+                                  ),
+                            child: const Text('Criar conta do estabelecimento'),
+                          ),
                         ],
                       ),
                     ),
@@ -490,12 +505,21 @@ class _DashboardShellState extends State<DashboardShell> {
             paymentsRepository: PaymentsRepository(apiClient),
             plansRepository: SubscriptionPlansRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
           ),
         ),
         _ShellPage(
           'Agenda',
           Icons.calendar_month,
           AgendaPage(appointmentsRepository: AppointmentsRepository(apiClient)),
+        ),
+        _ShellPage(
+          'Catalogo',
+          Icons.storefront,
+          CatalogPage(
+            servicesRepository: ServicesRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
+          ),
         ),
         _ShellPage(
           'Planos',
@@ -537,7 +561,13 @@ class _DashboardShellState extends State<DashboardShell> {
         _ShellPage(
           'Clube',
           Icons.workspace_premium,
-          CustomerHomePage(clientsRepository: ClientsRepository(apiClient)),
+          CustomerHomePage(
+            clientsRepository: ClientsRepository(apiClient),
+            plansRepository: SubscriptionPlansRepository(apiClient),
+            clientSubscriptionsRepository: ClientSubscriptionsRepository(
+              apiClient,
+            ),
+          ),
         ),
         _ShellPage(
           'Agendar',

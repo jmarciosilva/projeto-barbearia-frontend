@@ -5,17 +5,28 @@ import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/client_subscription_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
+import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/pages/professional_pages.dart' show AppointmentDetailPage;
 import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
+import 'package:clube_do_salao/services/subscription_plans_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 
 class CustomerHomePage extends StatefulWidget {
-  const CustomerHomePage({super.key, required this.clientsRepository});
+  const CustomerHomePage({
+    super.key,
+    required this.clientsRepository,
+    required this.plansRepository,
+    required this.clientSubscriptionsRepository,
+  });
 
   final ClientsRepository clientsRepository;
+  final SubscriptionPlansRepository plansRepository;
+  final ClientSubscriptionsRepository clientSubscriptionsRepository;
 
   @override
   State<CustomerHomePage> createState() => _CustomerHomePageState();
@@ -77,6 +88,9 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
               MaterialPageRoute(
                 builder: (_) => SubscriptionDetailPage(
                   clientsRepository: widget.clientsRepository,
+                  plansRepository: widget.plansRepository,
+                  clientSubscriptionsRepository:
+                      widget.clientSubscriptionsRepository,
                 ),
               ),
             );
@@ -86,10 +100,22 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
         const SizedBox(height: 16),
         const AppSectionTitle('Beneficios'),
         if (subscription?.plan == null)
-          const AppActionTile(
+          AppActionTile(
             icon: Icons.info_outline,
             title: 'Nenhum plano ativo',
-            subtitle: 'Fale com o salao para contratar uma assinatura.',
+            subtitle: 'Toque para contratar uma assinatura.',
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChoosePlanPage(
+                    plansRepository: widget.plansRepository,
+                    clientSubscriptionsRepository:
+                        widget.clientSubscriptionsRepository,
+                  ),
+                ),
+              );
+              _load();
+            },
           )
         else
           for (final service in subscription!.plan!.services)
@@ -257,6 +283,19 @@ class BookingPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AppActionTile(
+          icon: Icons.event_note,
+          title: 'Meus agendamentos',
+          subtitle: 'Veja, cancele ou remarque seus horarios.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MyAppointmentsPage(
+                appointmentsRepository: appointmentsRepository,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         const AppSectionTitle('Novo agendamento'),
         const AppActionTile(
           icon: Icons.content_cut,
@@ -659,9 +698,16 @@ class BookingConfirmationPage extends StatelessWidget {
 }
 
 class SubscriptionDetailPage extends StatefulWidget {
-  const SubscriptionDetailPage({super.key, required this.clientsRepository});
+  const SubscriptionDetailPage({
+    super.key,
+    required this.clientsRepository,
+    required this.plansRepository,
+    required this.clientSubscriptionsRepository,
+  });
 
   final ClientsRepository clientsRepository;
+  final SubscriptionPlansRepository plansRepository;
+  final ClientSubscriptionsRepository clientSubscriptionsRepository;
 
   @override
   State<SubscriptionDetailPage> createState() =>
@@ -671,6 +717,7 @@ class SubscriptionDetailPage extends StatefulWidget {
 class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isCanceling = false;
   ClientModel? _client;
 
   @override
@@ -699,6 +746,62 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
         _errorMessage = error.userMessage;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _openChoosePlan() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChoosePlanPage(
+          plansRepository: widget.plansRepository,
+          clientSubscriptionsRepository: widget.clientSubscriptionsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _cancelSubscription() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar assinatura'),
+        content: const Text(
+          'Tem certeza que deseja cancelar sua assinatura? Voce perde acesso '
+          'aos beneficios do plano imediatamente.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancelar assinatura'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isCanceling = true);
+
+    try {
+      await widget.clientSubscriptionsRepository.cancelSelf();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Assinatura cancelada.')),
+      );
+      await _load();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    } finally {
+      if (mounted) setState(() => _isCanceling = false);
     }
   }
 
@@ -765,21 +868,15 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
               icon: Icons.swap_horiz,
               title: 'Trocar de plano',
               subtitle: 'Veja outras opcoes disponiveis no salao.',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fluxo de troca de plano em breve.'),
-                ),
-              ),
+              onTap: _openChoosePlan,
             ),
             AppActionTile(
               icon: Icons.cancel_outlined,
               title: 'Cancelar assinatura',
-              subtitle: 'Encerrar o plano ao fim do ciclo atual.',
-              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fluxo de cancelamento em breve.'),
-                ),
-              ),
+              subtitle: _isCanceling
+                  ? 'Cancelando...'
+                  : 'Encerrar o plano ativo agora.',
+              onTap: _isCanceling ? null : _cancelSubscription,
             ),
           ],
         );
@@ -791,4 +888,235 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
       body: body,
     );
   }
+}
+
+/// Lista de planos ativos do estabelecimento para o cliente assinar ou
+/// trocar. Se ja existir assinatura ativa, o backend a substitui pela nova.
+class ChoosePlanPage extends StatefulWidget {
+  const ChoosePlanPage({
+    super.key,
+    required this.plansRepository,
+    required this.clientSubscriptionsRepository,
+  });
+
+  final SubscriptionPlansRepository plansRepository;
+  final ClientSubscriptionsRepository clientSubscriptionsRepository;
+
+  @override
+  State<ChoosePlanPage> createState() => _ChoosePlanPageState();
+}
+
+class _ChoosePlanPageState extends State<ChoosePlanPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<SubscriptionPlanModel> _plans = [];
+  int? _subscribingPlanId;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final plans = await widget.plansRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _plans = plans;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _subscribe(SubscriptionPlanModel plan) async {
+    setState(() => _subscribingPlanId = plan.id);
+
+    try {
+      await widget.clientSubscriptionsRepository.subscribeSelf(plan.id);
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AppScaffold(
+            appBar: AppBar(title: const Text('Assinatura confirmada')),
+            body: AppMockSuccessPanel(
+              title: 'Plano ${plan.name} ativado',
+              message: 'Sua assinatura ja esta ativa.',
+              buttonLabel: 'Concluir',
+              onDone: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    } finally {
+      if (mounted) setState(() => _subscribingPlanId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_plans.isEmpty) {
+      body = const Center(child: Text('Nenhum plano disponivel no momento.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AppSectionTitle('Planos disponiveis'),
+          for (final plan in _plans)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.workspace_premium),
+                title: Text(plan.name),
+                subtitle: Text(plan.usageLimitLabel),
+                trailing: _subscribingPlanId == plan.id
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text('${formatCents(plan.priceCents)}/mes'),
+                onTap: _subscribingPlanId == null
+                    ? () => _subscribe(plan)
+                    : null,
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Escolher plano')),
+      body: body,
+    );
+  }
+}
+
+/// Agendamentos do proprio cliente, com cancelar/remarcar (sem concluir —
+/// isso continua exclusivo do dono/profissional). O backend ja escopa
+/// `GET /appointments` ao cliente logado quando o papel e `customer`.
+class MyAppointmentsPage extends StatefulWidget {
+  const MyAppointmentsPage({super.key, required this.appointmentsRepository});
+
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<MyAppointmentsPage> createState() => _MyAppointmentsPageState();
+}
+
+class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final appointments = await widget.appointmentsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openDetail(AppointmentModel appointment) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppointmentDetailPage(
+          appointment: appointment,
+          appointmentsRepository: widget.appointmentsRepository,
+          allowComplete: false,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_appointments.isEmpty) {
+      body = const Center(child: Text('Voce ainda nao tem agendamentos.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (final appointment in _appointments)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.event),
+                title: Text(appointment.serviceName ?? 'Servico'),
+                subtitle: Text(
+                  '${appointment.professionalName ?? 'Profissional'} - ${formatTime(appointment.startsAt)}',
+                ),
+                trailing: Text(_statusLabel(appointment.status)),
+                onTap: () => _openDetail(appointment),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Meus agendamentos')),
+      body: body,
+    );
+  }
+
+  String _statusLabel(String status) => switch (status) {
+    'completed' => 'Concluido',
+    'canceled' => 'Cancelado',
+    'no_show' => 'Faltou',
+    _ => 'Agendado',
+  };
 }

@@ -216,25 +216,38 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
   }
 }
 
-/// Detalhe de um atendimento da agenda, com acao real de concluir.
+/// Horarios fixos usados para remarcar (amanha), mesma simplificacao ja
+/// usada no fluxo de agendamento em `ChooseTimePage` — nao existe endpoint
+/// real de disponibilidade nesta fase.
+const _rescheduleSlots = ['09:00', '10:30', '13:00', '14:30', '16:00', '17:30'];
+
+/// Detalhe de um atendimento da agenda, com acoes reais de concluir,
+/// cancelar e remarcar. `allowComplete` fica desligado na visao do cliente,
+/// que nunca pode se autoconcluir um atendimento (regra tambem aplicada no
+/// backend, aqui e so para nao mostrar um botao que sempre falharia).
 class AppointmentDetailPage extends StatefulWidget {
   const AppointmentDetailPage({
     super.key,
     required this.appointment,
     required this.appointmentsRepository,
+    this.allowComplete = true,
   });
 
   final AppointmentModel appointment;
   final AppointmentsRepository appointmentsRepository;
+  final bool allowComplete;
 
   @override
   State<AppointmentDetailPage> createState() => _AppointmentDetailPageState();
 }
 
 class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
-  bool _completed = false;
+  String? _resultTitle;
+  String? _resultMessage;
   bool _isSaving = false;
   String? _errorMessage;
+
+  bool get _isScheduled => widget.appointment.status == 'scheduled';
 
   Future<void> _complete() async {
     setState(() {
@@ -243,11 +256,118 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     });
 
     try {
-      await widget.appointmentsRepository.complete(widget.appointment.id);
+      final appointment = widget.appointment;
+      await widget.appointmentsRepository.complete(appointment.id);
 
       if (!mounted) return;
       setState(() {
-        _completed = true;
+        _resultTitle = 'Atendimento concluido';
+        _resultMessage =
+            '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluido.';
+        _isSaving = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  Future<void> _cancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar agendamento'),
+        content: const Text('Tem certeza que deseja cancelar este agendamento?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancelar agendamento'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.appointmentsRepository.cancel(widget.appointment.id);
+
+      if (!mounted) return;
+      setState(() {
+        _resultTitle = 'Agendamento cancelado';
+        _resultMessage = 'O horario foi liberado na agenda.';
+        _isSaving = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  Future<void> _pickRescheduleSlot() async {
+    final slot = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: AppSectionTitle('Novo horario (amanha)'),
+            ),
+            for (final slot in _rescheduleSlots)
+              ListTile(
+                title: Text(slot),
+                onTap: () => Navigator.of(context).pop(slot),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (slot == null || !mounted) return;
+
+    final parts = slot.split(':');
+    final now = DateTime.now();
+    final startsAt = DateTime(
+      now.year,
+      now.month,
+      now.day + 1,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.appointmentsRepository.reschedule(
+        widget.appointment.id,
+        startsAt,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _resultTitle = 'Agendamento remarcado';
+        _resultMessage = 'Novo horario: $slot de amanha.';
         _isSaving = false;
       });
     } on AppException catch (error) {
@@ -265,11 +385,10 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Detalhe do atendimento')),
-      body: _completed
+      body: _resultTitle != null
           ? AppMockSuccessPanel(
-              title: 'Atendimento concluido',
-              message:
-                  '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluido.',
+              title: _resultTitle!,
+              message: _resultMessage!,
               buttonLabel: 'Voltar para a agenda',
               onDone: () => Navigator.of(context).pop(),
             )
@@ -323,21 +442,44 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _isSaving ? null : _complete,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check),
-                  label: const Text('Concluir atendimento'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
+                if (_isScheduled) ...[
+                  const SizedBox(height: 24),
+                  if (widget.allowComplete) ...[
+                    FilledButton.icon(
+                      onPressed: _isSaving ? null : _complete,
+                      icon: _isSaving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check),
+                      label: const Text('Concluir atendimento'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 52),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: _isSaving ? null : _pickRescheduleSlot,
+                    icon: const Icon(Icons.event_repeat),
+                    label: const Text('Remarcar'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _isSaving ? null : _cancel,
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Cancelar agendamento'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
               ],
             ),
     );

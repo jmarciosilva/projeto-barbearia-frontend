@@ -106,4 +106,158 @@ void main() {
 
     expect(find.text('Novo agendamento'), findsOneWidget);
   });
+
+  testWidgets('proprietario cria conta do estabelecimento pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.text('Criar conta do estabelecimento'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Novo Salao');
+    await tester.enterText(find.byType(TextFormField).at(1), '11999998888');
+    await tester.enterText(find.byType(TextFormField).at(2), 'Fulano Dono');
+    await tester.enterText(
+      find.byType(TextFormField).at(3),
+      'fulano@example.com',
+    );
+    await tester.enterText(find.byType(TextFormField).at(4), 'senhaforte1');
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Criar conta'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Proprietario'), findsOneWidget);
+    expect(find.text('MRR previsto'), findsOneWidget);
+  });
+
+  testWidgets('proprietario cadastra servico no catalogo pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Catalogo'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Cadastrar servico'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Manicure');
+    await tester.enterText(find.byType(TextFormField).at(1), '40');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Servico Manicure cadastrado.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'proprietario cadastra profissional com servicos habilitados pela API',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Catalogo'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Profissionais'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Cadastrar profissional'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Bruna Lima');
+      await tester.tap(find.widgetWithText(FilterChip, 'Corte masculino'));
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profissional Bruna Lima cadastrado.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'proprietario cria plano com profissionais habilitados pela API',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Criar plano de assinatura'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Diamante');
+      await tester.enterText(find.byType(TextFormField).at(1), '250,00');
+
+      expect(find.text('Profissionais habilitados'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilterChip, 'Ana Souza'));
+
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Plano Diamante criado.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('cliente troca de plano pela API', (tester) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Plano Bronze'));
+    await tester.pumpAndSettle();
+    expect(find.text('Minha assinatura'), findsOneWidget);
+
+    await tester.tap(find.text('Trocar de plano'));
+    await tester.pumpAndSettle();
+    expect(find.text('Escolher plano'), findsOneWidget);
+
+    await tester.tap(find.text('Prata'));
+    await tester.pumpAndSettle();
+    expect(find.text('Plano Prata ativado'), findsOneWidget);
+
+    await tester.tap(find.text('Concluir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Minha assinatura'), findsOneWidget);
+  });
+
+  testWidgets('cliente cancela um agendamento pela API', (tester) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agendar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Meus agendamentos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Corte masculino'), findsOneWidget);
+
+    await tester.tap(find.text('Corte masculino'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Cancelar agendamento'),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Cancelar agendamento'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Agendamento cancelado'), findsOneWidget);
+
+    await tester.tap(find.text('Voltar para a agenda'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Meus agendamentos'), findsOneWidget);
+  });
 }

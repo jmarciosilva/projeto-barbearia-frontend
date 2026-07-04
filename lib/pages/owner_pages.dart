@@ -3,12 +3,14 @@ import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
+import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
+import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
@@ -22,6 +24,7 @@ class OwnerHomePage extends StatefulWidget {
     required this.paymentsRepository,
     required this.plansRepository,
     required this.servicesRepository,
+    required this.professionalsRepository,
   });
 
   final ClientsRepository clientsRepository;
@@ -29,6 +32,7 @@ class OwnerHomePage extends StatefulWidget {
   final PaymentsRepository paymentsRepository;
   final SubscriptionPlansRepository plansRepository;
   final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<OwnerHomePage> createState() => _OwnerHomePageState();
@@ -147,6 +151,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 builder: (_) => NewPlanPage(
                   plansRepository: widget.plansRepository,
                   servicesRepository: widget.servicesRepository,
+                  professionalsRepository: widget.professionalsRepository,
                 ),
               ),
             );
@@ -559,10 +564,12 @@ class NewPlanPage extends StatefulWidget {
     super.key,
     required this.plansRepository,
     required this.servicesRepository,
+    required this.professionalsRepository,
   });
 
   final SubscriptionPlansRepository plansRepository;
   final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<NewPlanPage> createState() => _NewPlanPageState();
@@ -574,10 +581,12 @@ class _NewPlanPageState extends State<NewPlanPage> {
   final _priceController = TextEditingController();
   final _limitController = TextEditingController();
   final Set<int> _selectedServiceIds = {};
+  final Set<int> _selectedProfessionalIds = {};
 
-  bool _isLoadingServices = true;
-  String? _servicesError;
+  bool _isLoadingOptions = true;
+  String? _optionsError;
   List<ServiceModel> _services = [];
+  List<ProfessionalModel> _professionals = [];
 
   bool _isSaving = false;
   String? _saveError;
@@ -585,28 +594,32 @@ class _NewPlanPageState extends State<NewPlanPage> {
   @override
   void initState() {
     super.initState();
-    _loadServices();
+    _loadOptions();
   }
 
-  Future<void> _loadServices() async {
+  Future<void> _loadOptions() async {
     setState(() {
-      _isLoadingServices = true;
-      _servicesError = null;
+      _isLoadingOptions = true;
+      _optionsError = null;
     });
 
     try {
-      final services = await widget.servicesRepository.index();
+      final results = await Future.wait([
+        widget.servicesRepository.index(),
+        widget.professionalsRepository.index(),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _services = services;
-        _isLoadingServices = false;
+        _services = results[0] as List<ServiceModel>;
+        _professionals = results[1] as List<ProfessionalModel>;
+        _isLoadingOptions = false;
       });
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
-        _servicesError = error.userMessage;
-        _isLoadingServices = false;
+        _optionsError = error.userMessage;
+        _isLoadingOptions = false;
       });
     }
   }
@@ -635,6 +648,7 @@ class _NewPlanPageState extends State<NewPlanPage> {
             ? null
             : int.tryParse(_limitController.text.trim()),
         serviceIds: _selectedServiceIds.toList(),
+        professionalIds: _selectedProfessionalIds.toList(),
       );
 
       if (!mounted) return;
@@ -687,14 +701,11 @@ class _NewPlanPageState extends State<NewPlanPage> {
             ),
             const SizedBox(height: 16),
             const AppSectionTitle('Servicos inclusos'),
-            if (_isLoadingServices)
+            if (_isLoadingOptions)
               const Center(child: CircularProgressIndicator())
-            else if (_servicesError != null)
-              AppLoadingError(
-                message: _servicesError!,
-                onRetry: _loadServices,
-              )
-            else
+            else if (_optionsError != null)
+              AppLoadingError(message: _optionsError!, onRetry: _loadOptions)
+            else ...[
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -713,6 +724,34 @@ class _NewPlanPageState extends State<NewPlanPage> {
                     ),
                 ],
               ),
+              const SizedBox(height: 16),
+              const AppSectionTitle('Profissionais habilitados'),
+              Text(
+                'Deixe sem selecionar para permitir qualquer profissional atender assinantes deste plano.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final professional in _professionals)
+                    FilterChip(
+                      label: Text(professional.name),
+                      selected: _selectedProfessionalIds.contains(
+                        professional.id,
+                      ),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _selectedProfessionalIds.add(professional.id);
+                        } else {
+                          _selectedProfessionalIds.remove(professional.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ],
             if (_saveError != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -989,6 +1028,853 @@ class ClientDetailPage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Catalogo do estabelecimento: servicos e profissionais, cada um em uma
+/// sub-aba para nao competir por espaco na barra de navegacao principal.
+class CatalogPage extends StatefulWidget {
+  const CatalogPage({
+    super.key,
+    required this.servicesRepository,
+    required this.professionalsRepository,
+  });
+
+  final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<CatalogPage> createState() => _CatalogPageState();
+}
+
+class _CatalogPageState extends State<CatalogPage>
+    with SingleTickerProviderStateMixin {
+  late final _tabController = TabController(length: 2, vsync: this);
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(
+        title: const Text('Catalogo'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [Tab(text: 'Servicos'), Tab(text: 'Profissionais')],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          ServicesPage(servicesRepository: widget.servicesRepository),
+          ProfessionalsPage(
+            professionalsRepository: widget.professionalsRepository,
+            servicesRepository: widget.servicesRepository,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lista de servicos do estabelecimento, com atalho para cadastrar um novo.
+class ServicesPage extends StatefulWidget {
+  const ServicesPage({super.key, required this.servicesRepository});
+
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends State<ServicesPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ServiceModel> _services = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final services = await widget.servicesRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _services = services;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openNewService() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NewServicePage(servicesRepository: widget.servicesRepository),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_services.isEmpty) {
+      body = const Center(child: Text('Nenhum servico cadastrado ainda.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          for (final service in _services)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.content_cut),
+                title: Text(service.name),
+                subtitle: Text(
+                  formatDuration(Duration(minutes: service.durationMinutes)),
+                ),
+                trailing: Text(formatCents(service.priceCents)),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        body,
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openNewService,
+            tooltip: 'Cadastrar servico',
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Formulario de cadastro de servico, gravado direto na API.
+class NewServicePage extends StatefulWidget {
+  const NewServicePage({super.key, required this.servicesRepository});
+
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<NewServicePage> createState() => _NewServicePageState();
+}
+
+class _NewServicePageState extends State<NewServicePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _durationController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _durationController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.servicesRepository.create(
+        name: _nameController.text.trim(),
+        durationMinutes: int.parse(_durationController.text.trim()),
+        priceCents: _priceController.text.trim().isEmpty
+            ? null
+            : parsePriceToCents(_priceController.text),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Servico ${_nameController.text} cadastrado.')),
+      );
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Cadastrar servico')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome do servico'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _durationController,
+              decoration: const InputDecoration(
+                labelText: 'Duracao (minutos)',
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Informe a duracao';
+                return int.tryParse(value) == null
+                    ? 'Informe um numero valido'
+                    : null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _priceController,
+              decoration: const InputDecoration(
+                labelText: 'Preco (opcional)',
+                hintText: 'Ex: 60,00',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Descricao (opcional)',
+              ),
+              maxLines: 3,
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Lista de profissionais do estabelecimento, com atalho para cadastrar um
+/// novo e para reabrir um existente e revisar servicos habilitados.
+class ProfessionalsPage extends StatefulWidget {
+  const ProfessionalsPage({
+    super.key,
+    required this.professionalsRepository,
+    required this.servicesRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<ProfessionalsPage> createState() => _ProfessionalsPageState();
+}
+
+class _ProfessionalsPageState extends State<ProfessionalsPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ProfessionalModel> _professionals = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final professionals = await widget.professionalsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _professionals = professionals;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openNewProfessional() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewProfessionalPage(
+          professionalsRepository: widget.professionalsRepository,
+          servicesRepository: widget.servicesRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _openProfessional(ProfessionalModel professional) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditProfessionalPage(
+          professionalsRepository: widget.professionalsRepository,
+          servicesRepository: widget.servicesRepository,
+          professional: professional,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_professionals.isEmpty) {
+      body = const Center(child: Text('Nenhum profissional cadastrado ainda.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          for (final professional in _professionals)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.badge),
+                title: Text(professional.name),
+                subtitle: Text(professional.specialty ?? 'Sem especialidade'),
+                trailing: professional.isActive
+                    ? null
+                    : const Text('Inativo'),
+                onTap: () => _openProfessional(professional),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return Stack(
+      children: [
+        body,
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openNewProfessional,
+            tooltip: 'Cadastrar profissional',
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Formulario de cadastro de profissional, com selecao dos servicos
+/// habilitados (spec 4.1).
+class NewProfessionalPage extends StatefulWidget {
+  const NewProfessionalPage({
+    super.key,
+    required this.professionalsRepository,
+    required this.servicesRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<NewProfessionalPage> createState() => _NewProfessionalPageState();
+}
+
+class _NewProfessionalPageState extends State<NewProfessionalPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _specialtyController = TextEditingController();
+  final _commissionController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final Set<int> _selectedServiceIds = {};
+
+  bool _isLoadingServices = true;
+  String? _servicesError;
+  List<ServiceModel> _services = [];
+
+  bool _isSaving = false;
+  String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+      _servicesError = null;
+    });
+
+    try {
+      final services = await widget.servicesRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _services = services;
+        _isLoadingServices = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _servicesError = error.userMessage;
+        _isLoadingServices = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _specialtyController.dispose();
+    _commissionController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await widget.professionalsRepository.create(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        specialty: _specialtyController.text.trim().isEmpty
+            ? null
+            : _specialtyController.text.trim(),
+        commissionPercentage: _commissionController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_commissionController.text.trim()),
+        password: _passwordController.text.isEmpty
+            ? null
+            : _passwordController.text,
+        serviceIds: _selectedServiceIds.toList(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Profissional ${_nameController.text} cadastrado.'),
+        ),
+      );
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Cadastrar profissional')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'E-mail (opcional)',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Telefone (opcional)',
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _specialtyController,
+              decoration: const InputDecoration(
+                labelText: 'Especialidade (opcional)',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _commissionController,
+              decoration: const InputDecoration(
+                labelText: 'Comissao % (opcional)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Senha de acesso ao app (opcional)',
+                hintText: 'Deixe em branco para nao liberar login',
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Servicos habilitados'),
+            Text(
+              'Deixe sem selecionar para permitir qualquer servico cadastrado.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            if (_isLoadingServices)
+              const Center(child: CircularProgressIndicator())
+            else if (_servicesError != null)
+              AppLoadingError(message: _servicesError!, onRetry: _loadServices)
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final service in _services)
+                    FilterChip(
+                      label: Text(service.name),
+                      selected: _selectedServiceIds.contains(service.id),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _selectedServiceIds.add(service.id);
+                        } else {
+                          _selectedServiceIds.remove(service.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            if (_saveError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _saveError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Edicao de um profissional existente. Foco principal e revisar os
+/// servicos habilitados (spec 4.1); os demais campos tambem podem ser
+/// atualizados pelo mesmo formulario.
+class EditProfessionalPage extends StatefulWidget {
+  const EditProfessionalPage({
+    super.key,
+    required this.professionalsRepository,
+    required this.servicesRepository,
+    required this.professional,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final ServicesRepository servicesRepository;
+  final ProfessionalModel professional;
+
+  @override
+  State<EditProfessionalPage> createState() => _EditProfessionalPageState();
+}
+
+class _EditProfessionalPageState extends State<EditProfessionalPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(
+    text: widget.professional.name,
+  );
+  late final _specialtyController = TextEditingController(
+    text: widget.professional.specialty ?? '',
+  );
+  late final _commissionController = TextEditingController(
+    text: widget.professional.commissionPercentage?.toString() ?? '',
+  );
+  late final Set<int> _selectedServiceIds = {
+    ...widget.professional.serviceIds,
+  };
+  late bool _isActive = widget.professional.isActive;
+
+  bool _isLoadingServices = true;
+  String? _servicesError;
+  List<ServiceModel> _services = [];
+
+  bool _isSaving = false;
+  String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+      _servicesError = null;
+    });
+
+    try {
+      final services = await widget.servicesRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _services = services;
+        _isLoadingServices = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _servicesError = error.userMessage;
+        _isLoadingServices = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _specialtyController.dispose();
+    _commissionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await widget.professionalsRepository.update(
+        id: widget.professional.id,
+        name: _nameController.text.trim(),
+        specialty: _specialtyController.text.trim().isEmpty
+            ? null
+            : _specialtyController.text.trim(),
+        commissionPercentage: _commissionController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_commissionController.text.trim()),
+        isActive: _isActive,
+        serviceIds: _selectedServiceIds.toList(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profissional atualizado.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: Text(widget.professional.name)),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _specialtyController,
+              decoration: const InputDecoration(labelText: 'Especialidade'),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _commissionController,
+              decoration: const InputDecoration(labelText: 'Comissao %'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Ativo'),
+              subtitle: const Text('Profissionais inativos somem da agenda.'),
+              value: _isActive,
+              onChanged: (value) => setState(() => _isActive = value),
+            ),
+            const SizedBox(height: 8),
+            const AppSectionTitle('Servicos habilitados'),
+            Text(
+              'Deixe sem selecionar para permitir qualquer servico cadastrado.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            if (_isLoadingServices)
+              const Center(child: CircularProgressIndicator())
+            else if (_servicesError != null)
+              AppLoadingError(message: _servicesError!, onRetry: _loadServices)
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final service in _services)
+                    FilterChip(
+                      label: Text(service.name),
+                      selected: _selectedServiceIds.contains(service.id),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _selectedServiceIds.add(service.id);
+                        } else {
+                          _selectedServiceIds.remove(service.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            if (_saveError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _saveError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
       ),
     );
   }

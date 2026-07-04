@@ -67,18 +67,66 @@ class AuthSession extends ChangeNotifier {
               )
               as Map<String, dynamic>;
 
-      final token = response['token'] as String;
-      apiClient.updateToken(token);
-      await _storage.write(token);
-
-      user = AppUser.fromJson(response['user'] as Map<String, dynamic>);
-      status = AuthStatus.authenticated;
+      await _applyAuthResponse(response);
     } on AppException catch (error) {
       status = AuthStatus.unauthenticated;
       errorMessage = error.userMessage;
     } finally {
       notifyListeners();
     }
+  }
+
+  /// Cria estabelecimento + proprietario (`POST /auth/register-owner`) e ja
+  /// autentica com o token retornado, mesmo padrao de sessao do login.
+  Future<void> registerOwner({
+    required String tenantName,
+    required String businessType,
+    required String ownerName,
+    required String ownerEmail,
+    required String ownerPassword,
+    String? tenantPhone,
+  }) async {
+    if (status == AuthStatus.authenticating) return;
+
+    status = AuthStatus.authenticating;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response =
+          await apiClient.post(
+                '/auth/register-owner',
+                body: {
+                  'tenant': {
+                    'name': tenantName,
+                    'business_type': businessType,
+                    'phone': ?tenantPhone,
+                  },
+                  'owner': {
+                    'name': ownerName,
+                    'email': ownerEmail,
+                    'password': ownerPassword,
+                  },
+                },
+              )
+              as Map<String, dynamic>;
+
+      await _applyAuthResponse(response);
+    } on AppException catch (error) {
+      status = AuthStatus.unauthenticated;
+      errorMessage = error.userMessage;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _applyAuthResponse(Map<String, dynamic> response) async {
+    final token = response['token'] as String;
+    apiClient.updateToken(token);
+    await _storage.write(token);
+
+    user = AppUser.fromJson(response['user'] as Map<String, dynamic>);
+    status = AuthStatus.authenticated;
   }
 
   bool _isLoggingOut = false;

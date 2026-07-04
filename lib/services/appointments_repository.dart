@@ -34,6 +34,34 @@ class AppointmentsRepository {
     return AppointmentModel.fromJson(response);
   }
 
+  /// Cancela um agendamento (`PATCH /appointments/{id}`). Cliente so pode
+  /// cancelar o proprio; dono/profissional podem cancelar qualquer um.
+  Future<AppointmentModel> cancel(int appointmentId) async {
+    final response =
+        await _client.patch(
+              '/appointments/$appointmentId',
+              body: {'status': 'canceled'},
+            )
+            as Map<String, dynamic>;
+
+    return AppointmentModel.fromJson(response);
+  }
+
+  /// Remarca um agendamento para um novo horario (`PATCH /appointments/{id}`).
+  Future<AppointmentModel> reschedule(
+    int appointmentId,
+    DateTime startsAt,
+  ) async {
+    final response =
+        await _client.patch(
+              '/appointments/$appointmentId',
+              body: {'starts_at': startsAt.toIso8601String()},
+            )
+            as Map<String, dynamic>;
+
+    return AppointmentModel.fromJson(response);
+  }
+
   /// Cria um agendamento (`POST /appointments`). Quando quem chama e um
   /// `customer`, o backend ignora o `clientId` enviado e usa o proprio
   /// cliente vinculado ao login — o parametro fica so para o caso de

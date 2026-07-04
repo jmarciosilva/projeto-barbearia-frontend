@@ -8,9 +8,12 @@ class ProfessionalModel {
     this.commissionPercentage,
     this.isActive = true,
     this.userId,
+    this.serviceIds = const [],
   });
 
   factory ProfessionalModel.fromJson(Map<String, dynamic> json) {
+    final servicesJson = json['services'] as List<dynamic>? ?? const [];
+
     return ProfessionalModel(
       id: json['id'] as int,
       name: json['name'] as String,
@@ -20,6 +23,9 @@ class ProfessionalModel {
       commissionPercentage: json['commission_percentage'] as int?,
       isActive: json['is_active'] as bool? ?? true,
       userId: json['user_id'] as int?,
+      serviceIds: servicesJson
+          .map((service) => (service as Map<String, dynamic>)['id'] as int)
+          .toList(),
     );
   }
 
@@ -31,4 +37,5 @@ class ProfessionalModel {
   final int? commissionPercentage;
   final bool isActive;
   final int? userId;
+  final List<int> serviceIds;
 }

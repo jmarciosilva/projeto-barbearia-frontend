@@ -15,6 +15,16 @@ http.Client buildFakeBackend() {
     final path = request.url.path;
     final method = request.method;
 
+    if (method == 'POST' && path.endsWith('/auth/register-owner')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final owner = body['owner'] as Map<String, dynamic>;
+
+      return _jsonResponse(201, {
+        'token': 'owner-token',
+        'user': {..._ownerJson, 'name': owner['name'], 'email': owner['email']},
+      });
+    }
+
     if (method == 'POST' && path.endsWith('/auth/login')) {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       final email = body['email'] as String;
@@ -91,8 +101,51 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, _servicesJson);
     }
 
+    if (method == 'POST' && path.endsWith('/services')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 55,
+        'name': body['name'],
+        'duration_minutes': body['duration_minutes'],
+        'price_cents': body['price_cents'],
+        'description': body['description'],
+        'is_active': true,
+      });
+    }
+
     if (method == 'GET' && path.endsWith('/professionals')) {
       return _jsonResponse(200, _professionalsJson);
+    }
+
+    if (method == 'POST' && path.endsWith('/professionals')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final serviceIds = (body['service_ids'] as List<dynamic>? ?? []);
+      return _jsonResponse(201, {
+        'id': 66,
+        'name': body['name'],
+        'email': body['email'],
+        'phone': body['phone'],
+        'specialty': body['specialty'],
+        'commission_percentage': body['commission_percentage'],
+        'is_active': true,
+        'services': serviceIds
+            .map((id) => {'id': id, 'name': 'Servico $id'})
+            .toList(),
+      });
+    }
+
+    if (method == 'PATCH' && path.contains('/professionals/')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final serviceIds = (body['service_ids'] as List<dynamic>? ?? []);
+      return _jsonResponse(200, {
+        ..._professionalMeJson,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['specialty'] != null) 'specialty': body['specialty'],
+        if (body['is_active'] != null) 'is_active': body['is_active'],
+        'services': serviceIds
+            .map((id) => {'id': id, 'name': 'Servico $id'})
+            .toList(),
+      });
     }
 
     if (method == 'GET' && path.endsWith('/subscription-plans')) {
@@ -108,6 +161,36 @@ http.Client buildFakeBackend() {
         'usage_limit': body['usage_limit'],
         'is_active': true,
         'services': <dynamic>[],
+      });
+    }
+
+    if (method == 'POST' && path.endsWith('/me/client-subscriptions')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final plan = _plansJson.firstWhere(
+        (plan) => plan['id'] == body['subscription_plan_id'],
+        orElse: () => _bronzePlanJson,
+      );
+      return _jsonResponse(201, {
+        'id': 2,
+        'client_id': 1,
+        'subscription_plan_id': plan['id'],
+        'status': 'active',
+        'payment_status': 'pending',
+        'plan': plan,
+        'usages': <dynamic>[],
+      });
+    }
+
+    if (method == 'POST' &&
+        path.endsWith('/me/client-subscriptions/cancel')) {
+      return _jsonResponse(200, {
+        'id': 1,
+        'client_id': 1,
+        'subscription_plan_id': 1,
+        'status': 'canceled',
+        'payment_status': 'paid',
+        'plan': _bronzePlanJson,
+        'usages': <dynamic>[],
       });
     }
 
@@ -136,6 +219,17 @@ http.Client buildFakeBackend() {
 
     if (method == 'GET' && path.endsWith('/appointments')) {
       return _jsonResponse(200, _appointmentsJson);
+    }
+
+    if ((method == 'PATCH' || method == 'PUT') &&
+        RegExp(r'/appointments/\d+$').hasMatch(path)) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(200, {
+        ..._appointmentsJson.first,
+        if (body['status'] != null) 'status': body['status'],
+        if (body['starts_at'] != null) 'starts_at': body['starts_at'],
+        if (body['starts_at'] != null) 'ends_at': body['starts_at'],
+      });
     }
 
     if (method == 'GET' && path.endsWith('/payments')) {
