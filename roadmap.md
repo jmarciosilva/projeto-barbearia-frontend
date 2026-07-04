@@ -94,32 +94,41 @@ Objetivo: entregar app unico para proprietario/gerente, profissional e cliente, 
 
 ## Fase 1 - Planos SaaS e Controle de Acesso
 
-Status: `Nao iniciado`
+Status: `Em auditoria`
 
 Objetivo: implementar o modelo de negocio do produto (especificacao, secao 3) — trial e os 3 tiers pagos do SaaS, com limites e liberacao de funcionalidade por plano. Sem esta fase o app nao tem como cobrar pelo proprio uso nem limitar/liberar recursos por tier, o que hoje bloqueia qualquer avanco comercial real.
 
 ### Escopo previsto
 
-- [ ] Cadastro de estabelecimento inicia trial de 30 dias sem cartao, liberando funcionalidades do Premium com limites reduzidos (ate 3 profissionais, ate 20 clientes assinantes, 1 unidade)
-- [ ] Selecao/upgrade de plano SaaS pelo proprietario: Basico (R$79,99), Intermediario (R$129,99), Premium (R$199,99)
-- [ ] `PlanGate` centralizado no backend (feature flags + limites por tier) espelhado no app: funcionalidade fora do plano aparece bloqueada com explicacao, nao apenas escondida
-- [ ] Limites por plano aplicados e visiveis (profissionais, clientes assinantes ativos, unidades/filiais)
-- [ ] Regra de downgrade (spec 3.5): registros excedentes ficam inativos, nunca removidos, ate o dono decidir ou fazer upgrade
-- [ ] Multiplas unidades/filiais no mesmo painel (exclusivo do tier Premium)
-- [ ] Aviso de fim de trial e bloqueio gracioso ao expirar sem upgrade
+- [x] Cadastro de estabelecimento inicia trial de 30 dias sem cartao, liberando funcionalidades do Premium com limites reduzidos (ate 3 profissionais, ate 20 clientes assinantes, 1 unidade)
+- [x] Selecao/upgrade de plano SaaS pelo proprietario: Basico (R$79,99), Intermediario (R$129,99), Premium (R$199,99)
+- [x] `PlanGate` centralizado no backend (feature flags + limites por tier) espelhado no app: funcionalidade fora do plano aparece bloqueada com explicacao, nao apenas escondida
+- [x] Limites por plano aplicados e visiveis (profissionais, clientes assinantes ativos, unidades/filiais)
+- [x] Regra de downgrade (spec 3.5): registros excedentes ficam inativos, nunca removidos, ate o dono decidir ou fazer upgrade
+- [ ] Multiplas unidades/filiais no mesmo painel (exclusivo do tier Premium) — decisao de escopo: nesta fase so o limite existe e fica visivel (`tenants.units_count`, sempre 1 hoje); nao ha CRUD de unidade nem nada operacional (agenda/clientes) escopado por unidade ainda
+- [x] Aviso de fim de trial e bloqueio gracioso ao expirar sem upgrade
 
 ### Criterios de aceite
 
-- [ ] Tenant novo comeca em trial e ve a contagem regressiva dos 30 dias
-- [ ] Proprietario consegue trocar de plano SaaS pelo app
-- [ ] Funcionalidade fora do plano contratado fica bloqueada de forma visivel e compreensivel para usuario leigo
-- [ ] Downgrade nao apaga dados nem trava o proprietario em tela de erro sem explicacao
+- [x] Tenant novo comeca em trial e ve a contagem regressiva dos 30 dias
+- [x] Proprietario consegue trocar de plano SaaS pelo app
+- [x] Funcionalidade fora do plano contratado fica bloqueada de forma visivel e compreensivel para usuario leigo
+- [x] Downgrade nao apaga dados nem trava o proprietario em tela de erro sem explicacao
+
+### Decisoes
+
+| Data | Decisao | Motivo |
+|---|---|---|
+| 2026-07-04 | Multi-unidade fica so como limite numerico visivel nesta fase, sem CRUD nem funcionalidade operacional real | Nenhuma entidade de unidade/filial existia no banco; construir de verdade exigiria re-escopar agenda/clientes/profissionais por unidade, um esforco de fase propria. Confirmado com o usuario antes de implementar |
+| 2026-07-04 | Trial vencido bloqueia toda escrita (POST/PATCH/PUT/DELETE) com HTTP 402 e mensagem clara; leitura nunca e afetada | Confirmado com o usuario: "bloqueio gracioso" significa nunca esconder dados nem travar em tela de erro sem explicacao, mas a escrita real so deve voltar quando o dono escolher um plano |
+| 2026-07-04 | Troca de plano SaaS e efetiva na hora, sem cobranca real via Asaas ainda | Fase 2 e quem integra a cobranca recorrente; nesta fase o objetivo e o modelo de dados/regras de negocio (limites, downgrade, bloqueio), nao o gateway de pagamento |
 
 ### Auditoria da fase
 
 | Data | Responsavel | Resultado | Evidencias | Pendencias |
 |---|---|---|---|---|
 | 2026-07-03 | Claude | Nao iniciado | Auditoria da especificacao vs. roadmap encontrou a lacuna: backend hoje so tem uma tabela `saas_subscriptions` esqueleto (`plan_name` fixo "Plano Fundador", sem os 4 tiers, sem tabela de `plan_features`/limites) | Toda a fase — desenho de schema (`plan_features`), `PlanGate`, telas de trial/upgrade/downgrade no app |
+| 2026-07-04 | Claude | Parcial aprovado | Backend: nova tabela de referencia `saas_plans` (trial/basico/intermediario/premium com preco e limites, seedada na propria migration) e `saas_subscriptions.saas_plan_id` linkando cada tenant ao seu tier; `SaasSubscription` ganhou atributos calculados (`effective_status`, `trial_days_remaining`, `limits`, `usage`) sempre embutidos em `GET /tenant`/login/`GET /me`; `PlanGate` (`app/Support/PlanGate.php`) centraliza contagem de uso, checagem de limite e a regra de downgrade (spec 3.5) — reaproveitada por `ProfessionalController::store` e `ClientSubscriptionController::store/subscribeSelf` pra rejeitar criacao acima do limite (422) e pela troca de plano pra desativar automaticamente o excedente mais novo (profissional vira `is_active:false`, assinatura de cliente vira `status:paused`) mantendo os registros mais antigos ativos, sem apagar nada; nova rota `GET /saas-plans` e `PATCH /saas-subscription` (so `owner`); middleware `EnsureTenantPlanIsActive` bloqueia toda escrita com HTTP 402 quando o trial vence sem upgrade, liberando so leitura, logout e a propria troca de plano. 7 testes novos em `PhaseUmSaasPlansTest` (48/48 testes de backend passando). App: `TenantRepository`/`SaasSubscriptionRepository` novos; `OwnerHomePage` ganhou banner de trial/expirado (com dias restantes) e tile "Meu plano"; nova `SaasPlanPage` mostra o tier atual (limites e uso: "X de Y profissionais/assinantes/unidades") e lista os 3 tiers pagos pra trocar, reaproveitando o mesmo padrao visual da troca de plano do cliente; mensagens de limite atingido e de trial expirado chegam prontas da API e aparecem inline nos formularios existentes, sem necessidade de tratamento especial tela a tela. `flutter analyze` limpo e 24/24 testes passando (golden do dashboard do proprietario atualizado pela nova tile) | Multi-unidade so tem o limite visivel, sem funcionalidade real (decisao de escopo, ver secao Decisoes); troca de plano SaaS ainda nao cobra de verdade (fica pra Fase 2 com Asaas); sem validacao em dispositivo real ainda |
 
 ## Fase 2 - Cobranca Automatica e Base Operacional
 

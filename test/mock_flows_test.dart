@@ -325,4 +325,27 @@ void main() {
 
     expect(find.text('Fila de espera'), findsWidgets);
   });
+
+  testWidgets('proprietario troca de plano SaaS pela API', (tester) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Meu plano'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Planos disponiveis'), findsOneWidget);
+    expect(find.text('Plano atual'), findsOneWidget);
+
+    await tester.tap(find.text('Basico'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plano Basico ativado'), findsOneWidget);
+
+    await tester.tap(find.text('Concluir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Meu plano'), findsWidgets);
+  });
 }

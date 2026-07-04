@@ -11,8 +11,10 @@ import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
+import 'package:clube_do_salao/services/saas_subscription_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
+import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
@@ -507,6 +509,8 @@ class _DashboardShellState extends State<DashboardShell> {
             plansRepository: SubscriptionPlansRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
+            tenantRepository: TenantRepository(apiClient),
+            saasSubscriptionRepository: SaasSubscriptionRepository(apiClient),
           ),
         ),
         _ShellPage(

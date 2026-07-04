@@ -63,6 +63,38 @@ http.Client buildFakeBackend() {
       return http.Response('', 204);
     }
 
+    if (method == 'GET' && path.endsWith('/tenant')) {
+      return _jsonResponse(200, _tenantJson);
+    }
+
+    if (method == 'GET' && path.endsWith('/saas-plans')) {
+      return _jsonResponse(200, _saasPlansJson);
+    }
+
+    if (method == 'PATCH' && path.endsWith('/saas-subscription')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final planCode = body['plan_code'] as String;
+      final plan = _saasPlansJson.firstWhere((p) => p['code'] == planCode);
+
+      return _jsonResponse(200, {
+        ..._tenantJson,
+        'saas_subscription': {
+          'status': 'active',
+          'effective_status': 'active',
+          'trial_days_remaining': null,
+          'plan_name': plan['name'],
+          'price_cents': plan['price_cents'],
+          'plan': plan,
+          'limits': {
+            'professionals': plan['max_professionals'],
+            'client_subscriptions': plan['max_client_subscriptions'],
+            'units': plan['max_units'],
+          },
+          'usage': {'professionals': 2, 'client_subscriptions': 3, 'units': 1},
+        },
+      });
+    }
+
     if (method == 'GET' && path.endsWith('/me/professional')) {
       return _jsonResponse(200, _professionalMeJson);
     }
@@ -314,6 +346,55 @@ const _unauthenticated = {
   'message': 'Autenticacao obrigatoria.',
   'error': 'unauthenticated',
 };
+
+const _tenantJson = {
+  'id': 1,
+  'name': 'Clube do Salao Demo',
+  'saas_subscription': {
+    'status': 'active',
+    'effective_status': 'active',
+    'trial_days_remaining': null,
+    'plan_name': 'Intermediario',
+    'price_cents': 12999,
+    'plan': {
+      'code': 'intermediario',
+      'name': 'Intermediario',
+      'price_cents': 12999,
+      'max_professionals': 8,
+      'max_client_subscriptions': 400,
+      'max_units': 1,
+    },
+    'limits': {'professionals': 8, 'client_subscriptions': 400, 'units': 1},
+    'usage': {'professionals': 2, 'client_subscriptions': 3, 'units': 1},
+  },
+};
+
+const _saasPlansJson = [
+  {
+    'code': 'basico',
+    'name': 'Basico',
+    'price_cents': 7999,
+    'max_professionals': 3,
+    'max_client_subscriptions': 100,
+    'max_units': 1,
+  },
+  {
+    'code': 'intermediario',
+    'name': 'Intermediario',
+    'price_cents': 12999,
+    'max_professionals': 8,
+    'max_client_subscriptions': 400,
+    'max_units': 1,
+  },
+  {
+    'code': 'premium',
+    'name': 'Premium',
+    'price_cents': 19999,
+    'max_professionals': null,
+    'max_client_subscriptions': null,
+    'max_units': null,
+  },
+];
 
 const _ownerJson = {
   'id': 1,

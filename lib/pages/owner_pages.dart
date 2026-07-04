@@ -4,6 +4,8 @@ import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
+import 'package:clube_do_salao/models/saas_plan_model.dart';
+import 'package:clube_do_salao/models/saas_subscription_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
@@ -12,8 +14,10 @@ import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
+import 'package:clube_do_salao/services/saas_subscription_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
+import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +31,8 @@ class OwnerHomePage extends StatefulWidget {
     required this.plansRepository,
     required this.servicesRepository,
     required this.professionalsRepository,
+    required this.tenantRepository,
+    required this.saasSubscriptionRepository,
   });
 
   final ClientsRepository clientsRepository;
@@ -35,6 +41,8 @@ class OwnerHomePage extends StatefulWidget {
   final SubscriptionPlansRepository plansRepository;
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
+  final TenantRepository tenantRepository;
+  final SaasSubscriptionRepository saasSubscriptionRepository;
 
   @override
   State<OwnerHomePage> createState() => _OwnerHomePageState();
@@ -47,6 +55,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
   int _mrrCents = 0;
   int _todayAppointments = 0;
   int _pendingPayments = 0;
+  SaasSubscriptionModel? _saasSubscription;
 
   @override
   void initState() {
@@ -71,6 +80,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         to: endOfDay,
       );
       final payments = await widget.paymentsRepository.index();
+      final tenant = await widget.tenantRepository.show();
 
       final activeSubscriptions = clients
           .expand((client) => client.subscriptions)
@@ -87,6 +97,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         _pendingPayments = payments
             .where((payment) => payment.status == 'pending')
             .length;
+        _saasSubscription = tenant.saasSubscription;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -108,9 +119,30 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
       return AppLoadingError(message: _errorMessage!, onRetry: _load);
     }
 
+    final subscription = _saasSubscription!;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (subscription.isExpired || subscription.isTrial)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _SaasPlanBanner(
+              subscription: subscription,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => SaasPlanPage(
+                      tenantRepository: widget.tenantRepository,
+                      saasSubscriptionRepository:
+                          widget.saasSubscriptionRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+          ),
         AppMetricGrid(
           metrics: [
             AppMetric('MRR previsto', formatCents(_mrrCents), Icons.payments),
@@ -129,6 +161,24 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         const SizedBox(height: 16),
         const AppSectionTitle('Proximas acoes'),
+        AppActionTile(
+          icon: Icons.workspace_premium,
+          title: 'Meu plano',
+          subtitle: subscription.isTrial
+              ? 'Trial - faltam ${subscription.trialDaysRemaining} dias'
+              : subscription.planName,
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SaasPlanPage(
+                  tenantRepository: widget.tenantRepository,
+                  saasSubscriptionRepository: widget.saasSubscriptionRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
         AppActionTile(
           icon: Icons.person_add,
           title: 'Cadastrar cliente',
@@ -2239,6 +2289,238 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
     return AppScaffold(
       appBar: AppBar(title: const Text('Atribuir horario')),
       body: body,
+    );
+  }
+}
+
+/// Banner exibido no inicio do dono enquanto o trial esta rodando ou ja
+/// venceu, sempre com um caminho direto pra tela de planos.
+class _SaasPlanBanner extends StatelessWidget {
+  const _SaasPlanBanner({required this.subscription, required this.onTap});
+
+  final SaasSubscriptionModel subscription;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isExpired = subscription.isExpired;
+
+    return Card(
+      color: isExpired
+          ? Theme.of(context).colorScheme.errorContainer
+          : Theme.of(context).colorScheme.primaryContainer,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                isExpired ? Icons.error_outline : Icons.hourglass_top,
+                color: isExpired
+                    ? Theme.of(context).colorScheme.onErrorContainer
+                    : Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isExpired
+                      ? 'Seu periodo de teste expirou. Escolha um plano para continuar.'
+                      : 'Faltam ${subscription.trialDaysRemaining} dias do seu teste gratuito. Toque para ver os planos.',
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tela de planos SaaS do estabelecimento: mostra o tier atual (com limites
+/// e uso) e permite trocar entre os 3 tiers pagos (spec, secao 3).
+class SaasPlanPage extends StatefulWidget {
+  const SaasPlanPage({
+    super.key,
+    required this.tenantRepository,
+    required this.saasSubscriptionRepository,
+  });
+
+  final TenantRepository tenantRepository;
+  final SaasSubscriptionRepository saasSubscriptionRepository;
+
+  @override
+  State<SaasPlanPage> createState() => _SaasPlanPageState();
+}
+
+class _SaasPlanPageState extends State<SaasPlanPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  SaasSubscriptionModel? _subscription;
+  List<SaasPlanModel> _plans = [];
+  String? _switchingPlanCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final tenant = await widget.tenantRepository.show();
+      final plans = await widget.saasSubscriptionRepository.plans();
+
+      if (!mounted) return;
+      setState(() {
+        _subscription = tenant.saasSubscription;
+        _plans = plans;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _switchPlan(SaasPlanModel plan) async {
+    setState(() => _switchingPlanCode = plan.code);
+
+    try {
+      await widget.saasSubscriptionRepository.switchPlan(plan.code);
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AppScaffold(
+            appBar: AppBar(title: const Text('Plano atualizado')),
+            body: AppMockSuccessPanel(
+              title: 'Plano ${plan.name} ativado',
+              message: 'Seu estabelecimento ja esta no novo plano.',
+              buttonLabel: 'Concluir',
+              onDone: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      _load();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    } finally {
+      if (mounted) setState(() => _switchingPlanCode = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      final subscription = _subscription!;
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SaasSubscriptionCard(subscription: subscription),
+          const SizedBox(height: 20),
+          const AppSectionTitle('Planos disponiveis'),
+          for (final plan in _plans)
+            Card(
+              color: subscription.plan?.code == plan.code
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : null,
+              child: ListTile(
+                leading: const Icon(Icons.workspace_premium),
+                title: Text(plan.name),
+                subtitle: Text(plan.limitsLabel),
+                trailing: _switchingPlanCode == plan.code
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : subscription.plan?.code == plan.code
+                    ? const Text('Plano atual')
+                    : Text('${formatCents(plan.priceCents)}/mes'),
+                onTap:
+                    _switchingPlanCode != null ||
+                        subscription.plan?.code == plan.code
+                    ? null
+                    : () => _switchPlan(plan),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(appBar: AppBar(title: const Text('Meu plano')), body: body);
+  }
+}
+
+class _SaasSubscriptionCard extends StatelessWidget {
+  const _SaasSubscriptionCard({required this.subscription});
+
+  final SaasSubscriptionModel subscription;
+
+  @override
+  Widget build(BuildContext context) {
+    final isExpired = subscription.isExpired;
+    final isTrial = subscription.isTrial && !isExpired;
+
+    return Card(
+      color: isExpired
+          ? Theme.of(context).colorScheme.errorContainer
+          : Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isExpired ? 'Periodo de teste expirado' : subscription.planName,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isExpired
+                  ? 'Escolha um plano abaixo para continuar usando o Clube do Salao.'
+                  : isTrial
+                  ? 'Faltam ${subscription.trialDaysRemaining} dias do seu teste gratuito.'
+                  : '${formatCents(subscription.priceCents)}/mes',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '${subscription.usage.professionals ?? 0} de ${subscription.limits.professionals?.toString() ?? "ilimitado"} profissionais',
+            ),
+            Text(
+              '${subscription.usage.clientSubscriptions ?? 0} de ${subscription.limits.clientSubscriptions?.toString() ?? "ilimitado"} clientes assinantes',
+            ),
+            Text(
+              '${subscription.usage.units ?? 1} de ${subscription.limits.units?.toString() ?? "ilimitado"} unidades',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
