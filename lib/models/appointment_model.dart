@@ -13,12 +13,15 @@ class AppointmentModel {
     this.clientName,
     this.professionalName,
     this.serviceName,
+    this.paymentAmountCents,
+    this.paymentStatus,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
     final client = json['client'] as Map<String, dynamic>?;
     final professional = json['professional'] as Map<String, dynamic>?;
     final service = json['service'] as Map<String, dynamic>?;
+    final payment = json['payment'] as Map<String, dynamic>?;
 
     return AppointmentModel(
       id: json['id'] as int,
@@ -34,6 +37,8 @@ class AppointmentModel {
       clientName: client?['name'] as String?,
       professionalName: professional?['name'] as String?,
       serviceName: service?['name'] as String?,
+      paymentAmountCents: payment?['amount_cents'] as int?,
+      paymentStatus: payment?['status'] as String?,
     );
   }
 
@@ -50,4 +55,6 @@ class AppointmentModel {
   final String? clientName;
   final String? professionalName;
   final String? serviceName;
+  final int? paymentAmountCents;
+  final String? paymentStatus;
 }

@@ -13,6 +13,7 @@ import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
+import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -511,7 +512,11 @@ class _DashboardShellState extends State<DashboardShell> {
         _ShellPage(
           'Agenda',
           Icons.calendar_month,
-          AgendaPage(appointmentsRepository: AppointmentsRepository(apiClient)),
+          AgendaPage(
+            appointmentsRepository: AppointmentsRepository(apiClient),
+            waitlistRepository: WaitlistRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
+          ),
         ),
         _ShellPage(
           'Catalogo',
@@ -546,7 +551,11 @@ class _DashboardShellState extends State<DashboardShell> {
         _ShellPage(
           'Agenda',
           Icons.calendar_month,
-          AgendaPage(appointmentsRepository: AppointmentsRepository(apiClient)),
+          AgendaPage(
+            appointmentsRepository: AppointmentsRepository(apiClient),
+            waitlistRepository: WaitlistRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
+          ),
         ),
         _ShellPage(
           'Perfil',
@@ -577,6 +586,7 @@ class _DashboardShellState extends State<DashboardShell> {
             servicesRepository: ServicesRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
             appointmentsRepository: AppointmentsRepository(apiClient),
+            waitlistRepository: WaitlistRepository(apiClient),
           ),
         ),
         _ShellPage(

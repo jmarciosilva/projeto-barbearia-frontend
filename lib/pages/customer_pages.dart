@@ -6,12 +6,14 @@ import 'package:clube_do_salao/models/client_subscription_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart' show AppointmentDetailPage;
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
+import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
@@ -271,12 +273,14 @@ class BookingPage extends StatelessWidget {
     required this.servicesRepository,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.waitlistRepository,
   });
 
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final WaitlistRepository waitlistRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +295,19 @@ class BookingPage extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => MyAppointmentsPage(
                 appointmentsRepository: appointmentsRepository,
+              ),
+            ),
+          ),
+        ),
+        AppActionTile(
+          icon: Icons.groups,
+          title: 'Fila de espera',
+          subtitle: 'Peca atendimento no estabelecimento sem escolher horario.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MyWaitlistPage(
+                waitlistRepository: waitlistRepository,
+                servicesRepository: servicesRepository,
               ),
             ),
           ),
@@ -683,12 +700,16 @@ class BookingConfirmationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final paymentAmount = appointment.paymentAmountCents;
+
     return AppScaffold(
       appBar: AppBar(title: const Text('Agendamento confirmado')),
       body: AppMockSuccessPanel(
         title: 'Agendamento confirmado',
-        message:
-            '${appointment.serviceName ?? 'Atendimento'} com ${appointment.professionalName ?? 'profissional'} as ${formatTime(appointment.startsAt)}.',
+        message: paymentAmount == null
+            ? '${appointment.serviceName ?? 'Atendimento'} com ${appointment.professionalName ?? 'profissional'} as ${formatTime(appointment.startsAt)}.'
+            : '${appointment.serviceName ?? 'Atendimento'} com ${appointment.professionalName ?? 'profissional'} as ${formatTime(appointment.startsAt)}.\n\n'
+                  'Agendamento avulso: ${formatCents(paymentAmount)} pendentes de pagamento no salao.',
         buttonLabel: 'Voltar ao inicio',
         onDone: () =>
             Navigator.of(context).popUntil((route) => route.isFirst),
@@ -1119,4 +1140,332 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
     'no_show' => 'Faltou',
     _ => 'Agendado',
   };
+}
+
+/// Fila de espera do proprio cliente: lista as entradas ja pedidas e permite
+/// entrar numa nova ou cancelar uma que ainda esta `waiting`.
+class MyWaitlistPage extends StatefulWidget {
+  const MyWaitlistPage({
+    super.key,
+    required this.waitlistRepository,
+    required this.servicesRepository,
+  });
+
+  final WaitlistRepository waitlistRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<MyWaitlistPage> createState() => _MyWaitlistPageState();
+}
+
+class _MyWaitlistPageState extends State<MyWaitlistPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<WaitlistEntryModel> _entries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final entries = await widget.waitlistRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _entries = entries;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openJoin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JoinWaitlistPage(
+          waitlistRepository: widget.waitlistRepository,
+          servicesRepository: widget.servicesRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _cancel(WaitlistEntryModel entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sair da fila'),
+        content: const Text(
+          'Tem certeza que deseja cancelar o pedido de atendimento?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sair da fila'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await widget.waitlistRepository.cancel(entry.id);
+
+      if (!mounted) return;
+      _load();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_entries.isEmpty) {
+      body = const Center(child: Text('Voce nao esta na fila de espera.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          for (final entry in _entries)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.groups),
+                title: Text(entry.serviceName ?? 'Servico'),
+                subtitle: Text(
+                  entry.professionalName ?? 'Qualquer profissional',
+                ),
+                trailing: entry.status == 'waiting'
+                    ? IconButton(
+                        tooltip: 'Sair da fila',
+                        icon: const Icon(Icons.close),
+                        onPressed: () => _cancel(entry),
+                      )
+                    : Text(entry.statusLabel),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Fila de espera')),
+      body: Stack(
+        children: [
+          body,
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              onPressed: _openJoin,
+              tooltip: 'Entrar na fila',
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pedido de entrada na fila: so pede o servico desejado e uma observacao
+/// opcional — o produto define a fila como "qualquer profissional", entao
+/// nao ha selecao de profissional nem de horario aqui.
+class JoinWaitlistPage extends StatefulWidget {
+  const JoinWaitlistPage({
+    super.key,
+    required this.waitlistRepository,
+    required this.servicesRepository,
+  });
+
+  final WaitlistRepository waitlistRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<JoinWaitlistPage> createState() => _JoinWaitlistPageState();
+}
+
+class _JoinWaitlistPageState extends State<JoinWaitlistPage> {
+  bool _isLoadingServices = true;
+  String? _loadError;
+  List<ServiceModel> _services = [];
+  ServiceModel? _selectedService;
+  final _notesController = TextEditingController();
+
+  bool _isSaving = false;
+  String? _saveError;
+  WaitlistEntryModel? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  Future<void> _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+      _loadError = null;
+    });
+
+    try {
+      final services = await widget.servicesRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _services = services;
+        _selectedService = services.isEmpty ? null : services.first;
+        _isLoadingServices = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.userMessage;
+        _isLoadingServices = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_selectedService == null) return;
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      final entry = await widget.waitlistRepository.create(
+        serviceId: _selectedService!.id,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _result = entry;
+        _isSaving = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_result != null) {
+      return AppScaffold(
+        appBar: AppBar(title: const Text('Fila de espera')),
+        body: AppMockSuccessPanel(
+          title: 'Voce entrou na fila',
+          message:
+              'Assim que houver uma vaga, o salao confirma o horario do seu atendimento.',
+          buttonLabel: 'Concluir',
+          onDone: () => Navigator.of(context).pop(),
+        ),
+      );
+    }
+
+    final Widget body;
+
+    if (_isLoadingServices) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_loadError != null) {
+      body = AppLoadingError(message: _loadError!, onRetry: _loadServices);
+    } else if (_services.isEmpty) {
+      body = const Center(child: Text('Nenhum servico disponivel.'));
+    } else {
+      body = RadioGroup<ServiceModel>(
+        groupValue: _selectedService,
+        onChanged: (value) => setState(() => _selectedService = value),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const AppSectionTitle('Servico desejado'),
+            for (final service in _services)
+              RadioListTile<ServiceModel>(
+                title: Text(service.name),
+                subtitle: Text(
+                  formatDuration(Duration(minutes: service.durationMinutes)),
+                ),
+                value: service,
+              ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Observacoes (opcional)',
+                hintText: 'Ex: prefiro no periodo da tarde',
+              ),
+              maxLines: 3,
+            ),
+            if (_saveError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _saveError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _confirm,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Entrar na fila'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Fila de espera')),
+      body: body,
+    );
+  }
 }

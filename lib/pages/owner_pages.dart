@@ -6,6 +6,7 @@ import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
@@ -13,6 +14,7 @@ import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
+import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -183,9 +185,16 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 /// Agenda do dia. Proprietario ve o estabelecimento inteiro; profissional
 /// ve so os proprios atendimentos (o backend ja aplica esse recorte).
 class AgendaPage extends StatefulWidget {
-  const AgendaPage({super.key, required this.appointmentsRepository});
+  const AgendaPage({
+    super.key,
+    required this.appointmentsRepository,
+    required this.waitlistRepository,
+    required this.professionalsRepository,
+  });
 
   final AppointmentsRepository appointmentsRepository;
+  final WaitlistRepository waitlistRepository;
+  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -259,24 +268,49 @@ class _AgendaPageState extends State<AgendaPage> {
     _load();
   }
 
+  Future<void> _openWaitlist() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ManageWaitlistPage(
+          waitlistRepository: widget.waitlistRepository,
+          professionalsRepository: widget.professionalsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Widget body;
+
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_items.isEmpty) {
+      body = const Center(child: Text('Nenhum agendamento para hoje.'));
+    } else {
+      body = AppScheduleList(
+        title: 'Agenda',
+        items: _items,
+        onItemTap: _openDetail,
+      );
     }
 
-    if (_errorMessage != null) {
-      return AppLoadingError(message: _errorMessage!, onRetry: _load);
-    }
-
-    if (_items.isEmpty) {
-      return const Center(child: Text('Nenhum agendamento para hoje.'));
-    }
-
-    return AppScheduleList(
-      title: 'Agenda',
-      items: _items,
-      onItemTap: _openDetail,
+    return Stack(
+      children: [
+        body,
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            onPressed: _openWaitlist,
+            icon: const Icon(Icons.groups),
+            label: const Text('Fila de espera'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -858,9 +892,15 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
           for (final payment in _pending)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.price_check),
+                leading: Icon(
+                  payment.isAvulso ? Icons.content_cut : Icons.price_check,
+                ),
                 title: Text(payment.clientName ?? 'Cliente'),
-                subtitle: Text(payment.methodLabel),
+                subtitle: Text(
+                  payment.isAvulso
+                      ? '${payment.serviceName ?? 'Avulso'} - ${payment.methodLabel}'
+                      : payment.methodLabel,
+                ),
                 trailing: Text(formatCents(payment.amountCents)),
                 onTap: () => _openConfirmation(payment),
               ),
@@ -947,6 +987,11 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                         title: const Text('Cliente'),
                         trailing: Text(payment.clientName ?? '-'),
                       ),
+                      if (payment.serviceName != null)
+                        ListTile(
+                          title: const Text('Servico'),
+                          trailing: Text(payment.serviceName!),
+                        ),
                       ListTile(
                         title: const Text('Valor'),
                         trailing: Text(formatCents(payment.amountCents)),
@@ -1876,6 +1921,324 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Fila de espera vista pelo staff: lista quem esta `waiting` e permite
+/// atribuir um horario, transformando a entrada em agendamento de verdade.
+class ManageWaitlistPage extends StatefulWidget {
+  const ManageWaitlistPage({
+    super.key,
+    required this.waitlistRepository,
+    required this.professionalsRepository,
+  });
+
+  final WaitlistRepository waitlistRepository;
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<ManageWaitlistPage> createState() => _ManageWaitlistPageState();
+}
+
+class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<WaitlistEntryModel> _entries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final entries = await widget.waitlistRepository.index(
+        status: 'waiting',
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _entries = entries;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openAssign(WaitlistEntryModel entry) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AssignWaitlistPage(
+          waitlistRepository: widget.waitlistRepository,
+          professionalsRepository: widget.professionalsRepository,
+          entry: entry,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_entries.isEmpty) {
+      body = const Center(child: Text('Nenhum cliente aguardando vaga.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (final entry in _entries)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.groups),
+                title: Text(entry.clientName ?? 'Cliente'),
+                subtitle: Text(
+                  '${entry.serviceName ?? 'Servico'} - ${entry.professionalName ?? 'Qualquer profissional'}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openAssign(entry),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Fila de espera')),
+      body: body,
+    );
+  }
+}
+
+/// Atribui profissional (quando a entrada nao ja tem uma preferencia) e
+/// horario a uma entrada da fila, chamando `POST /waitlist/{id}/assign`.
+class AssignWaitlistPage extends StatefulWidget {
+  const AssignWaitlistPage({
+    super.key,
+    required this.waitlistRepository,
+    required this.professionalsRepository,
+    required this.entry,
+  });
+
+  final WaitlistRepository waitlistRepository;
+  final ProfessionalsRepository professionalsRepository;
+  final WaitlistEntryModel entry;
+
+  @override
+  State<AssignWaitlistPage> createState() => _AssignWaitlistPageState();
+}
+
+class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
+  // Mesma simplificacao das outras telas de horario (nao ha endpoint real de
+  // disponibilidade): a fila usa uma lista fixa de horarios, mas de hoje —
+  // o cliente ja esta esperando ser atendido, entao faz mais sentido do que
+  // "amanha" (unico caso usado no agendamento normal).
+  static const _slots = ['09:00', '10:30', '13:00', '14:30', '16:00', '17:30'];
+  String _selectedSlot = _slots.first;
+
+  bool _isLoadingProfessionals = true;
+  String? _loadError;
+  List<ProfessionalModel> _professionals = [];
+  ProfessionalModel? _selectedProfessional;
+
+  bool _isSaving = false;
+  String? _saveError;
+  WaitlistEntryModel? _result;
+
+  bool get _needsProfessionalPicker => widget.entry.professionalId == null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_needsProfessionalPicker) {
+      _loadProfessionals();
+    } else {
+      _isLoadingProfessionals = false;
+    }
+  }
+
+  Future<void> _loadProfessionals() async {
+    setState(() {
+      _isLoadingProfessionals = true;
+      _loadError = null;
+    });
+
+    try {
+      final professionals = await widget.professionalsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _professionals = professionals;
+        _selectedProfessional = professionals.isEmpty
+            ? null
+            : professionals.first;
+        _isLoadingProfessionals = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.userMessage;
+        _isLoadingProfessionals = false;
+      });
+    }
+  }
+
+  Future<void> _confirm() async {
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    final parts = _selectedSlot.split(':');
+    final now = DateTime.now();
+    final startsAt = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+
+    try {
+      final result = await widget.waitlistRepository.assign(
+        id: widget.entry.id,
+        professionalId: widget.entry.professionalId ?? _selectedProfessional?.id,
+        startsAt: startsAt,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _isSaving = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_result != null) {
+      return AppScaffold(
+        appBar: AppBar(title: const Text('Fila de espera')),
+        body: AppMockSuccessPanel(
+          title: 'Atendimento agendado',
+          message:
+              '${widget.entry.clientName ?? 'Cliente'} foi encaixado as $_selectedSlot.',
+          buttonLabel: 'Concluir',
+          onDone: () => Navigator.of(context).pop(),
+        ),
+      );
+    }
+
+    final Widget body;
+
+    if (_needsProfessionalPicker && _isLoadingProfessionals) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_needsProfessionalPicker && _loadError != null) {
+      body = AppLoadingError(message: _loadError!, onRetry: _loadProfessionals);
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Cliente'),
+                  trailing: Text(widget.entry.clientName ?? '-'),
+                ),
+                ListTile(
+                  title: const Text('Servico'),
+                  trailing: Text(widget.entry.serviceName ?? '-'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (!_needsProfessionalPicker) ...[
+            const AppSectionTitle('Profissional'),
+            Text(widget.entry.professionalName ?? '-'),
+          ] else ...[
+            const AppSectionTitle('Escolher profissional'),
+            RadioGroup<ProfessionalModel>(
+              groupValue: _selectedProfessional,
+              onChanged: (value) =>
+                  setState(() => _selectedProfessional = value),
+              child: Column(
+                children: [
+                  for (final professional in _professionals)
+                    RadioListTile<ProfessionalModel>(
+                      title: Text(professional.name),
+                      value: professional,
+                    ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const AppSectionTitle('Horario disponivel (hoje)'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final slot in _slots)
+                ChoiceChip(
+                  label: Text(slot),
+                  selected: _selectedSlot == slot,
+                  onSelected: (_) => setState(() => _selectedSlot = slot),
+                ),
+            ],
+          ),
+          if (_saveError != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _saveError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _isSaving ? null : _confirm,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Atribuir horario'),
+          ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Atribuir horario')),
+      body: body,
     );
   }
 }

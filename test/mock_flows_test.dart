@@ -260,4 +260,69 @@ void main() {
 
     expect(find.text('Meus agendamentos'), findsOneWidget);
   });
+
+  testWidgets('cliente entra na fila de espera e sai dela pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agendar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Fila de espera'));
+    await tester.pumpAndSettle();
+    expect(find.text('Corte masculino'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Entrar na fila'));
+    await tester.pumpAndSettle();
+    expect(find.text('Servico desejado'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Entrar na fila'));
+    await tester.pumpAndSettle();
+    expect(find.text('Voce entrou na fila'), findsOneWidget);
+
+    await tester.tap(find.text('Concluir'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fila de espera'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Sair da fila'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Sair da fila'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fila de espera'), findsWidgets);
+  });
+
+  testWidgets('dono atribui horario da fila de espera pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agenda'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Fila de espera'));
+    await tester.pumpAndSettle();
+    expect(find.text('Carlos Mendes'), findsOneWidget);
+
+    await tester.tap(find.text('Carlos Mendes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Escolher profissional'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Atribuir horario'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Atendimento agendado'), findsOneWidget);
+
+    await tester.tap(find.text('Concluir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fila de espera'), findsWidgets);
+  });
 }

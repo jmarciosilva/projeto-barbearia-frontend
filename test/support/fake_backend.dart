@@ -214,6 +214,11 @@ http.Client buildFakeBackend() {
         'professional': {'name': 'Ana Souza'},
         'service': {'name': 'Corte masculino'},
         'notes': null,
+        // Agendamento avulso: backend real cria esse pagamento automaticamente
+        // quando nao ha client_subscription_id.
+        'payment': body['client_subscription_id'] == null
+            ? {'amount_cents': 6000, 'status': 'pending'}
+            : null,
       });
     }
 
@@ -229,6 +234,46 @@ http.Client buildFakeBackend() {
         if (body['status'] != null) 'status': body['status'],
         if (body['starts_at'] != null) 'starts_at': body['starts_at'],
         if (body['starts_at'] != null) 'ends_at': body['starts_at'],
+      });
+    }
+
+    if (method == 'POST' &&
+        path.contains('/waitlist/') &&
+        path.endsWith('/assign')) {
+      return _jsonResponse(200, {
+        ..._waitlistEntriesJson.first,
+        'status': 'scheduled',
+        'professional': {'name': 'Ana Souza'},
+        'appointment': {
+          'id': 99,
+          'status': 'scheduled',
+          'service': {'name': 'Corte masculino'},
+          'payment': {'amount_cents': 6000, 'status': 'pending'},
+        },
+      });
+    }
+
+    if (method == 'GET' && path.endsWith('/waitlist')) {
+      return _jsonResponse(200, _waitlistEntriesJson);
+    }
+
+    if (method == 'POST' && path.endsWith('/waitlist')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 2,
+        'status': 'waiting',
+        'notes': body['notes'],
+        'client': {'name': 'Carlos Mendes'},
+        'service': {'name': 'Corte masculino'},
+        'professional': null,
+        'appointment': null,
+      });
+    }
+
+    if (method == 'PATCH' && RegExp(r'/waitlist/\d+$').hasMatch(path)) {
+      return _jsonResponse(200, {
+        ..._waitlistEntriesJson.first,
+        'status': 'canceled',
       });
     }
 
@@ -439,6 +484,18 @@ final _appointmentsJson = [
     'professional': {'name': 'Ana Souza'},
     'service': {'name': 'Corte masculino'},
     'notes': null,
+  },
+];
+
+final _waitlistEntriesJson = [
+  {
+    'id': 1,
+    'status': 'waiting',
+    'notes': null,
+    'client': {'name': 'Carlos Mendes'},
+    'service': {'name': 'Corte masculino'},
+    'professional': null,
+    'appointment': null,
   },
 ];
 
