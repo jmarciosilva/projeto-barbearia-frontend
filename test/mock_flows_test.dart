@@ -32,6 +32,9 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Confirmar pagamento manual'));
     await tester.pumpAndSettle();
 
@@ -61,6 +64,9 @@ void main() {
     await pumpMobileApp(tester);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Confirmar pagamento manual'));
@@ -188,7 +194,10 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.text('Criar conta do estabelecimento'));
+    await tester.tap(find.text('Criar conta'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Sou dono de salao'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Novo Salao');
@@ -261,6 +270,9 @@ void main() {
       await pumpMobileApp(tester);
 
       await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Criar plano de assinatura'));

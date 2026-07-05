@@ -6,6 +6,7 @@ class TenantModel {
     required this.name,
     required this.saasSubscription,
     this.professionalPaymentDay = 5,
+    this.inviteCode,
   });
 
   factory TenantModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +17,7 @@ class TenantModel {
         json['saas_subscription'] as Map<String, dynamic>,
       ),
       professionalPaymentDay: json['professional_payment_day'] as int? ?? 5,
+      inviteCode: json['invite_code'] as String?,
     );
   }
 
@@ -23,4 +25,8 @@ class TenantModel {
   final String name;
   final SaasSubscriptionModel saasSubscription;
   final int professionalPaymentDay;
+
+  /// Codigo que o dono compartilha (link/QR) para o cliente se autocadastrar
+  /// ja vinculado a este tenant. Ver `POST /auth/register-client`.
+  final String? inviteCode;
 }

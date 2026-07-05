@@ -1,14 +1,16 @@
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:clube_do_salao/core/error_reporter.dart';
+import 'package:clube_do_salao/pages/client_onboarding_pages.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
-import 'package:clube_do_salao/pages/onboarding_pages.dart';
 import 'package:clube_do_salao/pages/owner_pages.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
+import 'package:clube_do_salao/services/onboarding_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/saas_subscription_repository.dart';
@@ -66,15 +68,60 @@ class ClubeDoSalaoApp extends StatefulWidget {
 class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
   late final AuthSession _authSession =
       widget._injectedAuthSession ?? AuthSession();
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? _inviteLinkSubscription;
 
   @override
   void initState() {
     super.initState();
     _authSession.restore();
+    _listenForInviteLinks();
+  }
+
+  /// Convite por link/QR (`clubedosalao://convite/{codigo}`): quando o app
+  /// abre por um desses links e ninguem esta logado, pula direto para a
+  /// tela de confirmacao do convite, sem o cliente precisar digitar nada.
+  void _listenForInviteLinks() {
+    // `app_links` usa platform channels, indisponiveis em testes de widget;
+    // ver `_injectedAuthSession` para o mesmo tipo de escape usado em testes.
+    if (widget._injectedAuthSession != null) return;
+
+    final appLinks = AppLinks();
+    _inviteLinkSubscription = appLinks.uriLinkStream.listen(
+      _handleInviteLink,
+      onError: (_) {},
+    );
+    appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleInviteLink(uri);
+    });
+  }
+
+  void _handleInviteLink(Uri uri) {
+    if (uri.scheme != 'clubedosalao') return;
+    if (_authSession.status != AuthStatus.unauthenticated) return;
+
+    final code = uri.host == 'convite' && uri.pathSegments.isNotEmpty
+        ? uri.pathSegments.first
+        : (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'convite'
+              ? uri.pathSegments[1]
+              : null);
+
+    if (code == null || code.isEmpty) return;
+
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => ClientInviteEntryPage(
+          authSession: _authSession,
+          onboardingRepository: OnboardingRepository(_authSession.apiClient),
+          initialCode: code,
+        ),
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _inviteLinkSubscription?.cancel();
     _authSession.dispose();
     super.dispose();
   }
@@ -87,6 +134,7 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
     );
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Clube do Salão',
       theme: ThemeData(
@@ -107,6 +155,8 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
         builder: (context, _) {
           return switch (_authSession.status) {
             AuthStatus.unknown => const _SplashPage(),
+            AuthStatus.authenticated when _authSession.justRegisteredAsCustomer =>
+              ClientWelcomeCarouselPage(onDone: _authSession.acknowledgeWelcome),
             AuthStatus.authenticated => DashboardShell(
               authSession: _authSession,
             ),
@@ -364,12 +414,16 @@ class _LoginPageState extends State<LoginPage> {
                                 ? null
                                 : () => Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => RegisterOwnerPage(
+                                      builder: (_) => ChooseAccountTypePage(
                                         authSession: widget.authSession,
+                                        onboardingRepository:
+                                            OnboardingRepository(
+                                              widget.authSession.apiClient,
+                                            ),
                                       ),
                                     ),
                                   ),
-                            child: const Text('Criar conta do estabelecimento'),
+                            child: const Text('Criar conta'),
                           ),
                         ],
                       ),
@@ -507,6 +561,7 @@ class _DashboardShellState extends State<DashboardShell> {
             professionalsRepository: ProfessionalsRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
             saasSubscriptionRepository: SaasSubscriptionRepository(apiClient),
+            checklistStorage: widget.authSession.checklistStorage,
           ),
         ),
         _ShellPage(

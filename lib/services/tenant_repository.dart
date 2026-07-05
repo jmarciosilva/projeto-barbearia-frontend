@@ -19,4 +19,14 @@ class TenantRepository {
 
     return TenantModel.fromJson(response);
   }
+
+  /// Troca o codigo de convite do proprio estabelecimento, invalidando o
+  /// anterior. Exclusivo do dono.
+  Future<TenantModel> regenerateInviteCode() async {
+    final response =
+        await _client.post('/tenant/invite-code/regenerate')
+            as Map<String, dynamic>;
+
+    return TenantModel.fromJson(response);
+  }
 }

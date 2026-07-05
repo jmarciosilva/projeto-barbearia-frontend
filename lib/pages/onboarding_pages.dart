@@ -1,17 +1,7 @@
 import 'package:clube_do_salao/services/auth_session.dart';
+import 'package:clube_do_salao/support/business_types.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
-
-/// Tipos de negocio aceitos pelo backend (`TenantController::update`).
-const _businessTypes = {
-  'barbershop': 'Barbearia',
-  'beauty_salon': 'Salao de beleza',
-  'aesthetic_clinic': 'Clinica de estetica',
-  'nails': 'Estudio de unhas',
-  'brows_lashes': 'Sobrancelhas e cilios',
-  'spa': 'Spa',
-  'other': 'Outro',
-};
 
 /// Onboarding do estabelecimento: cria o tenant e o usuario proprietario em
 /// uma unica chamada (`POST /auth/register-owner`) e ja autentica, sem exigir
@@ -32,7 +22,7 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
   final _ownerNameController = TextEditingController();
   final _ownerEmailController = TextEditingController();
   final _ownerPasswordController = TextEditingController();
-  String _businessType = _businessTypes.keys.first;
+  String _businessType = businessTypeLabels.keys.first;
 
   @override
   void dispose() {
@@ -60,7 +50,9 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
 
     if (!mounted) return;
     if (widget.authSession.isAuthenticated) {
-      Navigator.of(context).pop();
+      // `popUntil` (em vez de um unico `pop`) porque esta tela agora pode
+      // ser aberta por baixo de `ChooseAccountTypePage`.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
@@ -93,7 +85,7 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Tipo de negocio'),
                 items: [
-                  for (final entry in _businessTypes.entries)
+                  for (final entry in businessTypeLabels.entries)
                     DropdownMenuItem(
                       value: entry.key,
                       child: Text(entry.value, overflow: TextOverflow.ellipsis),

@@ -9,10 +9,13 @@ import 'package:clube_do_salao/models/saas_plan_model.dart';
 import 'package:clube_do_salao/models/saas_subscription_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
+import 'package:clube_do_salao/pages/owner_invite_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
+import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/services/saas_subscription_repository.dart';
@@ -34,6 +37,7 @@ class OwnerHomePage extends StatefulWidget {
     required this.professionalsRepository,
     required this.tenantRepository,
     required this.saasSubscriptionRepository,
+    required this.checklistStorage,
   });
 
   final ClientsRepository clientsRepository;
@@ -44,6 +48,7 @@ class OwnerHomePage extends StatefulWidget {
   final ProfessionalsRepository professionalsRepository;
   final TenantRepository tenantRepository;
   final SaasSubscriptionRepository saasSubscriptionRepository;
+  final OnboardingChecklistStorage checklistStorage;
 
   @override
   State<OwnerHomePage> createState() => _OwnerHomePageState();
@@ -57,11 +62,26 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
   int _todayAppointments = 0;
   int _pendingPayments = 0;
   SaasSubscriptionModel? _saasSubscription;
+  TenantModel? _tenant;
+  int _professionalsCount = 0;
+  int _servicesCount = 0;
+  bool _hasSharedInvite = false;
+  bool _checklistDismissed = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  bool get _showChecklist =>
+      !_checklistDismissed &&
+      !(_professionalsCount > 0 && _servicesCount > 0 && _hasSharedInvite);
+
+  Future<void> _dismissChecklist() async {
+    await widget.checklistStorage.dismiss();
+    if (!mounted) return;
+    setState(() => _checklistDismissed = true);
   }
 
   Future<void> _load() async {
@@ -82,6 +102,10 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
       );
       final payments = await widget.paymentsRepository.index();
       final tenant = await widget.tenantRepository.show();
+      final professionals = await widget.professionalsRepository.index();
+      final services = await widget.servicesRepository.index();
+      final hasSharedInvite = await widget.checklistStorage.hasSharedInvite();
+      final checklistDismissed = await widget.checklistStorage.isDismissed();
 
       final activeSubscriptions = clients
           .expand((client) => client.subscriptions)
@@ -99,6 +123,11 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             .where((payment) => payment.status == 'pending')
             .length;
         _saasSubscription = tenant.saasSubscription;
+        _tenant = tenant;
+        _professionalsCount = professionals.length;
+        _servicesCount = services.length;
+        _hasSharedInvite = hasSharedInvite;
+        _checklistDismissed = checklistDismissed;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -144,6 +173,48 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               },
             ),
           ),
+        if (_showChecklist)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _OnboardingChecklistCard(
+              hasProfessional: _professionalsCount > 0,
+              hasService: _servicesCount > 0,
+              hasSharedInvite: _hasSharedInvite,
+              onDismiss: _dismissChecklist,
+              onAddProfessional: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => NewProfessionalPage(
+                      professionalsRepository: widget.professionalsRepository,
+                      servicesRepository: widget.servicesRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+              onAddService: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        NewServicePage(servicesRepository: widget.servicesRepository),
+                  ),
+                );
+                _load();
+              },
+              onShareInvite: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => InviteCodePage(
+                      tenantRepository: widget.tenantRepository,
+                      checklistStorage: widget.checklistStorage,
+                      initialTenant: _tenant!,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+          ),
         AppMetricGrid(
           metrics: [
             AppMetric('MRR previsto', formatCents(_mrrCents), Icons.payments),
@@ -174,6 +245,23 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 builder: (_) => SaasPlanPage(
                   tenantRepository: widget.tenantRepository,
                   saasSubscriptionRepository: widget.saasSubscriptionRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.qr_code,
+          title: 'Convidar clientes',
+          subtitle: 'Compartilhe o link/QR para o cliente se cadastrar sozinho.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => InviteCodePage(
+                  tenantRepository: widget.tenantRepository,
+                  checklistStorage: widget.checklistStorage,
+                  initialTenant: _tenant!,
                 ),
               ),
             );
@@ -258,6 +346,112 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Checklist de configuracao inicial, exibido no topo do dashboard do dono
+/// ate os 3 passos serem concluidos (ou o card ser dispensado). Item
+/// concluido nao bloqueia os outros nem esconde o card sozinho — so some
+/// quando os 3 estao prontos ou o dono dispensa manualmente.
+class _OnboardingChecklistCard extends StatelessWidget {
+  const _OnboardingChecklistCard({
+    required this.hasProfessional,
+    required this.hasService,
+    required this.hasSharedInvite,
+    required this.onDismiss,
+    required this.onAddProfessional,
+    required this.onAddService,
+    required this.onShareInvite,
+  });
+
+  final bool hasProfessional;
+  final bool hasService;
+  final bool hasSharedInvite;
+  final VoidCallback onDismiss;
+  final VoidCallback onAddProfessional;
+  final VoidCallback onAddService;
+  final VoidCallback onShareInvite;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Vamos configurar seu salao',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Dispensar',
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
+            ),
+            _ChecklistItem(
+              done: hasProfessional,
+              label: 'Cadastre seu primeiro profissional',
+              onTap: onAddProfessional,
+            ),
+            _ChecklistItem(
+              done: hasService,
+              label: 'Cadastre seu primeiro servico',
+              onTap: onAddService,
+            ),
+            _ChecklistItem(
+              done: hasSharedInvite,
+              label: 'Compartilhe o convite com seus clientes',
+              onTap: onShareInvite,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChecklistItem extends StatelessWidget {
+  const _ChecklistItem({
+    required this.done,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool done;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        done ? Icons.check_circle : Icons.radio_button_unchecked,
+        color: done ? colorScheme.primary : colorScheme.outline,
+      ),
+      title: Text(
+        label,
+        style: done
+            ? TextStyle(
+                decoration: TextDecoration.lineThrough,
+                color: colorScheme.onSurfaceVariant,
+              )
+            : null,
+      ),
+      trailing: done ? null : const Icon(Icons.chevron_right),
+      onTap: done ? null : onTap,
     );
   }
 }

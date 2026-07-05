@@ -157,7 +157,49 @@ Objetivo: entregar a primeira versao operacional de cobranca manual: o dono conf
 | 2026-07-04 | Codex | Em andamento | Escopo corrigido a pedido do usuario: primeira versao usa cobranca manual pelo dono, sem gateway. Tela de confirmacao passou a exigir escolha entre PIX, cartao credito, cartao debito, dinheiro e fiado; quando o dono escolhe fiado, o item continua na lista de pendentes | Falta criar visao dedicada de fiados/contas em aberto e validar em dispositivo real |
 | 2026-07-04 | Codex | Parcial aprovado | Painel do gestor ganhou "Gestao do fiado" com saldo aberto e lancamento parcial de recebimentos, e "Comissoes profissionais" com dia de pagamento, extrato e adiantamentos; cliente ganhou aba "Pagamentos" separando pendentes e efetuados; perfil profissional passou a mostrar atendimentos da semana/mes, comissao, adiantamentos e valor a receber; `flutter analyze` limpo e testes mockados cobrem fiado parcial e comissao | Falta validacao em dispositivo real e refinamento futuro de relatorios financeiros |
 
-## Fase 3 - Fidelidade e Avaliacoes
+## Fase 3 - Onboarding e Autocadastro
+
+Status: `Em auditoria`
+
+Objetivo: eliminar a dependencia do dono cadastrar manualmente cada cliente, permitindo autocadastro do cliente vinculado a um estabelecimento (por convite - codigo/link/QR - ou por escolha em diretorio publico quando nao ha convite), e tornar o onboarding do dono mais autoexplicativo com um checklist de configuracao inicial pos-cadastro. Publico-alvo do dono tem baixa familiaridade com tecnologia, entao o fluxo precisa ser guiado sem travar quem ainda nao tem todos os dados na primeira sessao.
+
+### Escopo previsto
+
+- [x] Tela inicial de escolha de perfil no cadastro a partir do `LoginPage`: "Sou dono de salao" / "Sou cliente"
+- [x] Deep link/QR: abrir o convite (`clubedosalao://convite/{codigo}` ou link universal) direto na tela "Voce foi convidado por [Salao]"
+- [x] Tela de cadastro do cliente (nome, telefone, e-mail, senha), reaproveitada tanto vindo de convite quanto do diretorio
+- [x] Tela de diretorio/busca de saloes ativos para cliente sem convite escolher onde se cadastrar
+- [x] Tela do dono para exibir e compartilhar o codigo de convite + QR code gerado localmente, com botao de compartilhar via share sheet nativo (WhatsApp, e-mail, etc)
+- [x] Botao de regenerar o codigo de convite na mesma tela
+- [x] Checklist de configuracao inicial no dashboard do dono (cadastrar profissional, cadastrar servico, compartilhar convite), dispensavel item a item, some quando todos os itens forem concluidos ou dispensados
+- [x] Carrossel de boas-vindas do cliente (3 telas) no primeiro acesso pos-cadastro, dispensavel
+
+### Criterios de aceite
+
+- [x] Cliente consegue abrir um link/QR de convite e completar o proprio cadastro sem ajuda do dono
+- [x] Cliente sem convite consegue escolher um salao no diretorio publico e se cadastrar sozinho
+- [x] Dono consegue visualizar, compartilhar e regenerar o codigo de convite do proprio salao
+- [x] Checklist do dono aparece apos o cadastro do estabelecimento e reflete o progresso conforme os itens sao concluidos ou dispensados
+- [x] Fluxos validados em emulador Android contra o backend real
+
+### Auditoria da fase
+
+| Data | Responsavel | Resultado | Evidencias | Pendencias |
+|---|---|---|---|---|
+| 2026-07-05 | Claude | Em auditoria | `ChooseAccountTypePage` (a partir do botao "Criar conta" do `LoginPage`) leva a `RegisterOwnerPage` (dono) ou a `ClientInviteEntryPage` (cliente); esta ultima aceita um codigo de convite (`GET /tenants/by-invite-code/{code}`) e mostra `InviteConfirmationPage` antes do cadastro, ou encaminha para `TenantDirectoryPage` (`GET /tenants/directory`, com busca client-side) quando o cliente nao tem codigo; ambos os caminhos convergem em `ClientRegisterPage`, que chama `AuthSession.registerClient` (`POST /auth/register-client`) e ja autentica. Deep link `clubedosalao://convite/{codigo}` tratado via pacote `app_links` (novo intent-filter no `AndroidManifest.xml`, scheme `clubedosalao` host `convite`) abre `ClientInviteEntryPage` direto com o codigo preenchido, pulando a digitacao manual. Apos o autocadastro, `ClientWelcomeCarouselPage` (3 slides, dispensavel) aparece uma unica vez via flag `justRegisteredAsCustomer` na `AuthSession` (nao persistido). Dono ganhou `InviteCodePage` (nova tile "Convidar clientes" no dashboard) com QR gerado localmente (`qr_flutter`), compartilhamento pelo share sheet nativo (`share_plus`) e regeneracao de codigo (`POST /tenant/invite-code/regenerate`); dashboard do dono tambem ganhou um checklist de configuracao (`_OnboardingChecklistCard`) cobrindo profissional/servico cadastrado (calculado direto da API) e convite compartilhado (guardado localmente via `OnboardingChecklistStorage`, novo store injetavel espelhando o padrao do `TokenStorage`), dispensavel a qualquer momento e que some sozinho quando os 3 itens estao concluidos. `flutter analyze` limpo e 32/32 testes passando (5 novos em `client_onboarding_test.dart` cobrindo convite valido/invalido, diretorio e o checklist; goldens do login e do dashboard do dono atualizados pela nova tile). Validado ponta a ponta no emulador Android (`Small Phone`) contra o backend real: cliente se autocadastrou escolhendo "Clube do Salao Demo" no diretorio real, viu o carrossel e chegou ao dashboard sem plano ativo (cenario avulso); dono logado viu o checklist real (profissional/servico ja marcados, convite pendente), abriu `InviteCodePage`, o QR e o codigo bateram com o valor do banco, o share sheet nativo abriu com o texto correto, e o checklist sumiu apos compartilhar; convite por deep link (`adb am start -d "clubedosalao://convite/{codigo}"`) abriu o app direto na tela de confirmacao com os dados reais do tenant | iOS/simulador iOS continua sem validacao — ambiente desta sessao nao tem Mac disponivel; regeneracao de codigo no emulador nao foi reexercitada nesta rodada (ja validada direto na API na fase anterior) |
+
+### Decisoes
+
+| Data | Decisao | Motivo |
+|---|---|---|
+| 2026-07-05 | Convite do dono ao cliente usa codigo fixo regeneravel, nao um token unico por convite | Simplicidade para dono leigo em tecnologia: reutiliza o mesmo codigo/QR sem precisar gerar um novo a cada pessoa convidada; confirmado com o usuario |
+| 2026-07-05 | Cliente avulso sem convite escolhe o salao em um diretorio publico (nome, cidade, tipo de negocio) | Reduz friccao de cadastro para quem nao recebeu convite de ninguem; aceito o tradeoff de expor a existencia de estabelecimentos concorrentes entre si na mesma cidade |
+| 2026-07-05 | Cadastro de cliente via convite/diretorio entra ativo direto, sem aprovacao manual do dono | Confirmacao de pagamento ja e manual e feita separadamente pelo dono; bloquear o cadastro em si adicionaria friccao sem reduzir risco financeiro real |
+| 2026-07-05 | Onboarding do dono continua formulario unico (`RegisterOwnerPage`), com checklist de configuracao pos-cadastro em vez de wizard obrigatorio em etapas | Dono pode nao ter profissionais/servicos cadastrados ainda na primeira sessao; forcar um wizard em etapas travaria o fluxo para quem ainda nao tem esses dados |
+| 2026-07-05 | Deep link usa scheme customizado (`clubedosalao://convite/{codigo}`) em vez de universal link com dominio verificado | Universal/app link exige dominio proprio com arquivo `assetlinks.json` publicado e verificado, indisponivel neste estagio do projeto; o link `https://clubedosalao.app/c/{codigo}` continua funcionando como fallback textual (mostra o codigo para digitacao manual) mesmo sem o dominio existir de fato |
+| 2026-07-05 | Checklist do dono guarda "convite compartilhado" e "dispensado" localmente no aparelho (`OnboardingChecklistStorage`), nao no backend | Sao preferencias de interface por sessao/aparelho, nao dado de negocio do tenant; evita criar coluna/endpoint no backend so para isso, mesmo padrao ja usado para o token de autenticacao |
+
+## Fase 4 - Fidelidade e Avaliacoes
 
 Status: `Nao iniciado`
 
@@ -168,7 +210,7 @@ Status: `Nao iniciado`
 - [ ] Nivel do cliente
 - [ ] Beneficios por nivel
 
-## Fase 4 - CRM Avancado e Estoque
+## Fase 5 - CRM Avancado e Estoque
 
 Status: `Nao iniciado`
 
@@ -179,7 +221,7 @@ Status: `Nao iniciado`
 - [ ] Historico ampliado
 - [ ] Produtos e estoque para proprietario
 
-## Fase 5 - Marketing Automation
+## Fase 6 - Marketing Automation
 
 Status: `Nao iniciado`
 
@@ -190,7 +232,7 @@ Status: `Nao iniciado`
 - [ ] Indicacao de amigos
 - [ ] Recuperacao de inativos
 
-## Fase 6 - Business Intelligence
+## Fase 7 - Business Intelligence
 
 Status: `Nao iniciado`
 
@@ -200,7 +242,7 @@ Status: `Nao iniciado`
 - [ ] Ranking de profissionais
 - [ ] Cards executivos para proprietario
 
-## Fase 7 - Inteligencia Artificial
+## Fase 8 - Inteligencia Artificial
 
 Status: `Nao iniciado`
 
@@ -222,3 +264,4 @@ Status: `Nao iniciado`
 | 2026-07-03 | Inserir a Fase 1 "Planos SaaS e Controle de Acesso" | A estrutura de trial + 3 tiers pagos + `PlanGate` (secao 3 da especificacao) nao tinha nenhuma fase no roadmap, apesar de ser o nucleo do modelo de negocio | Fases antigas 1-5 foram renumeradas para 2-6; Fase 7 nao muda |
 | 2026-07-03 | Remover "Notificacao push via FCM" da Fase 0, manter so na Fase 2 | Item aparecia duplicado sem fase "dona"; push so faz sentido completo junto com lembretes de cobranca/agendamento, nao como parte da fundacao/validacao | Fase 0 nao fica mais bloqueada por um item que nao e essencial para validar o nucleo do produto |
 | 2026-07-04 | Adicionar agendamento avulso e fila de espera ao escopo da Fase 0, a pedido do usuario | A especificacao do produto nao cobre atendimento de cliente sem assinatura (nem agendamento avulso nem fila de espera) — sem isso, o app so serve quem ja assinou um plano, deixando de fora um caso de uso real do salao (cliente eventual). Cobranca do avulso reaproveita a confirmacao manual de pagamento ja existente; fila de espera e resolvida manualmente pelo dono/profissional (sem auto-atribuicao) | Fase 0 ganha 3 itens de escopo e 3 criterios de aceite novos; nenhuma fase futura muda de numero |
+| 2026-07-05 | Inserir a Fase 3 "Onboarding e Autocadastro", a pedido do usuario apos revisao de usabilidade | Hoje o cliente so entra no sistema se o dono cadastrar manualmente (`POST /clients`), e o onboarding do dono e um formulario unico sem nenhum guia — isso nao atende a expectativa de cliente se autocadastrar via convite/link/QR ou de forma avulsa escolhendo o salao, nem a premissa de produto de onboarding guiado para dono leigo em tecnologia (secao 1 da especificacao) | Fases antigas 3-7 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 4-8 |

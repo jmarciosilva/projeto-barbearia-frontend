@@ -1,20 +1,23 @@
 import 'package:clube_do_salao/main.dart';
 import 'package:clube_do_salao/services/api_client.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
+import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_backend.dart';
+import 'fake_onboarding_checklist_storage.dart';
 import 'fake_token_storage.dart';
 
 const mobileSize = Size(390, 844);
 
 /// Cria uma sessao de autenticacao apontando para o backend falso, pronta
 /// para os testes de widget (sem rede real nem platform channels).
-AuthSession buildTestAuthSession() {
+AuthSession buildTestAuthSession({OnboardingChecklistStorage? checklistStorage}) {
   return AuthSession(
     apiClient: ApiClient(httpClient: buildFakeBackend()),
     storage: FakeTokenStorage(),
+    checklistStorage: checklistStorage ?? FakeOnboardingChecklistStorage(),
   );
 }
 

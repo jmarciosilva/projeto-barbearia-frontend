@@ -25,6 +25,81 @@ http.Client buildFakeBackend() {
       });
     }
 
+    if (method == 'POST' && path.endsWith('/auth/register-client')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final client = body['client'] as Map<String, dynamic>;
+      final hasInvite = (body['invite_code'] as String?)?.isNotEmpty ?? false;
+      final hasTenantId = body['tenant_id'] != null;
+
+      if (!hasInvite && !hasTenantId) {
+        return _jsonResponse(422, {
+          'message': 'Informe um codigo de convite ou escolha um estabelecimento.',
+          'error': 'validation_error',
+          'errors': {
+            'invite_code': ['Informe um codigo de convite ou escolha um estabelecimento.'],
+          },
+        });
+      }
+
+      if (hasInvite && body['invite_code'] != 'AB3XQ9') {
+        return _jsonResponse(404, {
+          'message': 'Registro nao encontrado.',
+          'error': 'not_found',
+        });
+      }
+
+      return _jsonResponse(201, {
+        'token': 'customer-token',
+        'user': {..._customerJson, 'name': client['name'], 'email': client['email']},
+        'client': {'id': 5, 'name': client['name']},
+        'tenant': {
+          'id': 1,
+          'name': 'Clube do Salao Demo',
+          'business_type': 'barbershop',
+          'city': 'Sao Paulo',
+        },
+      });
+    }
+
+    if (method == 'GET' && path.contains('/tenants/by-invite-code/')) {
+      final code = path.split('/').last;
+
+      if (code != 'AB3XQ9') {
+        return _jsonResponse(404, {
+          'message': 'Registro nao encontrado.',
+          'error': 'not_found',
+        });
+      }
+
+      return _jsonResponse(200, {
+        'id': 1,
+        'name': 'Clube do Salao Demo',
+        'business_type': 'barbershop',
+        'city': 'Sao Paulo',
+      });
+    }
+
+    if (method == 'GET' && path.endsWith('/tenants/directory')) {
+      return _jsonResponse(200, [
+        {
+          'id': 1,
+          'name': 'Clube do Salao Demo',
+          'business_type': 'barbershop',
+          'city': 'Sao Paulo',
+        },
+        {
+          'id': 2,
+          'name': 'Barbearia do Ze',
+          'business_type': 'barbershop',
+          'city': 'Campinas',
+        },
+      ]);
+    }
+
+    if (method == 'POST' && path.endsWith('/tenant/invite-code/regenerate')) {
+      return _jsonResponse(200, {..._tenantJson, 'invite_code': 'ZZ9YY8'});
+    }
+
     if (method == 'POST' && path.endsWith('/auth/login')) {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       final email = body['email'] as String;
@@ -411,6 +486,7 @@ const _tenantJson = {
   'id': 1,
   'name': 'Clube do Salao Demo',
   'professional_payment_day': 5,
+  'invite_code': 'AB3XQ9',
   'saas_subscription': {
     'status': 'active',
     'effective_status': 'active',

@@ -1,6 +1,7 @@
 import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/models/app_user.dart';
 import 'package:clube_do_salao/services/api_client.dart';
+import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:clube_do_salao/services/token_storage.dart';
 import 'package:flutter/foundation.dart';
 
@@ -10,12 +11,21 @@ enum AuthStatus { unknown, authenticating, authenticated, unauthenticated }
 /// tela de login. Um unico `AuthSession` vive no topo da arvore de widgets
 /// (ver `main.dart`) e notifica quem estiver ouvindo quando o estado muda.
 class AuthSession extends ChangeNotifier {
-  AuthSession({ApiClient? apiClient, TokenStorage? storage})
-    : apiClient = apiClient ?? ApiClient(),
-      _storage = storage ?? const SecureTokenStorage();
+  AuthSession({
+    ApiClient? apiClient,
+    TokenStorage? storage,
+    OnboardingChecklistStorage? checklistStorage,
+  }) : apiClient = apiClient ?? ApiClient(),
+       _storage = storage ?? const SecureTokenStorage(),
+       checklistStorage =
+           checklistStorage ?? const SecureOnboardingChecklistStorage();
 
   final ApiClient apiClient;
   final TokenStorage _storage;
+
+  /// Injetavel pelo mesmo motivo do `TokenStorage`: `flutter_secure_storage`
+  /// usa platform channels indisponiveis em testes de widget.
+  final OnboardingChecklistStorage checklistStorage;
 
   AuthStatus status = AuthStatus.unknown;
   AppUser? user;
@@ -120,6 +130,66 @@ class AuthSession extends ChangeNotifier {
     }
   }
 
+  /// Autocadastro do cliente (`POST /auth/register-client`), vinculado a um
+  /// tenant por `inviteCode` (convite do dono) OU `tenantId` (escolhido no
+  /// diretorio publico) — informe exatamente um dos dois. Ja autentica com
+  /// o token retornado, mesmo padrao de `registerOwner`.
+  Future<void> registerClient({
+    String? inviteCode,
+    int? tenantId,
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    assert(
+      (inviteCode != null) ^ (tenantId != null),
+      'Informe inviteCode OU tenantId, nunca os dois nem nenhum.',
+    );
+
+    if (status == AuthStatus.authenticating) return;
+
+    status = AuthStatus.authenticating;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response =
+          await apiClient.post(
+                '/auth/register-client',
+                body: {
+                  'invite_code': ?inviteCode,
+                  'tenant_id': ?tenantId,
+                  'client': {
+                    'name': name,
+                    'email': email,
+                    'phone': phone,
+                    'password': password,
+                  },
+                },
+              )
+              as Map<String, dynamic>;
+
+      await _applyAuthResponse(response);
+      justRegisteredAsCustomer = true;
+    } on AppException catch (error) {
+      status = AuthStatus.unauthenticated;
+      errorMessage = error.userMessage;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  /// Liga por uma unica sessao logo apos `registerClient`, para a tela
+  /// inicial decidir se mostra o carrossel de boas-vindas do cliente antes
+  /// do dashboard normal. Nao e persistido: some ao deslogar ou reabrir o app.
+  bool justRegisteredAsCustomer = false;
+
+  void acknowledgeWelcome() {
+    justRegisteredAsCustomer = false;
+    notifyListeners();
+  }
+
   Future<void> _applyAuthResponse(Map<String, dynamic> response) async {
     final token = response['token'] as String;
     apiClient.updateToken(token);
@@ -147,6 +217,7 @@ class AuthSession extends ChangeNotifier {
     await _storage.delete();
     apiClient.updateToken(null);
     user = null;
+    justRegisteredAsCustomer = false;
     status = AuthStatus.unauthenticated;
     notifyListeners();
   }
