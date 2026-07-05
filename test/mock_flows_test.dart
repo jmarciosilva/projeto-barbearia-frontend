@@ -40,6 +40,12 @@ void main() {
     await tester.tap(find.text('Joao Ribeiro'));
     await tester.pumpAndSettle();
 
+    expect(find.text('PIX'), findsWidgets);
+    expect(find.text('Cartao credito'), findsOneWidget);
+    expect(find.text('Cartao debito'), findsOneWidget);
+    expect(find.text('Dinheiro'), findsOneWidget);
+    expect(find.text('Fiado'), findsOneWidget);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
     await tester.pumpAndSettle();
 
@@ -49,6 +55,76 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nenhum pagamento pendente.'), findsOneWidget);
+  });
+
+  testWidgets('proprietario registra pagamento como fiado', (tester) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Confirmar pagamento manual'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Joao Ribeiro'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Fiado'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pagamento registrado como fiado.'), findsOneWidget);
+    expect(find.text('Joao Ribeiro'), findsOneWidget);
+  });
+
+  testWidgets('proprietario lanca recebimento parcial de fiado', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Gestao do fiado'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Total em aberto'), findsOneWidget);
+    await tester.tap(find.text('Joao Ribeiro'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '50,00');
+    await tester.tap(find.widgetWithText(FilledButton, 'Lancar recebimento'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recebimento lancado.'), findsOneWidget);
+  });
+
+  testWidgets('proprietario consulta comissao e adiantamento profissional', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView), const Offset(0, -700));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Comissoes profissionais'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dia 5'), findsOneWidget);
+    await tester.tap(find.text('Ana Souza'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A receber'), findsOneWidget);
+    expect(find.text('R\$ 114,00'), findsOneWidget);
+    expect(find.text('Adiantamento'), findsOneWidget);
   });
 
   testWidgets('profissional conclui atendimento pela API', (tester) async {
@@ -212,6 +288,9 @@ void main() {
     await tester.tap(find.text('Plano Bronze'));
     await tester.pumpAndSettle();
     expect(find.text('Minha assinatura'), findsOneWidget);
+    expect(find.text('Financeiro'), findsOneWidget);
+    expect(find.text('Pagamento em dia'), findsOneWidget);
+    expect(find.text('R\$ 99,90'), findsOneWidget);
 
     await tester.tap(find.text('Trocar de plano'));
     await tester.pumpAndSettle();
@@ -248,9 +327,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.widgetWithText(FilledButton, 'Cancelar agendamento'),
-    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Cancelar agendamento'));
     await tester.pumpAndSettle();
 
     expect(find.text('Agendamento cancelado'), findsOneWidget);

@@ -14,11 +14,37 @@ class PaymentsRepository {
         .toList();
   }
 
-  Future<PaymentModel> markPaid(int paymentId) async {
+  Future<PaymentModel> markPaid(int paymentId, {required String method}) async {
     final response =
-        await _client.post('/payments/$paymentId/mark-paid')
+        await _client.post(
+              '/payments/$paymentId/mark-paid',
+              body: {'method': method},
+            )
             as Map<String, dynamic>;
 
     return PaymentModel.fromJson(response);
+  }
+
+  Future<PaymentModel> receive(
+    int paymentId, {
+    required int amountCents,
+    required String method,
+  }) async {
+    final response =
+        await _client.post(
+              '/payments/$paymentId/receipts',
+              body: {'amount_cents': amountCents, 'method': method},
+            )
+            as Map<String, dynamic>;
+
+    return PaymentModel.fromJson(response);
+  }
+
+  Future<List<PaymentModel>> mine() async {
+    final response = await _client.get('/me/payments') as List<dynamic>;
+
+    return response
+        .map((json) => PaymentModel.fromJson(json as Map<String, dynamic>))
+        .toList();
   }
 }

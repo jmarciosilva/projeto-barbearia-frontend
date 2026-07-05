@@ -1,3 +1,4 @@
+import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/services/api_client.dart';
 
@@ -12,9 +13,7 @@ class ProfessionalsRepository {
     final response = await _client.get('/professionals') as List<dynamic>;
 
     return response
-        .map(
-          (json) => ProfessionalModel.fromJson(json as Map<String, dynamic>),
-        )
+        .map((json) => ProfessionalModel.fromJson(json as Map<String, dynamic>))
         .toList();
   }
 
@@ -107,5 +106,42 @@ class ProfessionalsRepository {
             as Map<String, dynamic>;
 
     return ProfessionalModel.fromJson(response);
+  }
+
+  Future<ProfessionalFinanceModel> myFinance({String period = 'month'}) async {
+    final response =
+        await _client.get('/me/professional/finance', query: {'period': period})
+            as Map<String, dynamic>;
+
+    return ProfessionalFinanceModel.fromJson(response);
+  }
+
+  Future<ProfessionalFinanceModel> finance(
+    int professionalId, {
+    String period = 'month',
+  }) async {
+    final response =
+        await _client.get(
+              '/professionals/$professionalId/finance',
+              query: {'period': period},
+            )
+            as Map<String, dynamic>;
+
+    return ProfessionalFinanceModel.fromJson(response);
+  }
+
+  Future<ProfessionalAdvanceModel> createAdvance({
+    required int professionalId,
+    required int amountCents,
+    String? notes,
+  }) async {
+    final response =
+        await _client.post(
+              '/professionals/$professionalId/advances',
+              body: {'amount_cents': amountCents, 'notes': ?notes},
+            )
+            as Map<String, dynamic>;
+
+    return ProfessionalAdvanceModel.fromJson(response);
   }
 }

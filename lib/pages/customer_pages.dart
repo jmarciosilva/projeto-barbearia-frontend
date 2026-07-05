@@ -3,15 +3,18 @@ import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/client_subscription_model.dart';
+import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
-import 'package:clube_do_salao/pages/professional_pages.dart' show AppointmentDetailPage;
+import 'package:clube_do_salao/pages/professional_pages.dart'
+    show AppointmentDetailPage;
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
+import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
@@ -124,7 +127,8 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
             AppActionTile(
               icon: Icons.check_circle,
               title: service.name,
-              subtitle: service.discountPercentage != null &&
+              subtitle:
+                  service.discountPercentage != null &&
                       service.discountPercentage! > 0
                   ? '${service.discountPercentage}% de desconto'
                   : 'Incluso no seu plano',
@@ -163,7 +167,9 @@ class _SubscriptionCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 plan == null || plan.usageLimit == null
-                    ? (plan == null ? 'Contrate um plano para comecar.' : 'Uso ilimitado neste mes.')
+                    ? (plan == null
+                          ? 'Contrate um plano para comecar.'
+                          : 'Uso ilimitado neste mes.')
                     : '${subscription!.usagesThisMonth()} de ${plan.usageLimit} usos neste mes',
               ),
               if (plan != null && plan.usageLimit != null) ...[
@@ -173,6 +179,22 @@ class _SubscriptionCard extends StatelessWidget {
                       .clamp(0, 1)
                       .toDouble(),
                   borderRadius: BorderRadius.circular(8),
+                ),
+              ],
+              if (subscription != null &&
+                  subscription!.paymentStatus != 'paid') ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      subscription!.paymentStatus == 'overdue'
+                          ? Icons.error_outline
+                          : Icons.info_outline,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(subscription!.paymentStatusLabel)),
+                  ],
                 ),
               ],
               const SizedBox(height: 12),
@@ -202,6 +224,112 @@ class CustomerProfilePage extends StatefulWidget {
 
   @override
   State<CustomerProfilePage> createState() => _CustomerProfilePageState();
+}
+
+class CustomerPaymentsPage extends StatefulWidget {
+  const CustomerPaymentsPage({super.key, required this.paymentsRepository});
+
+  final PaymentsRepository paymentsRepository;
+
+  @override
+  State<CustomerPaymentsPage> createState() => _CustomerPaymentsPageState();
+}
+
+class _CustomerPaymentsPageState extends State<CustomerPaymentsPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<PaymentModel> _payments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final payments = await widget.paymentsRepository.mine();
+
+      if (!mounted) return;
+      setState(() {
+        _payments = payments;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return AppLoadingError(message: _errorMessage!, onRetry: _load);
+    }
+
+    final pending = _payments
+        .where((payment) => payment.status == 'pending')
+        .toList();
+    final paid = _payments
+        .where((payment) => payment.status == 'paid')
+        .toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AppSectionTitle('Pagamentos pendentes'),
+        if (pending.isEmpty)
+          const Card(child: ListTile(title: Text('Nada pendente no salao.')))
+        else
+          for (final payment in pending) _CustomerPaymentTile(payment: payment),
+        const SizedBox(height: 16),
+        const AppSectionTitle('Pagamentos efetuados'),
+        if (paid.isEmpty)
+          const Card(child: ListTile(title: Text('Nenhum pagamento quitado.')))
+        else
+          for (final payment in paid) _CustomerPaymentTile(payment: payment),
+      ],
+    );
+  }
+}
+
+class _CustomerPaymentTile extends StatelessWidget {
+  const _CustomerPaymentTile({required this.payment});
+
+  final PaymentModel payment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: Icon(
+          payment.status == 'paid'
+              ? Icons.check_circle_outline
+              : Icons.schedule,
+        ),
+        title: Text(formatCents(payment.amountCents)),
+        subtitle: Text(
+          [
+            payment.statusLabel,
+            'pendente ${formatCents(payment.remainingCents)}',
+            if (payment.serviceName != null) payment.serviceName!,
+          ].join(' - '),
+        ),
+      ),
+    );
+  }
 }
 
 class _CustomerProfilePageState extends State<CustomerProfilePage> {
@@ -431,7 +559,9 @@ class _ChooseServicePageState extends State<ChooseServicePage> {
             for (final service in _services)
               RadioListTile<ServiceModel>(
                 title: Text(service.name),
-                subtitle: Text(formatDuration(Duration(minutes: service.durationMinutes))),
+                subtitle: Text(
+                  formatDuration(Duration(minutes: service.durationMinutes)),
+                ),
                 value: service,
               ),
             const SizedBox(height: 8),
@@ -478,8 +608,7 @@ class ChooseProfessionalPage extends StatefulWidget {
   final ClientModel client;
 
   @override
-  State<ChooseProfessionalPage> createState() =>
-      _ChooseProfessionalPageState();
+  State<ChooseProfessionalPage> createState() => _ChooseProfessionalPageState();
 }
 
 class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
@@ -711,8 +840,7 @@ class BookingConfirmationPage extends StatelessWidget {
             : '${appointment.serviceName ?? 'Atendimento'} com ${appointment.professionalName ?? 'profissional'} as ${formatTime(appointment.startsAt)}.\n\n'
                   'Agendamento avulso: ${formatCents(paymentAmount)} pendentes de pagamento no salao.',
         buttonLabel: 'Voltar ao inicio',
-        onDone: () =>
-            Navigator.of(context).popUntil((route) => route.isFirst),
+        onDone: () => Navigator.of(context).popUntil((route) => route.isFirst),
       ),
     );
   }
@@ -731,8 +859,7 @@ class SubscriptionDetailPage extends StatefulWidget {
   final ClientSubscriptionsRepository clientSubscriptionsRepository;
 
   @override
-  State<SubscriptionDetailPage> createState() =>
-      _SubscriptionDetailPageState();
+  State<SubscriptionDetailPage> createState() => _SubscriptionDetailPageState();
 }
 
 class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
@@ -812,9 +939,9 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
       await widget.clientSubscriptionsRepository.cancelSelf();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Assinatura cancelada.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Assinatura cancelada.')));
       await _load();
     } on AppException catch (error) {
       if (!mounted) return;
@@ -851,6 +978,16 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                     trailing: Text(subscription.plan?.name ?? '-'),
                   ),
                   ListTile(
+                    leading: const Icon(Icons.payments_outlined),
+                    title: const Text('Pagamento'),
+                    trailing: Text(subscription.paymentStatusLabel),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.autorenew),
+                    title: const Text('Cobranca'),
+                    trailing: const Text('Manual'),
+                  ),
+                  ListTile(
                     title: const Text('Renovacao'),
                     trailing: Text(subscription.renewsOn ?? '-'),
                   ),
@@ -865,6 +1002,59 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Financeiro'),
+            if (subscription.paymentStatus == 'overdue')
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.lock_outline),
+                  title: Text('Assinatura bloqueada'),
+                  subtitle: Text(
+                    'Regularize o pagamento para voltar a agendar pelo plano.',
+                  ),
+                ),
+              )
+            else if (subscription.paymentStatus == 'pending')
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.schedule),
+                  title: Text('Pagamento pendente'),
+                  subtitle: Text(
+                    'A confirmacao aparece aqui assim que a cobranca for processada.',
+                  ),
+                ),
+              )
+            else
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.check_circle_outline),
+                  title: Text('Pagamento em dia'),
+                  subtitle: Text('Sua assinatura esta liberada para uso.'),
+                ),
+              ),
+            if (subscription.payments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              for (final payment in subscription.payments)
+                Card(
+                  child: ListTile(
+                    leading: Icon(
+                      payment.status == 'paid'
+                          ? Icons.check_circle_outline
+                          : payment.status == 'overdue'
+                          ? Icons.error_outline
+                          : Icons.schedule,
+                    ),
+                    title: Text(formatCents(payment.amountCents)),
+                    subtitle: Text(
+                      [
+                        payment.statusLabel,
+                        payment.methodLabel,
+                        if (payment.dueOn != null) 'vence ${payment.dueOn}',
+                      ].join(' - '),
+                    ),
+                  ),
+                ),
+            ],
             const SizedBox(height: 16),
             const AppSectionTitle('Historico de uso'),
             if (subscription.usages.isEmpty)

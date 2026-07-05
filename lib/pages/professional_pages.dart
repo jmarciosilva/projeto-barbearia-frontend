@@ -1,6 +1,7 @@
 import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
+import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
@@ -127,6 +128,8 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
   bool _isLoading = true;
   String? _errorMessage;
   ProfessionalModel? _professional;
+  ProfessionalFinanceModel? _monthFinance;
+  ProfessionalFinanceModel? _weekFinance;
   int _completedThisMonth = 0;
 
   @override
@@ -147,6 +150,10 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
       final startOfNextMonth = DateTime(now.year, now.month + 1);
 
       final professional = await widget.professionalsRepository.me();
+      final monthFinance = await widget.professionalsRepository.myFinance();
+      final weekFinance = await widget.professionalsRepository.myFinance(
+        period: 'week',
+      );
       final appointments = await widget.appointmentsRepository.index(
         from: startOfMonth,
         to: startOfNextMonth,
@@ -155,6 +162,8 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
       if (!mounted) return;
       setState(() {
         _professional = professional;
+        _monthFinance = monthFinance;
+        _weekFinance = weekFinance;
         _completedThisMonth = appointments
             .where((appointment) => appointment.status == 'completed')
             .length;
@@ -180,6 +189,8 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
     }
 
     final professional = _professional!;
+    final monthFinance = _monthFinance!;
+    final weekFinance = _weekFinance!;
 
     return AppProfileSummary(
       title: 'Perfil profissional',
@@ -192,8 +203,31 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
               : '${professional.commissionPercentage}%',
         ),
         AppInfoRow('Atendimentos no mes', '$_completedThisMonth'),
+        AppInfoRow('Atendimentos na semana', '${weekFinance.completedCount}'),
+        AppInfoRow(
+          'Comissao do mes',
+          formatCents(monthFinance.commissionCents),
+        ),
+        AppInfoRow('Adiantamentos', formatCents(monthFinance.advancesCents)),
+        AppInfoRow('A receber', formatCents(monthFinance.netCents)),
+        AppInfoRow('Dia de pagamento', 'Dia ${monthFinance.paymentDay}'),
       ],
       footer: [
+        const SizedBox(height: 16),
+        const AppSectionTitle('Extrato de adiantamentos'),
+        if (monthFinance.advances.isEmpty)
+          const Card(
+            child: ListTile(title: Text('Nenhum adiantamento no mes.')),
+          )
+        else
+          for (final advance in monthFinance.advances)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.payments_outlined),
+                title: Text(formatCents(advance.amountCents)),
+                subtitle: Text(advance.notes ?? 'Adiantamento'),
+              ),
+            ),
         const SizedBox(height: 16),
         AppActionTile(
           icon: Icons.edit,
@@ -280,7 +314,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Cancelar agendamento'),
-        content: const Text('Tem certeza que deseja cancelar este agendamento?'),
+        content: const Text(
+          'Tem certeza que deseja cancelar este agendamento?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -414,9 +450,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                         title: const Text('Duracao'),
                         trailing: Text(
                           formatDuration(
-                            appointment.endsAt.difference(
-                              appointment.startsAt,
-                            ),
+                            appointment.endsAt.difference(appointment.startsAt),
                           ),
                         ),
                       ),

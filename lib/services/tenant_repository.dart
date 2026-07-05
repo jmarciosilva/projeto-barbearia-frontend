@@ -11,4 +11,12 @@ class TenantRepository {
 
     return TenantModel.fromJson(response);
   }
+
+  Future<TenantModel> updateProfessionalPaymentDay(int day) async {
+    final response =
+        await _client.patch('/tenant', body: {'professional_payment_day': day})
+            as Map<String, dynamic>;
+
+    return TenantModel.fromJson(response);
+  }
 }

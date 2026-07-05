@@ -4,6 +4,7 @@ import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
+import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/saas_plan_model.dart';
 import 'package:clube_do_salao/models/saas_subscription_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
@@ -213,12 +214,43 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.price_check,
           title: 'Confirmar pagamento manual',
-          subtitle: 'PIX ou dinheiro validado pelo proprietario.',
+          subtitle: 'PIX, cartao, dinheiro ou fiado.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => PendingPaymentsPage(
                   paymentsRepository: widget.paymentsRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.receipt_long,
+          title: 'Gestao do fiado',
+          subtitle: 'Acompanhe saldos pendentes e lance recebimentos parciais.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => DebtManagementPage(
+                  paymentsRepository: widget.paymentsRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.account_balance_wallet,
+          title: 'Comissoes profissionais',
+          subtitle: 'Veja producao, comissao e adiantamentos.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProfessionalCommissionsPage(
+                  professionalsRepository: widget.professionalsRepository,
+                  tenantRepository: widget.tenantRepository,
                 ),
               ),
             );
@@ -570,9 +602,7 @@ class _NewClientPageState extends State<NewClientPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cliente ${_nameController.text} cadastrado.'),
-        ),
+        SnackBar(content: Text('Cliente ${_nameController.text} cadastrado.')),
       );
       Navigator.of(context).pop();
     } on AppException catch (error) {
@@ -736,9 +766,9 @@ class _NewPlanPageState extends State<NewPlanPage> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Plano ${_nameController.text} criado.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Plano ${_nameController.text} criado.')),
+      );
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
@@ -922,6 +952,8 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
 
     if (confirmed == true && mounted) {
       setState(() => _pending.removeWhere((item) => item.id == payment.id));
+    } else if (confirmed == false && mounted) {
+      _load();
     }
   }
 
@@ -966,7 +998,610 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
   }
 }
 
-/// Confirmacao de um pagamento manual (PIX ou dinheiro), chamando a API.
+class DebtManagementPage extends StatefulWidget {
+  const DebtManagementPage({super.key, required this.paymentsRepository});
+
+  final PaymentsRepository paymentsRepository;
+
+  @override
+  State<DebtManagementPage> createState() => _DebtManagementPageState();
+}
+
+class _DebtManagementPageState extends State<DebtManagementPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<PaymentModel> _pending = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final payments = await widget.paymentsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _pending = payments
+            .where((payment) => payment.status == 'pending')
+            .toList();
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openPayment(PaymentModel payment) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DebtDetailPage(
+          payment: payment,
+          paymentsRepository: widget.paymentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalOpen = _pending.fold<int>(
+      0,
+      (total, payment) => total + payment.remainingCents,
+    );
+
+    final Widget body;
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text('Total em aberto'),
+              trailing: Text(formatCents(totalOpen)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_pending.isEmpty)
+            const Card(child: ListTile(title: Text('Nenhum fiado em aberto.')))
+          else
+            for (final payment in _pending)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.receipt_long),
+                  title: Text(payment.clientName ?? 'Cliente'),
+                  subtitle: Text(
+                    '${payment.serviceName ?? 'Assinatura'} - recebido ${formatCents(payment.receivedCents)}',
+                  ),
+                  trailing: Text(formatCents(payment.remainingCents)),
+                  onTap: () => _openPayment(payment),
+                ),
+              ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Gestao do fiado')),
+      body: body,
+    );
+  }
+}
+
+class DebtDetailPage extends StatefulWidget {
+  const DebtDetailPage({
+    super.key,
+    required this.payment,
+    required this.paymentsRepository,
+  });
+
+  final PaymentModel payment;
+  final PaymentsRepository paymentsRepository;
+
+  @override
+  State<DebtDetailPage> createState() => _DebtDetailPageState();
+}
+
+class _DebtDetailPageState extends State<DebtDetailPage> {
+  final _amountController = TextEditingController();
+  String _selectedMethod = 'pix';
+  PaymentModel? _payment;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  PaymentModel get payment => _payment ?? widget.payment;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _receive() async {
+    final amount = parsePriceToCents(_amountController.text);
+    if (amount <= 0) {
+      setState(() => _errorMessage = 'Informe um valor recebido.');
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final updated = await widget.paymentsRepository.receive(
+        payment.id,
+        amountCents: amount,
+        method: _selectedMethod,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _payment = updated;
+        _isSaving = false;
+        _amountController.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            updated.status == 'paid'
+                ? 'Fiado quitado.'
+                : 'Recebimento lancado.',
+          ),
+        ),
+      );
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Detalhe do fiado')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Cliente'),
+                  trailing: Text(payment.clientName ?? '-'),
+                ),
+                ListTile(
+                  title: const Text('Total'),
+                  trailing: Text(formatCents(payment.amountCents)),
+                ),
+                ListTile(
+                  title: const Text('Recebido'),
+                  trailing: Text(formatCents(payment.receivedCents)),
+                ),
+                ListTile(
+                  title: const Text('Pendente'),
+                  trailing: Text(formatCents(payment.remainingCents)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const AppSectionTitle('Recebimentos'),
+          if (payment.receipts.isEmpty)
+            const Card(
+              child: ListTile(title: Text('Nenhum recebimento ainda.')),
+            )
+          else
+            for (final receipt in payment.receipts)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.payments_outlined),
+                  title: Text(formatCents(receipt.amountCents)),
+                  subtitle: Text(receipt.method),
+                ),
+              ),
+          if (payment.status != 'paid') ...[
+            const SizedBox(height: 16),
+            const AppSectionTitle('Lancar recebimento'),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Valor recebido'),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final method in _paidPaymentMethods)
+                  ChoiceChip(
+                    label: Text(_paymentMethodLabel(method)),
+                    selected: _selectedMethod == method,
+                    onSelected: _isSaving
+                        ? null
+                        : (_) => setState(() => _selectedMethod = method),
+                  ),
+              ],
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _isSaving ? null : _receive,
+              icon: const Icon(Icons.add_card),
+              label: const Text('Lancar recebimento'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static const _paidPaymentMethods = [
+    'pix',
+    'credit_card',
+    'debit_card',
+    'cash',
+  ];
+
+  String _paymentMethodLabel(String method) => switch (method) {
+    'pix' => 'PIX',
+    'credit_card' => 'Cartao credito',
+    'debit_card' => 'Cartao debito',
+    'cash' => 'Dinheiro',
+    _ => method,
+  };
+}
+
+class ProfessionalCommissionsPage extends StatefulWidget {
+  const ProfessionalCommissionsPage({
+    super.key,
+    required this.professionalsRepository,
+    required this.tenantRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+  final TenantRepository tenantRepository;
+
+  @override
+  State<ProfessionalCommissionsPage> createState() =>
+      _ProfessionalCommissionsPageState();
+}
+
+class _ProfessionalCommissionsPageState
+    extends State<ProfessionalCommissionsPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ProfessionalModel> _professionals = [];
+  int _paymentDay = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final professionals = await widget.professionalsRepository.index();
+      final tenant = await widget.tenantRepository.show();
+
+      if (!mounted) return;
+      setState(() {
+        _professionals = professionals;
+        _paymentDay = tenant.professionalPaymentDay;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _changePaymentDay() async {
+    final controller = TextEditingController(text: '$_paymentDay');
+    final day = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dia de pagamento'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Dia do mes'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(int.tryParse(controller.text)),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (day == null) return;
+
+    try {
+      final tenant = await widget.tenantRepository.updateProfessionalPaymentDay(
+        day.clamp(1, 31),
+      );
+      if (!mounted) return;
+      setState(() => _paymentDay = tenant.professionalPaymentDay);
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.event),
+              title: const Text('Dia de pagamento'),
+              trailing: Text('Dia $_paymentDay'),
+              onTap: _changePaymentDay,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final professional in _professionals)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.badge),
+                title: Text(professional.name),
+                subtitle: Text(
+                  'Comissao ${professional.commissionPercentage ?? 0}%',
+                ),
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfessionalCommissionDetailPage(
+                        professional: professional,
+                        professionalsRepository: widget.professionalsRepository,
+                      ),
+                    ),
+                  );
+                  _load();
+                },
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Comissoes')),
+      body: body,
+    );
+  }
+}
+
+class ProfessionalCommissionDetailPage extends StatefulWidget {
+  const ProfessionalCommissionDetailPage({
+    super.key,
+    required this.professional,
+    required this.professionalsRepository,
+  });
+
+  final ProfessionalModel professional;
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<ProfessionalCommissionDetailPage> createState() =>
+      _ProfessionalCommissionDetailPageState();
+}
+
+class _ProfessionalCommissionDetailPageState
+    extends State<ProfessionalCommissionDetailPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  ProfessionalFinanceModel? _finance;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final finance = await widget.professionalsRepository.finance(
+        widget.professional.id,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _finance = finance;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _addAdvance() async {
+    final amountController = TextEditingController();
+    final notesController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Lancar adiantamento'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Valor'),
+            ),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(labelText: 'Observacao'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+
+    final amount = parsePriceToCents(amountController.text);
+    final notes = notesController.text.trim();
+    amountController.dispose();
+    notesController.dispose();
+
+    if (confirmed != true || amount <= 0) return;
+
+    try {
+      await widget.professionalsRepository.createAdvance(
+        professionalId: widget.professional.id,
+        amountCents: amount,
+        notes: notes.isEmpty ? null : notes,
+      );
+      await _load();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      final finance = _finance!;
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          AppMetricGrid(
+            metrics: [
+              AppMetric(
+                'Atendimentos',
+                '${finance.completedCount}',
+                Icons.content_cut,
+              ),
+              AppMetric(
+                'Comissao',
+                formatCents(finance.commissionCents),
+                Icons.percent,
+              ),
+              AppMetric(
+                'Adiantado',
+                formatCents(finance.advancesCents),
+                Icons.payments,
+              ),
+              AppMetric(
+                'A receber',
+                formatCents(finance.netCents),
+                Icons.wallet,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _addAdvance,
+            icon: const Icon(Icons.add_card),
+            label: const Text('Lancar adiantamento'),
+          ),
+          const SizedBox(height: 16),
+          const AppSectionTitle('Adiantamentos'),
+          if (finance.advances.isEmpty)
+            const Card(child: ListTile(title: Text('Nenhum adiantamento.')))
+          else
+            for (final advance in finance.advances)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.payments_outlined),
+                  title: Text(formatCents(advance.amountCents)),
+                  subtitle: Text(advance.notes ?? 'Adiantamento'),
+                ),
+              ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: Text(widget.professional.name)),
+      body: body,
+    );
+  }
+}
+
+/// Confirmacao de um pagamento manual, chamando a API.
 ///
 /// Retorna `true` via [Navigator.pop] quando o pagamento e confirmado, para
 /// que a tela de origem possa atualizar sua lista.
@@ -989,6 +1624,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   bool _confirmed = false;
   bool _isSaving = false;
   String? _errorMessage;
+  String _selectedMethod = 'pix';
 
   Future<void> _confirm() async {
     setState(() {
@@ -997,13 +1633,23 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
     });
 
     try {
-      await widget.paymentsRepository.markPaid(widget.payment.id);
+      final result = await widget.paymentsRepository.markPaid(
+        widget.payment.id,
+        method: _selectedMethod,
+      );
 
       if (!mounted) return;
       setState(() {
-        _confirmed = true;
+        _confirmed = result.status == 'paid';
         _isSaving = false;
       });
+
+      if (result.status != 'paid') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pagamento registrado como fiado.')),
+        );
+        Navigator.of(context).pop(false);
+      }
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1016,6 +1662,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
   @override
   Widget build(BuildContext context) {
     final payment = widget.payment;
+    final selectedLabel = _paymentMethodLabel(_selectedMethod);
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Confirmar pagamento')),
@@ -1023,7 +1670,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
           ? AppMockSuccessPanel(
               title: 'Pagamento confirmado',
               message:
-                  '${formatCents(payment.amountCents)} de ${payment.clientName ?? 'cliente'} via ${payment.methodLabel}.',
+                  '${formatCents(payment.amountCents)} de ${payment.clientName ?? 'cliente'} via $selectedLabel.',
               buttonLabel: 'Concluir',
               onDone: () => Navigator.of(context).pop(true),
             )
@@ -1048,7 +1695,27 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                       ),
                       ListTile(
                         title: const Text('Forma de pagamento'),
-                        trailing: Text(payment.methodLabel),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final method in _manualPaymentMethods)
+                                ChoiceChip(
+                                  label: Text(_paymentMethodLabel(method)),
+                                  selected: _selectedMethod == method,
+                                  onSelected: _isSaving
+                                      ? null
+                                      : (_) {
+                                          setState(
+                                            () => _selectedMethod = method,
+                                          );
+                                        },
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1081,6 +1748,23 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
             ),
     );
   }
+
+  static const _manualPaymentMethods = [
+    'pix',
+    'credit_card',
+    'debit_card',
+    'cash',
+    'fiado',
+  ];
+
+  String _paymentMethodLabel(String method) => switch (method) {
+    'pix' => 'PIX',
+    'credit_card' => 'Cartao credito',
+    'debit_card' => 'Cartao debito',
+    'cash' => 'Dinheiro',
+    'fiado' => 'Fiado',
+    _ => method,
+  };
 }
 
 /// Detalhe de um cliente com os dados reais de plano e pagamento.
@@ -1161,7 +1845,10 @@ class _CatalogPageState extends State<CatalogPage>
         title: const Text('Catalogo'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [Tab(text: 'Servicos'), Tab(text: 'Profissionais')],
+          tabs: const [
+            Tab(text: 'Servicos'),
+            Tab(text: 'Profissionais'),
+          ],
         ),
       ),
       body: TabBarView(
@@ -1359,9 +2046,7 @@ class _NewServicePageState extends State<NewServicePage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _durationController,
-              decoration: const InputDecoration(
-                labelText: 'Duracao (minutos)',
-              ),
+              decoration: const InputDecoration(labelText: 'Duracao (minutos)'),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Informe a duracao';
@@ -1510,9 +2195,7 @@ class _ProfessionalsPageState extends State<ProfessionalsPage> {
                 leading: const Icon(Icons.badge),
                 title: Text(professional.name),
                 subtitle: Text(professional.specialty ?? 'Sem especialidade'),
-                trailing: professional.isActive
-                    ? null
-                    : const Text('Inativo'),
+                trailing: professional.isActive ? null : const Text('Inativo'),
                 onTap: () => _openProfessional(professional),
               ),
             ),
@@ -1673,9 +2356,7 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'E-mail (opcional)',
-              ),
+              decoration: const InputDecoration(labelText: 'E-mail (opcional)'),
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
@@ -1798,9 +2479,7 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
   late final _commissionController = TextEditingController(
     text: widget.professional.commissionPercentage?.toString() ?? '',
   );
-  late final Set<int> _selectedServiceIds = {
-    ...widget.professional.serviceIds,
-  };
+  late final Set<int> _selectedServiceIds = {...widget.professional.serviceIds};
   late bool _isActive = widget.professional.isActive;
 
   bool _isLoadingServices = true;
@@ -2009,9 +2688,7 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
     });
 
     try {
-      final entries = await widget.waitlistRepository.index(
-        status: 'waiting',
-      );
+      final entries = await widget.waitlistRepository.index(status: 'waiting');
 
       if (!mounted) return;
       setState(() {
@@ -2169,7 +2846,8 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
     try {
       final result = await widget.waitlistRepository.assign(
         id: widget.entry.id,
-        professionalId: widget.entry.professionalId ?? _selectedProfessional?.id,
+        professionalId:
+            widget.entry.professionalId ?? _selectedProfessional?.id,
         startsAt: startsAt,
       );
 
@@ -2471,7 +3149,10 @@ class _SaasPlanPageState extends State<SaasPlanPage> {
       );
     }
 
-    return AppScaffold(appBar: AppBar(title: const Text('Meu plano')), body: body);
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Meu plano')),
+      body: body,
+    );
   }
 }
 

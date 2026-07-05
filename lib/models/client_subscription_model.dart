@@ -1,4 +1,5 @@
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/payment_model.dart';
 
 /// Um uso registrado de uma assinatura (atendimento concluido que consumiu
 /// o plano), usado no historico de uso real da tela do cliente.
@@ -33,12 +34,14 @@ class ClientSubscriptionModel {
     this.plan,
     this.clientName,
     this.usages = const [],
+    this.payments = const [],
   });
 
   factory ClientSubscriptionModel.fromJson(Map<String, dynamic> json) {
     final planJson = json['plan'] as Map<String, dynamic>?;
     final clientJson = json['client'] as Map<String, dynamic>?;
     final usagesJson = json['usages'] as List<dynamic>? ?? const [];
+    final paymentsJson = json['payments'] as List<dynamic>? ?? const [];
 
     return ClientSubscriptionModel(
       id: json['id'] as int,
@@ -59,6 +62,11 @@ class ClientSubscriptionModel {
                 SubscriptionUsageModel.fromJson(usage as Map<String, dynamic>),
           )
           .toList(),
+      payments: paymentsJson
+          .map(
+            (payment) => PaymentModel.fromJson(payment as Map<String, dynamic>),
+          )
+          .toList(),
     );
   }
 
@@ -75,6 +83,7 @@ class ClientSubscriptionModel {
   final SubscriptionPlanModel? plan;
   final String? clientName;
   final List<SubscriptionUsageModel> usages;
+  final List<PaymentModel> payments;
 
   String get paymentStatusLabel => switch (paymentStatus) {
     'paid' => 'Pagamento pago',

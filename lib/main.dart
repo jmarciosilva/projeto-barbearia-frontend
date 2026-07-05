@@ -190,8 +190,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSubmitting =
-        widget.authSession.status == AuthStatus.authenticating;
+    final isSubmitting = widget.authSession.status == AuthStatus.authenticating;
 
     return AppScaffold(
       body: Stack(
@@ -324,9 +323,7 @@ class _LoginPageState extends State<LoginPage> {
                             'Acesso rapido (demonstracao)',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -335,9 +332,8 @@ class _LoginPageState extends State<LoginPage> {
                                 child: _DemoLoginButton(
                                   label: 'Gestor',
                                   enabled: !isSubmitting,
-                                  onPressed: () => _loginAsDemo(
-                                    'owner@clubedosalao.com',
-                                  ),
+                                  onPressed: () =>
+                                      _loginAsDemo('owner@clubedosalao.com'),
                                 ),
                               ),
                               const SizedBox(width: 6),
@@ -591,6 +587,13 @@ class _DashboardShellState extends State<DashboardShell> {
             professionalsRepository: ProfessionalsRepository(apiClient),
             appointmentsRepository: AppointmentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
+          ),
+        ),
+        _ShellPage(
+          'Pagamentos',
+          Icons.receipt_long,
+          CustomerPaymentsPage(
+            paymentsRepository: PaymentsRepository(apiClient),
           ),
         ),
         _ShellPage(

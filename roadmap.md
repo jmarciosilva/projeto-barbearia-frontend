@@ -121,31 +121,41 @@ Objetivo: implementar o modelo de negocio do produto (especificacao, secao 3) �
 |---|---|---|
 | 2026-07-04 | Multi-unidade fica so como limite numerico visivel nesta fase, sem CRUD nem funcionalidade operacional real | Nenhuma entidade de unidade/filial existia no banco; construir de verdade exigiria re-escopar agenda/clientes/profissionais por unidade, um esforco de fase propria. Confirmado com o usuario antes de implementar |
 | 2026-07-04 | Trial vencido bloqueia toda escrita (POST/PATCH/PUT/DELETE) com HTTP 402 e mensagem clara; leitura nunca e afetada | Confirmado com o usuario: "bloqueio gracioso" significa nunca esconder dados nem travar em tela de erro sem explicacao, mas a escrita real so deve voltar quando o dono escolher um plano |
-| 2026-07-04 | Troca de plano SaaS e efetiva na hora, sem cobranca real via Asaas ainda | Fase 2 e quem integra a cobranca recorrente; nesta fase o objetivo e o modelo de dados/regras de negocio (limites, downgrade, bloqueio), nao o gateway de pagamento |
+| 2026-07-04 | Troca de plano SaaS e efetiva na hora, sem cobranca real via gateway ainda | Gateway de pagamento fica para fase futura; nesta fase o objetivo e o modelo de dados/regras de negocio (limites, downgrade, bloqueio) |
 
 ### Auditoria da fase
 
 | Data | Responsavel | Resultado | Evidencias | Pendencias |
 |---|---|---|---|---|
 | 2026-07-03 | Claude | Nao iniciado | Auditoria da especificacao vs. roadmap encontrou a lacuna: backend hoje so tem uma tabela `saas_subscriptions` esqueleto (`plan_name` fixo "Plano Fundador", sem os 4 tiers, sem tabela de `plan_features`/limites) | Toda a fase — desenho de schema (`plan_features`), `PlanGate`, telas de trial/upgrade/downgrade no app |
-| 2026-07-04 | Claude | Parcial aprovado | Backend: nova tabela de referencia `saas_plans` (trial/basico/intermediario/premium com preco e limites, seedada na propria migration) e `saas_subscriptions.saas_plan_id` linkando cada tenant ao seu tier; `SaasSubscription` ganhou atributos calculados (`effective_status`, `trial_days_remaining`, `limits`, `usage`) sempre embutidos em `GET /tenant`/login/`GET /me`; `PlanGate` (`app/Support/PlanGate.php`) centraliza contagem de uso, checagem de limite e a regra de downgrade (spec 3.5) — reaproveitada por `ProfessionalController::store` e `ClientSubscriptionController::store/subscribeSelf` pra rejeitar criacao acima do limite (422) e pela troca de plano pra desativar automaticamente o excedente mais novo (profissional vira `is_active:false`, assinatura de cliente vira `status:paused`) mantendo os registros mais antigos ativos, sem apagar nada; nova rota `GET /saas-plans` e `PATCH /saas-subscription` (so `owner`); middleware `EnsureTenantPlanIsActive` bloqueia toda escrita com HTTP 402 quando o trial vence sem upgrade, liberando so leitura, logout e a propria troca de plano. 7 testes novos em `PhaseUmSaasPlansTest` (48/48 testes de backend passando). App: `TenantRepository`/`SaasSubscriptionRepository` novos; `OwnerHomePage` ganhou banner de trial/expirado (com dias restantes) e tile "Meu plano"; nova `SaasPlanPage` mostra o tier atual (limites e uso: "X de Y profissionais/assinantes/unidades") e lista os 3 tiers pagos pra trocar, reaproveitando o mesmo padrao visual da troca de plano do cliente; mensagens de limite atingido e de trial expirado chegam prontas da API e aparecem inline nos formularios existentes, sem necessidade de tratamento especial tela a tela. `flutter analyze` limpo e 24/24 testes passando (golden do dashboard do proprietario atualizado pela nova tile) | Multi-unidade so tem o limite visivel, sem funcionalidade real (decisao de escopo, ver secao Decisoes); troca de plano SaaS ainda nao cobra de verdade (fica pra Fase 2 com Asaas); sem validacao em dispositivo real ainda |
+| 2026-07-04 | Claude | Parcial aprovado | Backend: nova tabela de referencia `saas_plans` (trial/basico/intermediario/premium com preco e limites, seedada na propria migration) e `saas_subscriptions.saas_plan_id` linkando cada tenant ao seu tier; `SaasSubscription` ganhou atributos calculados (`effective_status`, `trial_days_remaining`, `limits`, `usage`) sempre embutidos em `GET /tenant`/login/`GET /me`; `PlanGate` (`app/Support/PlanGate.php`) centraliza contagem de uso, checagem de limite e a regra de downgrade (spec 3.5) — reaproveitada por `ProfessionalController::store` e `ClientSubscriptionController::store/subscribeSelf` pra rejeitar criacao acima do limite (422) e pela troca de plano pra desativar automaticamente o excedente mais novo (profissional vira `is_active:false`, assinatura de cliente vira `status:paused`) mantendo os registros mais antigos ativos, sem apagar nada; nova rota `GET /saas-plans` e `PATCH /saas-subscription` (so `owner`); middleware `EnsureTenantPlanIsActive` bloqueia toda escrita com HTTP 402 quando o trial vence sem upgrade, liberando so leitura, logout e a propria troca de plano. 7 testes novos em `PhaseUmSaasPlansTest` (48/48 testes de backend passando). App: `TenantRepository`/`SaasSubscriptionRepository` novos; `OwnerHomePage` ganhou banner de trial/expirado (com dias restantes) e tile "Meu plano"; nova `SaasPlanPage` mostra o tier atual (limites e uso: "X de Y profissionais/assinantes/unidades") e lista os 3 tiers pagos pra trocar, reaproveitando o mesmo padrao visual da troca de plano do cliente; mensagens de limite atingido e de trial expirado chegam prontas da API e aparecem inline nos formularios existentes, sem necessidade de tratamento especial tela a tela. `flutter analyze` limpo e 24/24 testes passando (golden do dashboard do proprietario atualizado pela nova tile) | Multi-unidade so tem o limite visivel, sem funcionalidade real (decisao de escopo, ver secao Decisoes); troca de plano SaaS ainda nao cobra de verdade, gateway fica para fase futura; sem validacao em dispositivo real ainda |
 
-## Fase 2 - Cobranca Automatica e Base Operacional
+## Fase 2 - Cobranca Manual Operacional
 
-Status: `Nao iniciado`
+Status: `Em andamento`
 
-Objetivo: substituir a confirmacao manual de pagamento (Fase 0) pela cobranca recorrente real das assinaturas de cliente via Asaas (especificacao, secoes 3, 4.2 e 5), e refletir no app o status automatico de cobranca e inadimplencia.
+Objetivo: entregar a primeira versao operacional de cobranca manual: o dono confirma pagamentos no app, escolhe a modalidade usada e pode registrar valores em aberto como fiado.
 
 ### Escopo previsto
 
-- [ ] Integracao com Asaas para cobranca recorrente das assinaturas de cliente (`client_subscriptions`)
-- [ ] Renovacao automatica da assinatura via webhook Asaas
-- [ ] Tela de status financeiro da assinatura
-- [ ] Aviso de pagamento pendente
-- [ ] Aviso de assinatura bloqueada
-- [ ] Historico de pagamentos
-- [ ] Confirmacao visual de pagamento processado por webhook
+- [x] Tela de confirmacao manual de pagamento pelo dono
+- [x] Modalidades: PIX, cartao credito, cartao debito, dinheiro
+- [x] Modalidade fiado, mantendo o pagamento pendente
+- [x] Gestao do fiado pelo dono, com saldo pendente e recebimentos parciais
+- [x] Tela de status financeiro da assinatura
+- [x] Aviso de pagamento pendente
+- [x] Historico de pagamentos
+- [x] Area do cliente com pagamentos pendentes e efetuados
+- [x] Area do profissional com servicos executados na semana/mes, comissao prevista e adiantamentos
+- [x] Area do gestor para configurar dia de pagamento e lancar adiantamentos
 - [ ] Notificacao push (FCM): confirmacao de agendamento e lembrete de vencimento (spec 3.2/4.3 — incluida ja no tier Basico, por isso vive nesta fase junto com o resto da automacao)
+
+### Auditoria da fase
+
+| Data | Responsavel | Resultado | Evidencias | Pendencias |
+|---|---|---|---|---|
+| 2026-07-04 | Codex | Em andamento | Escopo corrigido a pedido do usuario: primeira versao usa cobranca manual pelo dono, sem gateway. Tela de confirmacao passou a exigir escolha entre PIX, cartao credito, cartao debito, dinheiro e fiado; quando o dono escolhe fiado, o item continua na lista de pendentes | Falta criar visao dedicada de fiados/contas em aberto e validar em dispositivo real |
+| 2026-07-04 | Codex | Parcial aprovado | Painel do gestor ganhou "Gestao do fiado" com saldo aberto e lancamento parcial de recebimentos, e "Comissoes profissionais" com dia de pagamento, extrato e adiantamentos; cliente ganhou aba "Pagamentos" separando pendentes e efetuados; perfil profissional passou a mostrar atendimentos da semana/mes, comissao, adiantamentos e valor a receber; `flutter analyze` limpo e testes mockados cobrem fiado parcial e comissao | Falta validacao em dispositivo real e refinamento futuro de relatorios financeiros |
 
 ## Fase 3 - Fidelidade e Avaliacoes
 
@@ -210,5 +220,5 @@ Status: `Nao iniciado`
 | 2026-07-03 | Usar commit/rollback local no mobile | Flutter ainda nao tem banco local nesta fase | Padrao fica pronto para estados otimistas e falhas de API |
 | 2026-07-03 | Remover a fase "Portal Web Administrativo" do roadmap | A especificacao do produto (secoes 1 e 6) define "zero painel web administrativo" como decisao de produto, nao como item fora do MVP — mante-la como fase futura contradizia a premissa central (app mobile-only para dono leigo em tecnologia) | Fase 7 (Inteligencia Artificial) mantem o mesmo numero; nenhuma outra fase referenciava o Portal Web |
 | 2026-07-03 | Inserir a Fase 1 "Planos SaaS e Controle de Acesso" | A estrutura de trial + 3 tiers pagos + `PlanGate` (secao 3 da especificacao) nao tinha nenhuma fase no roadmap, apesar de ser o nucleo do modelo de negocio | Fases antigas 1-5 foram renumeradas para 2-6; Fase 7 nao muda |
-| 2026-07-03 | Remover "Notificacao push via FCM" da Fase 0, manter so na Fase 2 | Item aparecia duplicado sem fase "dona"; push so faz sentido completo junto com o resto da automacao de cobranca/lembrete (Asaas), nao como parte da fundacao/validacao | Fase 0 nao fica mais bloqueada por um item que nao e essencial para validar o nucleo do produto |
+| 2026-07-03 | Remover "Notificacao push via FCM" da Fase 0, manter so na Fase 2 | Item aparecia duplicado sem fase "dona"; push so faz sentido completo junto com lembretes de cobranca/agendamento, nao como parte da fundacao/validacao | Fase 0 nao fica mais bloqueada por um item que nao e essencial para validar o nucleo do produto |
 | 2026-07-04 | Adicionar agendamento avulso e fila de espera ao escopo da Fase 0, a pedido do usuario | A especificacao do produto nao cobre atendimento de cliente sem assinatura (nem agendamento avulso nem fila de espera) — sem isso, o app so serve quem ja assinou um plano, deixando de fora um caso de uso real do salao (cliente eventual). Cobranca do avulso reaproveita a confirmacao manual de pagamento ja existente; fila de espera e resolvida manualmente pelo dono/profissional (sem auto-atribuicao) | Fase 0 ganha 3 itens de escopo e 3 criterios de aceite novos; nenhuma fase futura muda de numero |

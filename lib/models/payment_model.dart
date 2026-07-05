@@ -11,6 +11,7 @@ class PaymentModel {
     this.notes,
     this.clientName,
     this.serviceName,
+    this.receipts = const [],
   });
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
@@ -19,6 +20,7 @@ class PaymentModel {
     final directClient = json['client'] as Map<String, dynamic>?;
     final appointment = json['appointment'] as Map<String, dynamic>?;
     final service = appointment?['service'] as Map<String, dynamic>?;
+    final receiptsJson = json['receipts'] as List<dynamic>? ?? const [];
 
     return PaymentModel(
       id: json['id'] as int,
@@ -30,8 +32,16 @@ class PaymentModel {
       dueOn: json['due_on'] as String?,
       paidAt: json['paid_at'] as String?,
       notes: json['notes'] as String?,
-      clientName: directClient?['name'] as String? ?? subscriptionClient?['name'] as String?,
+      clientName:
+          directClient?['name'] as String? ??
+          subscriptionClient?['name'] as String?,
       serviceName: service?['name'] as String?,
+      receipts: receiptsJson
+          .map(
+            (receipt) =>
+                PaymentReceiptModel.fromJson(receipt as Map<String, dynamic>),
+          )
+          .toList(),
     );
   }
 
@@ -46,14 +56,59 @@ class PaymentModel {
   final String? notes;
   final String? clientName;
   final String? serviceName;
+  final List<PaymentReceiptModel> receipts;
 
   /// Pagamento avulso (agendamento sem plano) nao tem `client_subscription_id`.
   bool get isAvulso => clientSubscriptionId == null;
 
   String get methodLabel => switch (method) {
     'pix' => 'PIX',
+    'credit_card' => 'Cartao credito',
+    'debit_card' => 'Cartao debito',
     'cash' => 'Dinheiro',
-    'card' => 'Cartao',
+    'fiado' => 'Fiado',
     _ => 'Outro',
   };
+
+  String get statusLabel => switch (status) {
+    'paid' => 'Pago',
+    'overdue' => 'Atrasado',
+    _ => 'Pendente',
+  };
+
+  int get receivedCents {
+    final total = receipts.fold(0, (sum, receipt) => sum + receipt.amountCents);
+
+    return status == 'paid' && total == 0 ? amountCents : total;
+  }
+
+  int get remainingCents => status == 'paid'
+      ? 0
+      : (amountCents - receivedCents).clamp(0, amountCents);
+}
+
+class PaymentReceiptModel {
+  const PaymentReceiptModel({
+    required this.id,
+    required this.amountCents,
+    required this.method,
+    required this.receivedAt,
+    this.notes,
+  });
+
+  factory PaymentReceiptModel.fromJson(Map<String, dynamic> json) {
+    return PaymentReceiptModel(
+      id: json['id'] as int,
+      amountCents: json['amount_cents'] as int,
+      method: json['method'] as String,
+      receivedAt: json['received_at'] as String,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  final int id;
+  final int amountCents;
+  final String method;
+  final String receivedAt;
+  final String? notes;
 }

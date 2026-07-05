@@ -67,6 +67,14 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, _tenantJson);
     }
 
+    if (method == 'PATCH' && path.endsWith('/tenant')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(200, {
+        ..._tenantJson,
+        'professional_payment_day': body['professional_payment_day'],
+      });
+    }
+
     if (method == 'GET' && path.endsWith('/saas-plans')) {
       return _jsonResponse(200, _saasPlansJson);
     }
@@ -97,6 +105,10 @@ http.Client buildFakeBackend() {
 
     if (method == 'GET' && path.endsWith('/me/professional')) {
       return _jsonResponse(200, _professionalMeJson);
+    }
+
+    if (method == 'GET' && path.endsWith('/me/professional/finance')) {
+      return _jsonResponse(200, _professionalFinanceJson);
     }
 
     if (method == 'PATCH' && path.endsWith('/me/professional')) {
@@ -147,6 +159,24 @@ http.Client buildFakeBackend() {
 
     if (method == 'GET' && path.endsWith('/professionals')) {
       return _jsonResponse(200, _professionalsJson);
+    }
+
+    if (method == 'GET' &&
+        path.contains('/professionals/') &&
+        path.endsWith('/finance')) {
+      return _jsonResponse(200, _professionalFinanceJson);
+    }
+
+    if (method == 'POST' &&
+        path.contains('/professionals/') &&
+        path.endsWith('/advances')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 2,
+        'amount_cents': body['amount_cents'],
+        'paid_at': '2026-07-04T10:00:00.000000Z',
+        'notes': body['notes'],
+      });
     }
 
     if (method == 'POST' && path.endsWith('/professionals')) {
@@ -210,11 +240,11 @@ http.Client buildFakeBackend() {
         'payment_status': 'pending',
         'plan': plan,
         'usages': <dynamic>[],
+        'payments': <dynamic>[],
       });
     }
 
-    if (method == 'POST' &&
-        path.endsWith('/me/client-subscriptions/cancel')) {
+    if (method == 'POST' && path.endsWith('/me/client-subscriptions/cancel')) {
       return _jsonResponse(200, {
         'id': 1,
         'client_id': 1,
@@ -223,6 +253,7 @@ http.Client buildFakeBackend() {
         'payment_status': 'paid',
         'plan': _bronzePlanJson,
         'usages': <dynamic>[],
+        'payments': <dynamic>[],
       });
     }
 
@@ -309,14 +340,43 @@ http.Client buildFakeBackend() {
       });
     }
 
+    if (method == 'GET' && path.endsWith('/me/payments')) {
+      return _jsonResponse(200, _paymentsJson);
+    }
+
     if (method == 'GET' && path.endsWith('/payments')) {
       return _jsonResponse(200, _paymentsJson);
     }
 
-    if (method == 'POST' && path.contains('/payments/') && path.endsWith('/mark-paid')) {
+    if (method == 'POST' &&
+        path.contains('/payments/') &&
+        path.endsWith('/mark-paid')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final selectedMethod = body['method'] as String;
       return _jsonResponse(200, {
         ..._paymentsJson.first,
-        'status': 'paid',
+        'method': selectedMethod,
+        'status': selectedMethod == 'fiado' ? 'pending' : 'paid',
+      });
+    }
+
+    if (method == 'POST' &&
+        path.contains('/payments/') &&
+        path.endsWith('/receipts')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(200, {
+        ..._paymentsJson.first,
+        'method': body['method'],
+        'status': 'pending',
+        'receipts': [
+          ...(_paymentsJson.first['receipts'] as List<dynamic>),
+          {
+            'id': 2,
+            'amount_cents': body['amount_cents'],
+            'method': body['method'],
+            'received_at': '2026-07-04T10:00:00.000000Z',
+          },
+        ],
       });
     }
 
@@ -350,6 +410,7 @@ const _unauthenticated = {
 const _tenantJson = {
   'id': 1,
   'name': 'Clube do Salao Demo',
+  'professional_payment_day': 5,
   'saas_subscription': {
     'status': 'active',
     'effective_status': 'active',
@@ -432,6 +493,30 @@ const _professionalMeJson = {
   'commission_percentage': 40,
   'is_active': true,
   'user_id': 2,
+};
+
+const _professionalFinanceJson = {
+  'professional_id': 10,
+  'professional_name': 'Ana Souza',
+  'period': 'month',
+  'from': '2026-07-01',
+  'to': '2026-07-31',
+  'payment_day': 5,
+  'completed_count': 6,
+  'gross_cents': 36000,
+  'commission_percentage': 40,
+  'commission_cents': 14400,
+  'advances_cents': 3000,
+  'net_cents': 11400,
+  'appointments': <dynamic>[],
+  'advances': [
+    {
+      'id': 1,
+      'amount_cents': 3000,
+      'paid_at': '2026-07-04T10:00:00.000000Z',
+      'notes': 'Adiantamento',
+    },
+  ],
 };
 
 final _professionalsJson = [
@@ -528,6 +613,18 @@ final _meClientJson = {
       'payment_status': 'paid',
       'renews_on': '2026-08-01',
       'plan': _bronzePlanJson,
+      'payments': [
+        {
+          'id': 10,
+          'client_subscription_id': 1,
+          'amount_cents': 9990,
+          'method': 'pix',
+          'status': 'paid',
+          'due_on': '2026-07-01',
+          'paid_at': '2026-07-01T10:00:00.000000Z',
+          'receipts': <dynamic>[],
+        },
+      ],
       'usages': [
         {
           'used_at': '2026-06-20T10:00:00.000000Z',
@@ -590,5 +687,13 @@ final _paymentsJson = [
     'subscription': {
       'client': {'name': 'Joao Ribeiro'},
     },
+    'receipts': [
+      {
+        'id': 1,
+        'amount_cents': 5000,
+        'method': 'pix',
+        'received_at': '2026-07-04T10:00:00.000000Z',
+      },
+    ],
   },
 ];
