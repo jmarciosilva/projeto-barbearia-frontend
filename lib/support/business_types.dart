@@ -3,10 +3,10 @@
 /// do cliente para mostrar o mesmo rotulo em portugues.
 const businessTypeLabels = {
   'barbershop': 'Barbearia',
-  'beauty_salon': 'Salao de beleza',
-  'aesthetic_clinic': 'Clinica de estetica',
-  'nails': 'Estudio de unhas',
-  'brows_lashes': 'Sobrancelhas e cilios',
+  'beauty_salon': 'Salão de beleza',
+  'aesthetic_clinic': 'Clínica de estética',
+  'nails': 'Estúdio de unhas',
+  'brows_lashes': 'Sobrancelhas e cílios',
   'spa': 'Spa',
   'other': 'Outro',
 };

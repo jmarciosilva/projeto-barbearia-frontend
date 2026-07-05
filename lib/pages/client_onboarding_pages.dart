@@ -6,6 +6,7 @@ import 'package:clube_do_salao/services/onboarding_repository.dart';
 import 'package:clube_do_salao/support/business_types.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Primeira tela do fluxo de "Criar conta": o dono e o cliente se cadastram
 /// de formas bem diferentes, entao a primeira decisao e sempre "quem e voce".
@@ -30,7 +31,7 @@ class ChooseAccountTypePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Voce e o dono do salao ou um cliente?',
+                'Você é o dono do salão ou um cliente?',
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -39,7 +40,7 @@ class ChooseAccountTypePage extends StatelessWidget {
               const SizedBox(height: 20),
               _AccountTypeCard(
                 icon: Icons.storefront,
-                title: 'Sou dono de salao',
+                title: 'Sou dono de salão',
                 subtitle: 'Quero cadastrar meu estabelecimento e gerenciar tudo.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -51,7 +52,7 @@ class ChooseAccountTypePage extends StatelessWidget {
               _AccountTypeCard(
                 icon: Icons.person,
                 title: 'Sou cliente',
-                subtitle: 'Quero agendar horario em um salao.',
+                subtitle: 'Quero agendar horário em um salão.',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => ClientInviteEntryPage(
@@ -102,8 +103,8 @@ class _AccountTypeCard extends StatelessWidget {
   }
 }
 
-/// Ponto de entrada do cliente: informa o codigo de convite recebido do
-/// salao, ou segue sem codigo para escolher o salao no diretorio publico.
+/// Ponto de entrada do cliente: informa o código de convite recebido do
+/// salão, ou segue sem código para escolher o salão no diretório público.
 ///
 /// Quando [initialCode] vem preenchido (abertura por deep link/QR), a
 /// consulta acontece sozinha assim que a tela abre.
@@ -145,7 +146,7 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
   Future<void> _lookup() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
-      setState(() => _errorMessage = 'Informe o codigo de convite');
+      setState(() => _errorMessage = 'Informe o código de convite');
       return;
     }
 
@@ -170,7 +171,7 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
     } on AppException {
       setState(() {
         _errorMessage =
-            'Codigo de convite invalido. Confira com o salao ou escolha um salao na lista.';
+            'Código de convite inválido. Confira com o salão ou escolha um salão na lista.';
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -185,9 +186,9 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const AppSectionTitle('Voce recebeu um convite?'),
+            const AppSectionTitle('Você recebeu um convite?'),
             Text(
-              'Se o salao te enviou um link ou um QR code, digite aqui o codigo de convite.',
+              'Se o salão te enviou um link ou um QR code, digite aqui o código de convite.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -195,7 +196,7 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
               controller: _codeController,
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
-                labelText: 'Codigo de convite',
+                labelText: 'Código de convite',
                 hintText: 'Ex: AB3XQ9',
               ),
             ),
@@ -231,7 +232,7 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
                           ),
                         ),
                       ),
-                child: const Text('Nao tenho codigo, quero escolher um salao'),
+                child: const Text('Não tenho código, quero escolher um salão'),
               ),
             ),
           ],
@@ -241,8 +242,8 @@ class _ClientInviteEntryPageState extends State<ClientInviteEntryPage> {
   }
 }
 
-/// Confirma o salao encontrado pelo codigo de convite antes de seguir para
-/// o cadastro, para o cliente ter certeza de que e o salao certo.
+/// Confirma o salão encontrado pelo código de convite antes de seguir para
+/// o cadastro, para o cliente ter certeza de que é o salão certo.
 class InviteConfirmationPage extends StatelessWidget {
   const InviteConfirmationPage({
     super.key,
@@ -274,7 +275,7 @@ class InviteConfirmationPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Voce foi convidado por',
+                'Você foi convidado por',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
@@ -311,13 +312,13 @@ class InviteConfirmationPage extends StatelessWidget {
                     ),
                   ),
                   style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-                  child: const Text('E isso mesmo, continuar cadastro'),
+                  child: const Text('É isso mesmo, continuar cadastro'),
                 ),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Nao e este salao'),
+                child: const Text('Não é este salão'),
               ),
             ],
           ),
@@ -327,8 +328,8 @@ class InviteConfirmationPage extends StatelessWidget {
   }
 }
 
-/// Diretorio publico de estabelecimentos, para o cliente que nao recebeu
-/// convite de ninguem escolher onde quer se cadastrar.
+/// Diretório público de estabelecimentos, para o cliente que não recebeu
+/// convite de ninguém escolher onde quer se cadastrar.
 class TenantDirectoryPage extends StatefulWidget {
   const TenantDirectoryPage({
     super.key,
@@ -366,7 +367,7 @@ class _TenantDirectoryPageState extends State<TenantDirectoryPage> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      appBar: AppBar(title: const Text('Escolher salao')),
+      appBar: AppBar(title: const Text('Escolher salão')),
       body: SafeArea(
         child: FutureBuilder<List<TenantSummaryModel>>(
           future: _future,
@@ -377,7 +378,7 @@ class _TenantDirectoryPageState extends State<TenantDirectoryPage> {
 
             if (snapshot.hasError) {
               return AppLoadingError(
-                message: 'Nao foi possivel carregar os saloes.',
+                message: 'Não foi possível carregar os salões.',
                 onRetry: () =>
                     setState(() => _future = widget.onboardingRepository.directory()),
               );
@@ -403,7 +404,7 @@ class _TenantDirectoryPageState extends State<TenantDirectoryPage> {
                 if (tenants.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: 32),
-                    child: Center(child: Text('Nenhum salao encontrado.')),
+                    child: Center(child: Text('Nenhum salão encontrado.')),
                   ),
                 for (final tenant in tenants)
                   Card(
@@ -463,13 +464,31 @@ class _ClientRegisterPageState extends State<ClientRegisterPage> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordConfirmController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirm = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // AuthSession nao e um ListenableBuilder aqui: sem este listener, um erro
+    // vindo da API (ex: telefone duplicado) so aparece na tela apos algum
+    // outro rebuild, deixando o usuario sem feedback ate voltar e reabrir.
+    widget.authSession.addListener(_onAuthSessionChanged);
+  }
+
+  void _onAuthSessionChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    widget.authSession.removeListener(_onAuthSessionChanged);
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _passwordConfirmController.dispose();
     super.dispose();
   }
 
@@ -508,14 +527,23 @@ class _ClientRegisterPageState extends State<ClientRegisterPage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Seu nome'),
+                autofillHints: const [],
                 validator: (value) =>
                     (value == null || value.isEmpty) ? 'Informe o nome' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(labelText: 'Telefone/WhatsApp'),
+                decoration: const InputDecoration(
+                  labelText: 'Telefone/WhatsApp',
+                  hintText: 'Ex: 11912345678',
+                ),
                 keyboardType: TextInputType.phone,
+                autofillHints: const [],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(11),
+                ],
                 validator: (value) => (value == null || value.isEmpty)
                     ? 'Informe o telefone'
                     : null,
@@ -525,16 +553,49 @@ class _ClientRegisterPageState extends State<ClientRegisterPage> {
                 controller: _emailController,
                 decoration: const InputDecoration(labelText: 'E-mail'),
                 keyboardType: TextInputType.emailAddress,
+                autofillHints: const [],
                 validator: (value) =>
                     (value == null || value.isEmpty) ? 'Informe o e-mail' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Senha'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                obscureText: _obscurePassword,
+                autofillHints: const [],
                 validator: (value) => (value == null || value.length < 8)
                     ? 'A senha precisa ter ao menos 8 caracteres'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordConfirmController,
+                decoration: InputDecoration(
+                  labelText: 'Confirmar senha',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePasswordConfirm
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () => setState(
+                      () => _obscurePasswordConfirm = !_obscurePasswordConfirm,
+                    ),
+                  ),
+                ),
+                obscureText: _obscurePasswordConfirm,
+                autofillHints: const [],
+                validator: (value) => value != _passwordController.text
+                    ? 'As senhas não coincidem'
                     : null,
               ),
               if (widget.authSession.errorMessage != null) ...[
@@ -566,7 +627,7 @@ class _ClientRegisterPageState extends State<ClientRegisterPage> {
   }
 }
 
-/// Carrossel curto exibido uma unica vez, logo apos o autocadastro do
+/// Carrossel curto exibido uma única vez, logo após o autocadastro do
 /// cliente, apontando os 3 destinos principais do app. Pode ser pulado.
 class ClientWelcomeCarouselPage extends StatefulWidget {
   const ClientWelcomeCarouselPage({super.key, required this.onDone});
@@ -585,18 +646,18 @@ class _ClientWelcomeCarouselPageState extends State<ClientWelcomeCarouselPage> {
   static const _slides = [
     (
       icon: Icons.add_task,
-      title: 'Agende seu horario',
-      message: 'Na aba Agendar voce escolhe servico, profissional e horario.',
+      title: 'Agende seu horário',
+      message: 'Na aba Agendar você escolhe serviço, profissional e horário.',
     ),
     (
       icon: Icons.workspace_premium,
       title: 'Acompanhe seu plano',
-      message: 'Na aba Clube voce ve sua assinatura e quantas vezes ja usou.',
+      message: 'Na aba Clube você vê sua assinatura e quantas vezes já usou.',
     ),
     (
       icon: Icons.receipt_long,
       title: 'Veja seus pagamentos',
-      message: 'Na aba Pagamentos voce acompanha o que esta pendente e pago.',
+      message: 'Na aba Pagamentos você acompanha o que está pendente e pago.',
     ),
   ];
 
@@ -664,7 +725,7 @@ class _ClientWelcomeCarouselPageState extends State<ClientWelcomeCarouselPage> {
                           curve: Curves.ease,
                         ),
                   style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-                  child: Text(isLast ? 'Comecar' : 'Proximo'),
+                  child: Text(isLast ? 'Começar' : 'Próximo'),
                 ),
               ),
             ),

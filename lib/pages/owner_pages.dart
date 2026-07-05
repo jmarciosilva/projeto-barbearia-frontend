@@ -385,7 +385,7 @@ class _OnboardingChecklistCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Vamos configurar seu salao',
+                    'Vamos configurar seu salão',
                     style: Theme.of(
                       context,
                     ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
@@ -405,7 +405,7 @@ class _OnboardingChecklistCard extends StatelessWidget {
             ),
             _ChecklistItem(
               done: hasService,
-              label: 'Cadastre seu primeiro servico',
+              label: 'Cadastre seu primeiro serviço',
               onTap: onAddService,
             ),
             _ChecklistItem(

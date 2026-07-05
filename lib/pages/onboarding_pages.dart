@@ -25,7 +25,21 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
   String _businessType = businessTypeLabels.keys.first;
 
   @override
+  void initState() {
+    super.initState();
+    // AuthSession nao e um ListenableBuilder aqui: sem este listener, um erro
+    // vindo da API (ex: e-mail duplicado) so aparece na tela apos algum
+    // outro rebuild, deixando o usuario sem feedback ate voltar e reabrir.
+    widget.authSession.addListener(_onAuthSessionChanged);
+  }
+
+  void _onAuthSessionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    widget.authSession.removeListener(_onAuthSessionChanged);
     _tenantNameController.dispose();
     _tenantPhoneController.dispose();
     _ownerNameController.dispose();
@@ -83,7 +97,7 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
               DropdownButtonFormField<String>(
                 initialValue: _businessType,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Tipo de negocio'),
+                decoration: const InputDecoration(labelText: 'Tipo de negócio'),
                 items: [
                   for (final entry in businessTypeLabels.entries)
                     DropdownMenuItem(
@@ -103,7 +117,7 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 24),
-              const AppSectionTitle('Dados do proprietario'),
+              const AppSectionTitle('Dados do proprietário'),
               TextFormField(
                 controller: _ownerNameController,
                 decoration: const InputDecoration(labelText: 'Seu nome'),

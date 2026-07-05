@@ -39,8 +39,8 @@ class _InviteCodePageState extends State<InviteCodePage> {
 
   Future<void> _share() async {
     await Share.share(
-      'Ola! Use este link para se cadastrar no ${_tenant.name} pelo '
-      'app Clube do Salao: $_inviteLink\n\nOu digite o codigo '
+      'Olá! Use este link para se cadastrar no ${_tenant.name} pelo '
+      'app Clube do Salão: $_inviteLink\n\nOu digite o código '
       '${_tenant.inviteCode} na tela de cadastro do app.',
     );
     await widget.checklistStorage.markInviteShared();
@@ -50,10 +50,10 @@ class _InviteCodePageState extends State<InviteCodePage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Gerar novo codigo?'),
+        title: const Text('Gerar novo código?'),
         content: Text(
-          'O codigo atual (${_tenant.inviteCode}) deixa de funcionar. '
-          'Quem ja tiver o link/QR antigo nao vai conseguir mais se cadastrar por ele.',
+          'O código atual (${_tenant.inviteCode}) deixa de funcionar. '
+          'Quem já tiver o link/QR antigo não vai conseguir mais se cadastrar por ele.',
         ),
         actions: [
           TextButton(
@@ -62,7 +62,7 @@ class _InviteCodePageState extends State<InviteCodePage> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Gerar novo codigo'),
+            child: const Text('Gerar novo código'),
           ),
         ],
       ),
@@ -97,7 +97,7 @@ class _InviteCodePageState extends State<InviteCodePage> {
           children: [
             Text(
               'Compartilhe este QR code ou link com seus clientes. Quem abrir '
-              'ja se cadastra direto vinculado ao ${_tenant.name}.',
+              'já se cadastra direto vinculado ao ${_tenant.name}.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 20),
@@ -119,7 +119,7 @@ class _InviteCodePageState extends State<InviteCodePage> {
             const SizedBox(height: 20),
             Center(
               child: Text(
-                'Codigo: ${_tenant.inviteCode}',
+                'Código: ${_tenant.inviteCode}',
                 style: Theme.of(
                   context,
                 ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -150,7 +150,7 @@ class _InviteCodePageState extends State<InviteCodePage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh),
-              label: const Text('Gerar novo codigo'),
+              label: const Text('Gerar novo código'),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             ),
           ],

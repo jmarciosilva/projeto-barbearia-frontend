@@ -22,7 +22,7 @@ void main() {
 
     expect(find.text('Clube do Salao Demo'), findsOneWidget);
 
-    await tester.tap(find.text('E isso mesmo, continuar cadastro'));
+    await tester.tap(find.text('É isso mesmo, continuar cadastro'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Maria Cliente');
@@ -32,12 +32,13 @@ void main() {
       'maria@example.com',
     );
     await tester.enterText(find.byType(TextFormField).at(3), 'senhaforte1');
+    await tester.enterText(find.byType(TextFormField).at(4), 'senhaforte1');
 
     await tester.tap(find.widgetWithText(FilledButton, 'Criar conta'));
     await tester.pumpAndSettle();
 
     // Carrossel de boas-vindas aparece uma unica vez apos o autocadastro.
-    expect(find.text('Agende seu horario'), findsOneWidget);
+    expect(find.text('Agende seu horário'), findsOneWidget);
     await tester.tap(find.text('Pular'));
     await tester.pumpAndSettle();
 
@@ -60,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Codigo de convite invalido'),
+      find.textContaining('Código de convite inválido'),
       findsOneWidget,
     );
   });
@@ -76,7 +77,7 @@ void main() {
     await tester.tap(find.text('Sou cliente'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Nao tenho codigo, quero escolher um salao'));
+    await tester.tap(find.text('Não tenho código, quero escolher um salão'));
     await tester.pumpAndSettle();
 
     expect(find.text('Barbearia do Ze'), findsOneWidget);
@@ -91,11 +92,12 @@ void main() {
       'joao@example.com',
     );
     await tester.enterText(find.byType(TextFormField).at(3), 'senhaforte1');
+    await tester.enterText(find.byType(TextFormField).at(4), 'senhaforte1');
 
     await tester.tap(find.widgetWithText(FilledButton, 'Criar conta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Agende seu horario'), findsOneWidget);
+    expect(find.text('Agende seu horário'), findsOneWidget);
   });
 
   testWidgets(
@@ -110,7 +112,7 @@ void main() {
       await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Vamos configurar seu salao'), findsOneWidget);
+      expect(find.text('Vamos configurar seu salão'), findsOneWidget);
       expect(
         find.text('Compartilhe o convite com seus clientes'),
         findsOneWidget,
@@ -119,7 +121,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
-      expect(find.text('Vamos configurar seu salao'), findsNothing);
+      expect(find.text('Vamos configurar seu salão'), findsNothing);
       expect(await checklistStorage.isDismissed(), isTrue);
     },
   );
@@ -135,14 +137,14 @@ void main() {
     await tester.tap(find.text('Convidar clientes'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Codigo: AB3XQ9'), findsOneWidget);
+    expect(find.text('Código: AB3XQ9'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gerar novo codigo'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Gerar novo código'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Gerar novo codigo'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Gerar novo código'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Codigo: ZZ9YY8'), findsOneWidget);
+    expect(find.text('Código: ZZ9YY8'), findsOneWidget);
   });
 }

@@ -197,7 +197,7 @@ void main() {
     await tester.tap(find.text('Criar conta'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sou dono de salao'));
+    await tester.tap(find.text('Sou dono de salão'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Novo Salao');
