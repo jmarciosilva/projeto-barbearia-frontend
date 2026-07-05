@@ -7,8 +7,7 @@ void main() {
   testWidgets('proprietario cadastra cliente pela API', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Cadastrar cliente'));
     await tester.pumpAndSettle();
@@ -29,8 +28,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
@@ -63,8 +61,7 @@ void main() {
   testWidgets('proprietario registra pagamento como fiado', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
@@ -90,8 +87,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
@@ -115,8 +111,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pumpAndSettle();
@@ -136,8 +131,7 @@ void main() {
   testWidgets('profissional conclui atendimento pela API', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Profissional'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Corte masculino'));
     await tester.pumpAndSettle();
@@ -160,8 +154,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Agendar'));
     await tester.pumpAndSettle();
@@ -221,8 +214,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Catalogo'));
     await tester.pumpAndSettle();
@@ -243,8 +235,7 @@ void main() {
     (tester) async {
       await pumpMobileApp(tester);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-      await tester.pumpAndSettle();
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
       await tester.tap(find.text('Catalogo'));
       await tester.pumpAndSettle();
@@ -269,8 +260,7 @@ void main() {
     (tester) async {
       await pumpMobileApp(tester);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-      await tester.pumpAndSettle();
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
       await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
@@ -294,8 +284,7 @@ void main() {
   testWidgets('cliente troca de plano pela API', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Plano Bronze'));
     await tester.pumpAndSettle();
@@ -321,8 +310,7 @@ void main() {
   testWidgets('cliente cancela um agendamento pela API', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Agendar'));
     await tester.pumpAndSettle();
@@ -355,8 +343,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Agendar'));
     await tester.pumpAndSettle();
@@ -390,8 +377,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Agenda'));
     await tester.pumpAndSettle();
@@ -418,8 +404,7 @@ void main() {
   testWidgets('proprietario troca de plano SaaS pela API', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Meu plano'));
     await tester.pumpAndSettle();

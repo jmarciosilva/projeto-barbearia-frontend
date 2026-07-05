@@ -109,8 +109,7 @@ void main() {
       final session = buildTestAuthSession(checklistStorage: checklistStorage);
       await pumpMobileApp(tester, authSession: session);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-      await tester.pumpAndSettle();
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
       expect(find.text('Vamos configurar seu salão'), findsOneWidget);
       expect(
@@ -131,8 +130,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.tap(find.text('Convidar clientes'));
     await tester.pumpAndSettle();

@@ -1,5 +1,4 @@
 import 'package:clube_do_salao/main.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/pump_app.dart';
@@ -17,8 +16,7 @@ void main() {
   testWidgets('captura layout do proprietario', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await expectLater(
       find.byType(ClubeDoSalaoApp),
@@ -29,8 +27,7 @@ void main() {
   testWidgets('captura layout do profissional', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Profissional'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
     await expectLater(
       find.byType(ClubeDoSalaoApp),
@@ -41,8 +38,7 @@ void main() {
   testWidgets('captura layout do cliente', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     await expectLater(
       find.byType(ClubeDoSalaoApp),

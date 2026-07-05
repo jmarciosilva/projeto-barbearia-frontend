@@ -9,8 +9,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
@@ -33,8 +32,7 @@ void main() {
   testWidgets('mostra erro quando a senha atual esta errada', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();
@@ -53,8 +51,7 @@ void main() {
   testWidgets('nova senha e confirmacao precisam coincidir', (tester) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     await tester.drag(find.byType(ListView), const Offset(0, -300));
     await tester.pumpAndSettle();

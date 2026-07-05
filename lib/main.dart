@@ -32,10 +32,6 @@ void main() {
 
 const _logoMarkAsset = 'assets/icon/icon_foreground.png';
 
-/// Contas de demonstracao criadas por `php artisan db:seed` no backend
-/// (ver `backend/docs/api.md`). Atalho so para acelerar testes manuais.
-const _demoPassword = 'demo12345';
-
 enum UserRole {
   owner('Proprietário', Icons.storefront),
   professional('Profissional', Icons.content_cut),
@@ -192,6 +188,14 @@ class _SplashPage extends StatelessWidget {
               ),
               child: Image.asset(_logoMarkAsset, width: 48, height: 48),
             ),
+            const SizedBox(height: 16),
+            Text(
+              'Clube do Salão',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 24),
             const CircularProgressIndicator(),
           ],
@@ -229,12 +233,6 @@ class _LoginPageState extends State<LoginPage> {
       _emailController.text.trim(),
       _passwordController.text,
     );
-  }
-
-  Future<void> _loginAsDemo(String email) async {
-    _emailController.text = email;
-    _passwordController.text = _demoPassword;
-    await widget.authSession.login(email, _demoPassword);
   }
 
   @override
@@ -368,46 +366,6 @@ class _LoginPageState extends State<LoginPage> {
                               minimumSize: const Size(double.infinity, 48),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Acesso rápido (demonstração)',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _DemoLoginButton(
-                                  label: 'Gestor',
-                                  enabled: !isSubmitting,
-                                  onPressed: () =>
-                                      _loginAsDemo('owner@clubedosalao.com'),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: _DemoLoginButton(
-                                  label: 'Profissional',
-                                  enabled: !isSubmitting,
-                                  onPressed: () => _loginAsDemo(
-                                    'ana.souza@clubedosalao.com',
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: _DemoLoginButton(
-                                  label: 'Cliente',
-                                  enabled: !isSubmitting,
-                                  onPressed: () => _loginAsDemo(
-                                    'carlos.mendes@clubedosalao.com',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 10),
                           TextButton(
                             onPressed: isSubmitting
@@ -434,37 +392,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Botao compacto de acesso rapido as contas de demonstracao, dimensionado
-/// para os tres caberem lado a lado sem quebrar linha nem exigir rolagem.
-class _DemoLoginButton extends StatelessWidget {
-  const _DemoLoginButton({
-    required this.label,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: enabled ? onPressed : null,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-        textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
       ),
     );
   }

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/pump_app.dart';
@@ -12,8 +11,7 @@ void main() {
     expect(find.text('Clube do Salão'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     expect(find.text('Proprietário'), findsOneWidget);
     expect(find.text('MRR previsto'), findsOneWidget);
@@ -39,8 +37,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Profissional'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
     expect(find.text('Profissional'), findsWidgets);
     expect(find.text('Atendimentos de hoje'), findsOneWidget);
@@ -52,8 +49,7 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Cliente'));
-    await tester.pumpAndSettle();
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
     expect(find.text('Cliente'), findsWidgets);
     expect(find.text('Plano Bronze'), findsOneWidget);
