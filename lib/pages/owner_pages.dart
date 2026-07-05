@@ -11,9 +11,11 @@ import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
+import 'package:clube_do_salao/pages/account_settings_page.dart';
 import 'package:clube_do_salao/pages/owner_invite_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
@@ -38,6 +40,7 @@ class OwnerHomePage extends StatefulWidget {
     required this.tenantRepository,
     required this.saasSubscriptionRepository,
     required this.checklistStorage,
+    required this.authSession,
   });
 
   final ClientsRepository clientsRepository;
@@ -49,6 +52,7 @@ class OwnerHomePage extends StatefulWidget {
   final TenantRepository tenantRepository;
   final SaasSubscriptionRepository saasSubscriptionRepository;
   final OnboardingChecklistStorage checklistStorage;
+  final AuthSession authSession;
 
   @override
   State<OwnerHomePage> createState() => _OwnerHomePageState();
@@ -267,6 +271,16 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             );
             _load();
           },
+        ),
+        AppActionTile(
+          icon: Icons.lock_outline,
+          title: 'Meus dados de acesso',
+          subtitle: 'Altere seu e-mail e/ou senha de login.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+            ),
+          ),
         ),
         AppActionTile(
           icon: Icons.person_add,

@@ -562,6 +562,7 @@ class _DashboardShellState extends State<DashboardShell> {
             tenantRepository: TenantRepository(apiClient),
             saasSubscriptionRepository: SaasSubscriptionRepository(apiClient),
             checklistStorage: widget.authSession.checklistStorage,
+            authSession: widget.authSession,
           ),
         ),
         _ShellPage(

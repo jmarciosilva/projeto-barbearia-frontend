@@ -190,6 +190,35 @@ class AuthSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Troca o proprio e-mail e/ou senha (`PATCH /me/credentials`), exigindo a
+  /// senha atual. Ao contrario de `login`/`registerOwner`/`registerClient`,
+  /// nao mexe em `status`: e uma edicao dentro do app ja autenticado, nao uma
+  /// transicao de autenticacao — o switch de login/dashboard em `main.dart`
+  /// nao deve reagir a esta chamada. Por isso tambem nao engole erro: quem
+  /// chama trata o `AppException` localmente (mesmo padrao das telas de
+  /// cadastro de recurso, tipo `NewClientPage`).
+  Future<void> updateCredentials({
+    required String currentPassword,
+    String? email,
+    String? password,
+    String? passwordConfirmation,
+  }) async {
+    final response =
+        await apiClient.patch(
+              '/me/credentials',
+              body: {
+                'current_password': currentPassword,
+                'email': ?email,
+                'password': ?password,
+                'password_confirmation': ?passwordConfirmation,
+              },
+            )
+            as Map<String, dynamic>;
+
+    user = AppUser.fromJson(response);
+    notifyListeners();
+  }
+
   Future<void> _applyAuthResponse(Map<String, dynamic> response) async {
     final token = response['token'] as String;
     apiClient.updateToken(token);

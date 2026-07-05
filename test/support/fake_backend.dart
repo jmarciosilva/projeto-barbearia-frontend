@@ -134,6 +134,27 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, user);
     }
 
+    if (method == 'PATCH' && path.endsWith('/me/credentials')) {
+      final user = _userForToken(request);
+      if (user == null) return _jsonResponse(401, _unauthenticated);
+
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (body['current_password'] != 'demo12345') {
+        return _jsonResponse(422, {
+          'message': 'Dados invalidos.',
+          'error': 'validation_error',
+          'errors': {
+            'current_password': ['Senha atual incorreta.'],
+          },
+        });
+      }
+
+      return _jsonResponse(200, {
+        ...user,
+        if (body['email'] != null) 'email': body['email'],
+      });
+    }
+
     if (method == 'POST' && path.endsWith('/auth/logout')) {
       return http.Response('', 204);
     }
