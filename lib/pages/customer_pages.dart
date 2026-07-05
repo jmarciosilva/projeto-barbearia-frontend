@@ -418,7 +418,7 @@ class BookingPage extends StatelessWidget {
         AppActionTile(
           icon: Icons.event_note,
           title: 'Meus agendamentos',
-          subtitle: 'Veja, cancele ou remarque seus horarios.',
+          subtitle: 'Veja, cancele ou remarque seus horários.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => MyAppointmentsPage(
@@ -430,7 +430,7 @@ class BookingPage extends StatelessWidget {
         AppActionTile(
           icon: Icons.groups,
           title: 'Fila de espera',
-          subtitle: 'Peca atendimento no estabelecimento sem escolher horario.',
+          subtitle: 'Peça atendimento no estabelecimento sem escolher horário.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => MyWaitlistPage(
@@ -444,18 +444,18 @@ class BookingPage extends StatelessWidget {
         const AppSectionTitle('Novo agendamento'),
         const AppActionTile(
           icon: Icons.content_cut,
-          title: 'Escolher servico',
-          subtitle: 'Veja os servicos disponiveis no salao.',
+          title: 'Escolher serviço',
+          subtitle: 'Veja os serviços disponíveis no salão.',
         ),
         const AppActionTile(
           icon: Icons.badge,
           title: 'Escolher profissional',
-          subtitle: 'Veja quem esta disponivel para atender.',
+          subtitle: 'Veja quem está disponível para atender.',
         ),
         const AppActionTile(
           icon: Icons.event,
-          title: 'Confirmar horario',
-          subtitle: 'Receba confirmacao na hora.',
+          title: 'Confirmar horário',
+          subtitle: 'Receba confirmação na hora.',
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
@@ -548,7 +548,7 @@ class _ChooseServicePageState extends State<ChooseServicePage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_services.isEmpty) {
-      body = const Center(child: Text('Nenhum servico disponivel.'));
+      body = const Center(child: Text('Nenhum serviço disponível.'));
     } else {
       body = RadioGroup<ServiceModel>(
         groupValue: _selected,
@@ -587,7 +587,7 @@ class _ChooseServicePageState extends State<ChooseServicePage> {
     }
 
     return AppScaffold(
-      appBar: AppBar(title: const Text('Escolher servico')),
+      appBar: AppBar(title: const Text('Escolher serviço')),
       body: body,
     );
   }
@@ -656,7 +656,7 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_professionals.isEmpty) {
-      body = const Center(child: Text('Nenhum profissional disponivel.'));
+      body = const Center(child: Text('Nenhum profissional disponível.'));
     } else {
       body = RadioGroup<ProfessionalModel>(
         groupValue: _selected,
@@ -668,7 +668,7 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
               RadioListTile<ProfessionalModel>(
                 secondary: const CircleAvatar(child: Icon(Icons.badge)),
                 title: Text(professional.name),
-                subtitle: Text(professional.specialty ?? 'Disponivel'),
+                subtitle: Text(professional.specialty ?? 'Disponível'),
                 value: professional,
               ),
             const SizedBox(height: 8),
@@ -770,13 +770,13 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      appBar: AppBar(title: const Text('Confirmar horario')),
+      appBar: AppBar(title: const Text('Confirmar horário')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionTitle('Horarios disponiveis (amanha)'),
+            const AppSectionTitle('Horários disponíveis (amanhã)'),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -915,8 +915,8 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
       builder: (context) => AlertDialog(
         title: const Text('Cancelar assinatura'),
         content: const Text(
-          'Tem certeza que deseja cancelar sua assinatura? Voce perde acesso '
-          'aos beneficios do plano imediatamente.',
+          'Tem certeza que deseja cancelar sua assinatura? Você perde acesso '
+          'aos benefícios do plano imediatamente.',
         ),
         actions: [
           TextButton(
@@ -965,7 +965,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
       final subscription = _client!.activeSubscription;
 
       if (subscription == null) {
-        body = const Center(child: Text('Voce ainda nao tem um plano ativo.'));
+        body = const Center(child: Text('Você ainda não tem um plano ativo.'));
       } else {
         body = ListView(
           padding: const EdgeInsets.all(16),
@@ -1020,7 +1020,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                   leading: Icon(Icons.schedule),
                   title: Text('Pagamento pendente'),
                   subtitle: Text(
-                    'A confirmacao aparece aqui assim que a cobranca for processada.',
+                    'A confirmação aparece aqui assim que a cobrança for processada.',
                   ),
                 ),
               )
@@ -1029,7 +1029,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 child: ListTile(
                   leading: Icon(Icons.check_circle_outline),
                   title: Text('Pagamento em dia'),
-                  subtitle: Text('Sua assinatura esta liberada para uso.'),
+                  subtitle: Text('Sua assinatura está liberada para uso.'),
                 ),
               ),
             if (subscription.payments.isNotEmpty) ...[
@@ -1056,7 +1056,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 ),
             ],
             const SizedBox(height: 16),
-            const AppSectionTitle('Historico de uso'),
+            const AppSectionTitle('Histórico de uso'),
             if (subscription.usages.isEmpty)
               const Card(
                 child: ListTile(title: Text('Nenhum uso registrado ainda.')),
@@ -1066,7 +1066,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.history),
-                    title: Text(usage.serviceName ?? 'Servico'),
+                    title: Text(usage.serviceName ?? 'Serviço'),
                     subtitle: Text(
                       '${usage.usedAt.day.toString().padLeft(2, '0')}/'
                       '${usage.usedAt.month.toString().padLeft(2, '0')}/'
@@ -1078,7 +1078,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
             AppActionTile(
               icon: Icons.swap_horiz,
               title: 'Trocar de plano',
-              subtitle: 'Veja outras opcoes disponiveis no salao.',
+              subtitle: 'Veja outras opções disponíveis no salão.',
               onTap: _openChoosePlan,
             ),
             AppActionTile(
@@ -1165,7 +1165,7 @@ class _ChoosePlanPageState extends State<ChoosePlanPage> {
             appBar: AppBar(title: const Text('Assinatura confirmada')),
             body: AppMockSuccessPanel(
               title: 'Plano ${plan.name} ativado',
-              message: 'Sua assinatura ja esta ativa.',
+              message: 'Sua assinatura já está ativa.',
               buttonLabel: 'Concluir',
               onDone: () => Navigator.of(context).pop(),
             ),
@@ -1194,12 +1194,12 @@ class _ChoosePlanPageState extends State<ChoosePlanPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_plans.isEmpty) {
-      body = const Center(child: Text('Nenhum plano disponivel no momento.'));
+      body = const Center(child: Text('Nenhum plano disponível no momento.'));
     } else {
       body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const AppSectionTitle('Planos disponiveis'),
+          const AppSectionTitle('Planos disponíveis'),
           for (final plan in _plans)
             Card(
               child: ListTile(
@@ -1297,7 +1297,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_appointments.isEmpty) {
-      body = const Center(child: Text('Voce ainda nao tem agendamentos.'));
+      body = const Center(child: Text('Você ainda não tem agendamentos.'));
     } else {
       body = ListView(
         padding: const EdgeInsets.all(16),
@@ -1306,7 +1306,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.event),
-                title: Text(appointment.serviceName ?? 'Servico'),
+                title: Text(appointment.serviceName ?? 'Serviço'),
                 subtitle: Text(
                   '${appointment.professionalName ?? 'Profissional'} - ${formatTime(appointment.startsAt)}',
                 ),
@@ -1325,7 +1325,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
   }
 
   String _statusLabel(String status) => switch (status) {
-    'completed' => 'Concluido',
+    'completed' => 'Concluído',
     'canceled' => 'Cancelado',
     'no_show' => 'Faltou',
     _ => 'Agendado',
@@ -1439,7 +1439,7 @@ class _MyWaitlistPageState extends State<MyWaitlistPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_entries.isEmpty) {
-      body = const Center(child: Text('Voce nao esta na fila de espera.'));
+      body = const Center(child: Text('Você não está na fila de espera.'));
     } else {
       body = ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
@@ -1448,7 +1448,7 @@ class _MyWaitlistPageState extends State<MyWaitlistPage> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.groups),
-                title: Text(entry.serviceName ?? 'Servico'),
+                title: Text(entry.serviceName ?? 'Serviço'),
                 subtitle: Text(
                   entry.professionalName ?? 'Qualquer profissional',
                 ),
@@ -1585,9 +1585,9 @@ class _JoinWaitlistPageState extends State<JoinWaitlistPage> {
       return AppScaffold(
         appBar: AppBar(title: const Text('Fila de espera')),
         body: AppMockSuccessPanel(
-          title: 'Voce entrou na fila',
+          title: 'Você entrou na fila',
           message:
-              'Assim que houver uma vaga, o salao confirma o horario do seu atendimento.',
+              'Assim que houver uma vaga, o salão confirma o horário do seu atendimento.',
           buttonLabel: 'Concluir',
           onDone: () => Navigator.of(context).pop(),
         ),
@@ -1601,7 +1601,7 @@ class _JoinWaitlistPageState extends State<JoinWaitlistPage> {
     } else if (_loadError != null) {
       body = AppLoadingError(message: _loadError!, onRetry: _loadServices);
     } else if (_services.isEmpty) {
-      body = const Center(child: Text('Nenhum servico disponivel.'));
+      body = const Center(child: Text('Nenhum serviço disponível.'));
     } else {
       body = RadioGroup<ServiceModel>(
         groupValue: _selectedService,
@@ -1609,7 +1609,7 @@ class _JoinWaitlistPageState extends State<JoinWaitlistPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const AppSectionTitle('Servico desejado'),
+            const AppSectionTitle('Serviço desejado'),
             for (final service in _services)
               RadioListTile<ServiceModel>(
                 title: Text(service.name),
@@ -1622,8 +1622,8 @@ class _JoinWaitlistPageState extends State<JoinWaitlistPage> {
             TextFormField(
               controller: _notesController,
               decoration: const InputDecoration(
-                labelText: 'Observacoes (opcional)',
-                hintText: 'Ex: prefiro no periodo da tarde',
+                labelText: 'Observações (opcional)',
+                hintText: 'Ex: prefiro no período da tarde',
               ),
               maxLines: 3,
             ),

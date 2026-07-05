@@ -21,7 +21,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cliente Ana Souza cadastrado.'), findsOneWidget);
-    expect(find.text('Proximas acoes'), findsOneWidget);
+    expect(find.text('Próximas ações'), findsOneWidget);
   });
 
   testWidgets('proprietario confirma um pagamento pendente pela API', (
@@ -44,8 +44,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PIX'), findsWidgets);
-    expect(find.text('Cartao credito'), findsOneWidget);
-    expect(find.text('Cartao debito'), findsOneWidget);
+    expect(find.text('Cartão crédito'), findsOneWidget);
+    expect(find.text('Cartão débito'), findsOneWidget);
     expect(find.text('Dinheiro'), findsOneWidget);
     expect(find.text('Fiado'), findsOneWidget);
 
@@ -96,7 +96,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Gestao do fiado'));
+    await tester.tap(find.text('Gestão do fiado'));
     await tester.pumpAndSettle();
 
     expect(find.text('Total em aberto'), findsOneWidget);
@@ -147,7 +147,7 @@ void main() {
     await tester.tap(find.text('Concluir atendimento'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Atendimento concluido'), findsOneWidget);
+    expect(find.text('Atendimento concluído'), findsOneWidget);
 
     await tester.tap(find.text('Voltar para a agenda'));
     await tester.pumpAndSettle();
@@ -168,7 +168,7 @@ void main() {
 
     await tester.tap(find.text('Iniciar agendamento'));
     await tester.pumpAndSettle();
-    expect(find.text('Escolher servico'), findsOneWidget);
+    expect(find.text('Escolher serviço'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
     await tester.pumpAndSettle();
@@ -176,7 +176,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
     await tester.pumpAndSettle();
-    expect(find.text('Confirmar horario'), findsOneWidget);
+    expect(find.text('Confirmar horário'), findsOneWidget);
 
     await tester.tap(find.text('Confirmar agendamento'));
     await tester.pumpAndSettle();
@@ -212,7 +212,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Criar conta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Proprietario'), findsOneWidget);
+    expect(find.text('Proprietário'), findsOneWidget);
     expect(find.text('MRR previsto'), findsOneWidget);
   });
 
@@ -227,7 +227,7 @@ void main() {
     await tester.tap(find.text('Catalogo'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Cadastrar servico'));
+    await tester.tap(find.byTooltip('Cadastrar serviço'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Manicure');
@@ -235,7 +235,7 @@ void main() {
     await tester.tap(find.text('Salvar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Servico Manicure cadastrado.'), findsOneWidget);
+    expect(find.text('Serviço Manicure cadastrado.'), findsOneWidget);
   });
 
   testWidgets(
@@ -367,11 +367,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Entrar na fila'));
     await tester.pumpAndSettle();
-    expect(find.text('Servico desejado'), findsOneWidget);
+    expect(find.text('Serviço desejado'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Entrar na fila'));
     await tester.pumpAndSettle();
-    expect(find.text('Voce entrou na fila'), findsOneWidget);
+    expect(find.text('Você entrou na fila'), findsOneWidget);
 
     await tester.tap(find.text('Concluir'));
     await tester.pumpAndSettle();
@@ -404,7 +404,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Escolher profissional'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Atribuir horario'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Atribuir horário'));
     await tester.pumpAndSettle();
 
     expect(find.text('Atendimento agendado'), findsOneWidget);
@@ -424,7 +424,7 @@ void main() {
     await tester.tap(find.text('Meu plano'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Planos disponiveis'), findsOneWidget);
+    expect(find.text('Planos disponíveis'), findsOneWidget);
     expect(find.text('Plano atual'), findsOneWidget);
 
     await tester.tap(find.text('Basico'));

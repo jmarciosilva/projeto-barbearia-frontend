@@ -2,6 +2,7 @@ import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/support/business_types.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Onboarding do estabelecimento: cria o tenant e o usuario proprietario em
 /// uma unica chamada (`POST /auth/register-owner`) e ja autentica, sem exigir
@@ -23,6 +24,7 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
   final _ownerEmailController = TextEditingController();
   final _ownerPasswordController = TextEditingController();
   String _businessType = businessTypeLabels.keys.first;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -113,14 +115,21 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
                 controller: _tenantPhoneController,
                 decoration: const InputDecoration(
                   labelText: 'Telefone do estabelecimento (opcional)',
+                  hintText: 'Ex: 11912345678',
                 ),
                 keyboardType: TextInputType.phone,
+                autofillHints: const [],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(11),
+                ],
               ),
               const SizedBox(height: 24),
               const AppSectionTitle('Dados do proprietário'),
               TextFormField(
                 controller: _ownerNameController,
                 decoration: const InputDecoration(labelText: 'Seu nome'),
+                autofillHints: const [],
                 validator: (value) =>
                     (value == null || value.isEmpty) ? 'Informe o nome' : null,
               ),
@@ -129,14 +138,25 @@ class _RegisterOwnerPageState extends State<RegisterOwnerPage> {
                 controller: _ownerEmailController,
                 decoration: const InputDecoration(labelText: 'E-mail'),
                 keyboardType: TextInputType.emailAddress,
+                autofillHints: const [],
                 validator: (value) =>
                     (value == null || value.isEmpty) ? 'Informe o e-mail' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _ownerPasswordController,
-                decoration: const InputDecoration(labelText: 'Senha'),
-                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                obscureText: _obscurePassword,
+                autofillHints: const [],
                 validator: (value) => (value == null || value.length < 8)
                     ? 'A senha precisa ter ao menos 8 caracteres'
                     : null,

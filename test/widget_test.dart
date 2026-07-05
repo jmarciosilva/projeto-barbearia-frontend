@@ -9,13 +9,13 @@ void main() {
   ) async {
     await pumpMobileApp(tester);
 
-    expect(find.text('Clube do Salao'), findsOneWidget);
+    expect(find.text('Clube do Salão'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Gestor'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Proprietario'), findsOneWidget);
+    expect(find.text('Proprietário'), findsOneWidget);
     expect(find.text('MRR previsto'), findsOneWidget);
   });
 
@@ -31,7 +31,7 @@ void main() {
     );
 
     expect(find.text('Credenciais invalidas.'), findsOneWidget);
-    expect(find.text('Clube do Salao'), findsOneWidget);
+    expect(find.text('Clube do Salão'), findsOneWidget);
   });
 
   testWidgets('entra como profissional e ve a propria agenda real', (

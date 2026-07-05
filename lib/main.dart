@@ -37,7 +37,7 @@ const _logoMarkAsset = 'assets/icon/icon_foreground.png';
 const _demoPassword = 'demo12345';
 
 enum UserRole {
-  owner('Proprietario', Icons.storefront),
+  owner('Proprietário', Icons.storefront),
   professional('Profissional', Icons.content_cut),
   customer('Cliente', Icons.person);
 
@@ -299,7 +299,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Clube do Salao',
+                            'Clube do Salão',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
@@ -309,7 +309,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Assinaturas, agenda e clientes em um unico app.',
+                            'Assinaturas, agenda e clientes em um único app.',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
@@ -370,7 +370,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Acesso rapido (demonstracao)',
+                            'Acesso rápido (demonstração)',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: colorScheme.onSurfaceVariant),

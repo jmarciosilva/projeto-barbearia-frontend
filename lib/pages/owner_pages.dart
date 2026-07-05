@@ -232,7 +232,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ],
         ),
         const SizedBox(height: 16),
-        const AppSectionTitle('Proximas acoes'),
+        const AppSectionTitle('Próximas ações'),
         AppActionTile(
           icon: Icons.workspace_premium,
           title: 'Meu plano',
@@ -271,7 +271,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.person_add,
           title: 'Cadastrar cliente',
-          subtitle: 'Inclua telefone, observacoes e historico inicial.',
+          subtitle: 'Inclua telefone, observações e histórico inicial.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -285,7 +285,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.workspace_premium,
           title: 'Criar plano de assinatura',
-          subtitle: 'Defina servicos, limites, dias e horarios permitidos.',
+          subtitle: 'Defina serviços, limites, dias e horários permitidos.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -302,7 +302,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.price_check,
           title: 'Confirmar pagamento manual',
-          subtitle: 'PIX, cartao, dinheiro ou fiado.',
+          subtitle: 'PIX, cartão, dinheiro ou fiado.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -316,7 +316,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.receipt_long,
-          title: 'Gestao do fiado',
+          title: 'Gestão do fiado',
           subtitle: 'Acompanhe saldos pendentes e lance recebimentos parciais.',
           onTap: () async {
             await Navigator.of(context).push(
@@ -332,7 +332,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.account_balance_wallet,
           title: 'Comissoes profissionais',
-          subtitle: 'Veja producao, comissao e adiantamentos.',
+          subtitle: 'Veja produção, comissão e adiantamentos.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -510,12 +510,12 @@ class _AgendaPageState extends State<AgendaPage> {
             .map(
               (appointment) => AppScheduleItem(
                 formatTime(appointment.startsAt),
-                appointment.serviceName ?? 'Servico',
+                appointment.serviceName ?? 'Serviço',
                 appointment.clientName ?? 'Cliente',
                 duration: formatDuration(
                   appointment.endsAt.difference(appointment.startsAt),
                 ),
-                notes: appointment.notes ?? 'Sem observacoes registradas.',
+                notes: appointment.notes ?? 'Sem observações registradas.',
               ),
             )
             .toList();
@@ -835,7 +835,7 @@ class _NewClientPageState extends State<NewClientPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
-              decoration: const InputDecoration(labelText: 'Observacoes'),
+              decoration: const InputDecoration(labelText: 'Observações'),
               maxLines: 3,
             ),
             if (_errorMessage != null) ...[
@@ -1008,7 +1008,7 @@ class _NewPlanPageState extends State<NewPlanPage> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
-            const AppSectionTitle('Servicos inclusos'),
+            const AppSectionTitle('Serviços inclusos'),
             if (_isLoadingOptions)
               const Center(child: CircularProgressIndicator())
             else if (_optionsError != null)
@@ -1293,7 +1293,7 @@ class _DebtManagementPageState extends State<DebtManagementPage> {
     }
 
     return AppScaffold(
-      appBar: AppBar(title: const Text('Gestao do fiado')),
+      appBar: AppBar(title: const Text('Gestão do fiado')),
       body: body,
     );
   }
@@ -1467,8 +1467,8 @@ class _DebtDetailPageState extends State<DebtDetailPage> {
 
   String _paymentMethodLabel(String method) => switch (method) {
     'pix' => 'PIX',
-    'credit_card' => 'Cartao credito',
-    'debit_card' => 'Cartao debito',
+    'credit_card' => 'Cartão crédito',
+    'debit_card' => 'Cartão débito',
     'cash' => 'Dinheiro',
     _ => method,
   };
@@ -1595,7 +1595,7 @@ class _ProfessionalCommissionsPageState
                 leading: const Icon(Icons.badge),
                 title: Text(professional.name),
                 subtitle: Text(
-                  'Comissao ${professional.commissionPercentage ?? 0}%',
+                  'Comissão ${professional.commissionPercentage ?? 0}%',
                 ),
                 onTap: () async {
                   await Navigator.of(context).push(
@@ -1679,7 +1679,7 @@ class _ProfessionalCommissionDetailPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Lancar adiantamento'),
+        title: const Text('Lançar adiantamento'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1749,7 +1749,7 @@ class _ProfessionalCommissionDetailPageState
                 Icons.content_cut,
               ),
               AppMetric(
-                'Comissao',
+                'Comissão',
                 formatCents(finance.commissionCents),
                 Icons.percent,
               ),
@@ -1769,7 +1769,7 @@ class _ProfessionalCommissionDetailPageState
           FilledButton.icon(
             onPressed: _addAdvance,
             icon: const Icon(Icons.add_card),
-            label: const Text('Lancar adiantamento'),
+            label: const Text('Lançar adiantamento'),
           ),
           const SizedBox(height: 16),
           const AppSectionTitle('Adiantamentos'),
@@ -1880,7 +1880,7 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
                       ),
                       if (payment.serviceName != null)
                         ListTile(
-                          title: const Text('Servico'),
+                          title: const Text('Serviço'),
                           trailing: Text(payment.serviceName!),
                         ),
                       ListTile(
@@ -1953,8 +1953,8 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
 
   String _paymentMethodLabel(String method) => switch (method) {
     'pix' => 'PIX',
-    'credit_card' => 'Cartao credito',
-    'debit_card' => 'Cartao debito',
+    'credit_card' => 'Cartão crédito',
+    'debit_card' => 'Cartão débito',
     'cash' => 'Dinheiro',
     'fiado' => 'Fiado',
     _ => method,
@@ -2040,7 +2040,7 @@ class _CatalogPageState extends State<CatalogPage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Servicos'),
+            Tab(text: 'Serviços'),
             Tab(text: 'Profissionais'),
           ],
         ),
@@ -2122,7 +2122,7 @@ class _ServicesPageState extends State<ServicesPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_services.isEmpty) {
-      body = const Center(child: Text('Nenhum servico cadastrado ainda.'));
+      body = const Center(child: Text('Nenhum serviço cadastrado ainda.'));
     } else {
       body = ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
@@ -2150,7 +2150,7 @@ class _ServicesPageState extends State<ServicesPage> {
           bottom: 16,
           child: FloatingActionButton(
             onPressed: _openNewService,
-            tooltip: 'Cadastrar servico',
+            tooltip: 'Cadastrar serviço',
             child: const Icon(Icons.add),
           ),
         ),
@@ -2210,7 +2210,7 @@ class _NewServicePageState extends State<NewServicePage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Servico ${_nameController.text} cadastrado.')),
+        SnackBar(content: Text('Serviço ${_nameController.text} cadastrado.')),
       );
       Navigator.of(context).pop();
     } on AppException catch (error) {
@@ -2225,7 +2225,7 @@ class _NewServicePageState extends State<NewServicePage> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      appBar: AppBar(title: const Text('Cadastrar servico')),
+      appBar: AppBar(title: const Text('Cadastrar serviço')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -2233,19 +2233,19 @@ class _NewServicePageState extends State<NewServicePage> {
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nome do servico'),
+              decoration: const InputDecoration(labelText: 'Nome do serviço'),
               validator: (value) =>
                   (value == null || value.isEmpty) ? 'Informe o nome' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _durationController,
-              decoration: const InputDecoration(labelText: 'Duracao (minutos)'),
+              decoration: const InputDecoration(labelText: 'Duração (minutos)'),
               keyboardType: TextInputType.number,
               validator: (value) {
-                if (value == null || value.isEmpty) return 'Informe a duracao';
+                if (value == null || value.isEmpty) return 'Informe a duração';
                 return int.tryParse(value) == null
-                    ? 'Informe um numero valido'
+                    ? 'Informe um número válido'
                     : null;
               },
             ),
@@ -2572,7 +2572,7 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
             TextFormField(
               controller: _commissionController,
               decoration: const InputDecoration(
-                labelText: 'Comissao % (opcional)',
+                labelText: 'Comissão % (opcional)',
               ),
               keyboardType: TextInputType.number,
             ),
@@ -2581,14 +2581,14 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
               controller: _passwordController,
               decoration: const InputDecoration(
                 labelText: 'Senha de acesso ao app (opcional)',
-                hintText: 'Deixe em branco para nao liberar login',
+                hintText: 'Deixe em branco para não liberar login',
               ),
               obscureText: true,
             ),
             const SizedBox(height: 16),
-            const AppSectionTitle('Servicos habilitados'),
+            const AppSectionTitle('Serviços habilitados'),
             Text(
-              'Deixe sem selecionar para permitir qualquer servico cadastrado.',
+              'Deixe sem selecionar para permitir qualquer serviço cadastrado.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -2779,7 +2779,7 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _commissionController,
-              decoration: const InputDecoration(labelText: 'Comissao %'),
+              decoration: const InputDecoration(labelText: 'Comissão %'),
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 8),
@@ -2791,9 +2791,9 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
               onChanged: (value) => setState(() => _isActive = value),
             ),
             const SizedBox(height: 8),
-            const AppSectionTitle('Servicos habilitados'),
+            const AppSectionTitle('Serviços habilitados'),
             Text(
-              'Deixe sem selecionar para permitir qualquer servico cadastrado.',
+              'Deixe sem selecionar para permitir qualquer serviço cadastrado.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
@@ -2931,7 +2931,7 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
                 leading: const Icon(Icons.groups),
                 title: Text(entry.clientName ?? 'Cliente'),
                 subtitle: Text(
-                  '${entry.serviceName ?? 'Servico'} - ${entry.professionalName ?? 'Qualquer profissional'}',
+                  '${entry.serviceName ?? 'Serviço'} - ${entry.professionalName ?? 'Qualquer profissional'}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openAssign(entry),
@@ -3092,7 +3092,7 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
                   trailing: Text(widget.entry.clientName ?? '-'),
                 ),
                 ListTile(
-                  title: const Text('Servico'),
+                  title: const Text('Serviço'),
                   trailing: Text(widget.entry.serviceName ?? '-'),
                 ),
               ],
@@ -3120,7 +3120,7 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
             ),
           ],
           const SizedBox(height: 16),
-          const AppSectionTitle('Horario disponivel (hoje)'),
+          const AppSectionTitle('Horário disponível (hoje)'),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -3152,14 +3152,14 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Atribuir horario'),
+                : const Text('Atribuir horário'),
           ),
         ],
       );
     }
 
     return AppScaffold(
-      appBar: AppBar(title: const Text('Atribuir horario')),
+      appBar: AppBar(title: const Text('Atribuir horário')),
       body: body,
     );
   }
@@ -3198,7 +3198,7 @@ class _SaasPlanBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   isExpired
-                      ? 'Seu periodo de teste expirou. Escolha um plano para continuar.'
+                      ? 'Seu período de teste expirou. Escolha um plano para continuar.'
                       : 'Faltam ${subscription.trialDaysRemaining} dias do seu teste gratuito. Toque para ver os planos.',
                 ),
               ),
@@ -3278,7 +3278,7 @@ class _SaasPlanPageState extends State<SaasPlanPage> {
             appBar: AppBar(title: const Text('Plano atualizado')),
             body: AppMockSuccessPanel(
               title: 'Plano ${plan.name} ativado',
-              message: 'Seu estabelecimento ja esta no novo plano.',
+              message: 'Seu estabelecimento já está no novo plano.',
               buttonLabel: 'Concluir',
               onDone: () => Navigator.of(context).pop(),
             ),
@@ -3313,7 +3313,7 @@ class _SaasPlanPageState extends State<SaasPlanPage> {
         children: [
           _SaasSubscriptionCard(subscription: subscription),
           const SizedBox(height: 20),
-          const AppSectionTitle('Planos disponiveis'),
+          const AppSectionTitle('Planos disponíveis'),
           for (final plan in _plans)
             Card(
               color: subscription.plan?.code == plan.code
@@ -3370,7 +3370,7 @@ class _SaasSubscriptionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              isExpired ? 'Periodo de teste expirado' : subscription.planName,
+              isExpired ? 'Período de teste expirado' : subscription.planName,
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),

@@ -53,12 +53,12 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
             .map(
               (appointment) => AppScheduleItem(
                 formatTime(appointment.startsAt),
-                appointment.serviceName ?? 'Servico',
+                appointment.serviceName ?? 'Serviço',
                 appointment.clientName ?? 'Cliente',
                 duration: formatDuration(
                   appointment.endsAt.difference(appointment.startsAt),
                 ),
-                notes: appointment.notes ?? 'Sem observacoes registradas.',
+                notes: appointment.notes ?? 'Sem observações registradas.',
               ),
             )
             .toList();
@@ -195,17 +195,17 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
     return AppProfileSummary(
       title: 'Perfil profissional',
       rows: [
-        AppInfoRow('Especialidade', professional.specialty ?? 'Nao informada'),
+        AppInfoRow('Especialidade', professional.specialty ?? 'Não informada'),
         AppInfoRow(
-          'Comissao',
+          'Comissão',
           professional.commissionPercentage == null
-              ? 'Nao definida'
+              ? 'Não definida'
               : '${professional.commissionPercentage}%',
         ),
         AppInfoRow('Atendimentos no mes', '$_completedThisMonth'),
         AppInfoRow('Atendimentos na semana', '${weekFinance.completedCount}'),
         AppInfoRow(
-          'Comissao do mes',
+          'Comissão do mês',
           formatCents(monthFinance.commissionCents),
         ),
         AppInfoRow('Adiantamentos', formatCents(monthFinance.advancesCents)),
@@ -217,7 +217,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         const AppSectionTitle('Extrato de adiantamentos'),
         if (monthFinance.advances.isEmpty)
           const Card(
-            child: ListTile(title: Text('Nenhum adiantamento no mes.')),
+            child: ListTile(title: Text('Nenhum adiantamento no mês.')),
           )
         else
           for (final advance in monthFinance.advances)
@@ -295,9 +295,9 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
       if (!mounted) return;
       setState(() {
-        _resultTitle = 'Atendimento concluido';
+        _resultTitle = 'Atendimento concluído';
         _resultMessage =
-            '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluido.';
+            '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluído.';
         _isSaving = false;
       });
     } on AppException catch (error) {
@@ -343,7 +343,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       if (!mounted) return;
       setState(() {
         _resultTitle = 'Agendamento cancelado';
-        _resultMessage = 'O horario foi liberado na agenda.';
+        _resultMessage = 'O horário foi liberado na agenda.';
         _isSaving = false;
       });
     } on AppException catch (error) {
@@ -364,7 +364,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
           children: [
             const Padding(
               padding: EdgeInsets.all(16),
-              child: AppSectionTitle('Novo horario (amanha)'),
+              child: AppSectionTitle('Novo horário (amanhã)'),
             ),
             for (final slot in _rescheduleSlots)
               ListTile(
@@ -403,7 +403,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       if (!mounted) return;
       setState(() {
         _resultTitle = 'Agendamento remarcado';
-        _resultMessage = 'Novo horario: $slot de amanha.';
+        _resultMessage = 'Novo horário: $slot de amanhã.';
         _isSaving = false;
       });
     } on AppException catch (error) {
@@ -439,15 +439,15 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                         trailing: Text(appointment.clientName ?? '-'),
                       ),
                       ListTile(
-                        title: const Text('Servico'),
+                        title: const Text('Serviço'),
                         trailing: Text(appointment.serviceName ?? '-'),
                       ),
                       ListTile(
-                        title: const Text('Horario'),
+                        title: const Text('Horário'),
                         trailing: Text(formatTime(appointment.startsAt)),
                       ),
                       ListTile(
-                        title: const Text('Duracao'),
+                        title: const Text('Duração'),
                         trailing: Text(
                           formatDuration(
                             appointment.endsAt.difference(appointment.startsAt),
@@ -458,12 +458,12 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const AppSectionTitle('Observacoes'),
+                const AppSectionTitle('Observações'),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      appointment.notes ?? 'Sem observacoes registradas.',
+                      appointment.notes ?? 'Sem observações registradas.',
                     ),
                   ),
                 ),
