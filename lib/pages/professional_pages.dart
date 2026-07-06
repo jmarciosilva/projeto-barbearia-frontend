@@ -7,6 +7,7 @@ import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Atendimentos de hoje do profissional logado (o backend ja filtra pela
 /// propria agenda, nunca mostra a de colegas).
@@ -222,6 +223,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         else
           for (final advance in monthFinance.advances)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.payments_outlined),
                 title: Text(formatCents(advance.amountCents)),
@@ -606,8 +608,15 @@ class _EditProfessionalProfilePageState
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
-              decoration: const InputDecoration(labelText: 'Telefone'),
+              decoration: const InputDecoration(
+                labelText: 'Telefone',
+                hintText: 'Ex: 11912345678',
+              ),
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),

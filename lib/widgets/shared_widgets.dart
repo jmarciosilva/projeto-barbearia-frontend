@@ -119,11 +119,6 @@ class AppActionTile extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.25)),
-      ),
       child: ListTile(
         leading: Icon(icon, color: colorScheme.primary),
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -231,6 +226,7 @@ class AppScheduleList extends StatelessWidget {
         AppSectionTitle(title),
         for (final item in items)
           Card(
+            margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               leading: CircleAvatar(child: Text(item.time.substring(0, 2))),
               title: Text(item.service),
@@ -245,20 +241,23 @@ class AppScheduleList extends StatelessWidget {
 }
 
 class AppPlanTile extends StatelessWidget {
-  const AppPlanTile(this.name, this.price, this.limit, {super.key});
+  const AppPlanTile(this.name, this.price, this.limit, {super.key, this.onTap});
 
   final String name;
   final String price;
   final String limit;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         leading: const Icon(Icons.workspace_premium),
         title: Text(name),
         subtitle: Text(limit),
         trailing: Text(price),
+        onTap: onTap,
       ),
     );
   }
@@ -284,6 +283,7 @@ class AppClientTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         leading: const Icon(Icons.person),
         title: Text(name),

@@ -34,4 +34,29 @@ class ServicesRepository {
 
     return ServiceModel.fromJson(response);
   }
+
+  /// Edicao de um servico pelo proprietario (`PATCH /services/{id}`).
+  Future<ServiceModel> update({
+    required int id,
+    String? name,
+    int? durationMinutes,
+    int? priceCents,
+    String? description,
+    bool? isActive,
+  }) async {
+    final response =
+        await _client.patch(
+              '/services/$id',
+              body: {
+                'name': ?name,
+                'duration_minutes': ?durationMinutes,
+                'price_cents': ?priceCents,
+                'description': ?description,
+                'is_active': ?isActive,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return ServiceModel.fromJson(response);
+  }
 }

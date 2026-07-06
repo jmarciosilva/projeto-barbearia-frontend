@@ -237,6 +237,21 @@ http.Client buildFakeBackend() {
       });
     }
 
+    if (method == 'PATCH' && path.contains('/clients/')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final client = _clientsJson.firstWhere(
+        (client) => '${client['id']}' == path.split('/').last,
+        orElse: () => _clientsJson.first,
+      );
+      return _jsonResponse(200, {
+        ...client,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['phone'] != null) 'phone': body['phone'],
+        if (body['notes'] != null) 'notes': body['notes'],
+        if (body['status'] != null) 'status': body['status'],
+      });
+    }
+
     if (method == 'GET' && path.endsWith('/services')) {
       return _jsonResponse(200, _servicesJson);
     }
@@ -250,6 +265,23 @@ http.Client buildFakeBackend() {
         'price_cents': body['price_cents'],
         'description': body['description'],
         'is_active': true,
+      });
+    }
+
+    if (method == 'PATCH' && path.contains('/services/')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final service = _servicesJson.firstWhere(
+        (service) => '${service['id']}' == path.split('/').last,
+        orElse: () => _servicesJson.first,
+      );
+      return _jsonResponse(200, {
+        ...service,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['duration_minutes'] != null)
+          'duration_minutes': body['duration_minutes'],
+        if (body['price_cents'] != null) 'price_cents': body['price_cents'],
+        if (body['description'] != null) 'description': body['description'],
+        if (body['is_active'] != null) 'is_active': body['is_active'],
       });
     }
 
@@ -319,6 +351,22 @@ http.Client buildFakeBackend() {
         'usage_limit': body['usage_limit'],
         'is_active': true,
         'services': <dynamic>[],
+      });
+    }
+
+    if (method == 'PATCH' && path.contains('/subscription-plans/')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final services = (body['services'] as List<dynamic>? ?? []);
+      return _jsonResponse(200, {
+        ..._bronzePlanJson,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['price_cents'] != null) 'price_cents': body['price_cents'],
+        if (body['usage_limit'] != null) 'usage_limit': body['usage_limit'],
+        if (body['is_active'] != null) 'is_active': body['is_active'],
+        'services': services
+            .map((service) => {'id': (service as Map<String, dynamic>)['id'], 'name': 'Servico ${service['id']}'})
+            .toList(),
+        'professionals': <dynamic>[],
       });
     }
 

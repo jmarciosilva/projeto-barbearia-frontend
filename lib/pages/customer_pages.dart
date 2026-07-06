@@ -1036,6 +1036,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
               const SizedBox(height: 8),
               for (final payment in subscription.payments)
                 Card(
+                  margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
                     leading: Icon(
                       payment.status == 'paid'
@@ -1064,6 +1065,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
             else
               for (final usage in subscription.usages)
                 Card(
+                  margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
                     leading: const Icon(Icons.history),
                     title: Text(usage.serviceName ?? 'Serviço'),
@@ -1202,6 +1204,7 @@ class _ChoosePlanPageState extends State<ChoosePlanPage> {
           const AppSectionTitle('Planos disponíveis'),
           for (final plan in _plans)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.workspace_premium),
                 title: Text(plan.name),
@@ -1304,6 +1307,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
         children: [
           for (final appointment in _appointments)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.event),
                 title: Text(appointment.serviceName ?? 'Serviço'),
@@ -1446,6 +1450,7 @@ class _MyWaitlistPageState extends State<MyWaitlistPage> {
         children: [
           for (final entry in _entries)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.groups),
                 title: Text(entry.serviceName ?? 'Serviço'),

@@ -27,6 +27,7 @@ import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class OwnerHomePage extends StatefulWidget {
   const OwnerHomePage({
@@ -659,10 +660,12 @@ class PlansPage extends StatefulWidget {
     super.key,
     required this.plansRepository,
     required this.servicesRepository,
+    required this.professionalsRepository,
   });
 
   final SubscriptionPlansRepository plansRepository;
   final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<PlansPage> createState() => _PlansPageState();
@@ -702,30 +705,71 @@ class _PlansPageState extends State<PlansPage> {
     }
   }
 
+  Future<void> _openNewPlan() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NewPlanPage(
+          plansRepository: widget.plansRepository,
+          servicesRepository: widget.servicesRepository,
+          professionalsRepository: widget.professionalsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _openPlan(SubscriptionPlanModel plan) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditPlanPage(
+          plansRepository: widget.plansRepository,
+          servicesRepository: widget.servicesRepository,
+          professionalsRepository: widget.professionalsRepository,
+          plan: plan,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Widget body;
+
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_plans.isEmpty) {
+      body = const Center(child: Text('Nenhum plano cadastrado ainda.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          const AppSectionTitle('Planos ativos'),
+          for (final plan in _plans)
+            AppPlanTile(
+              plan.name,
+              '${formatCents(plan.priceCents)}/mes',
+              plan.usageLimitLabel,
+              onTap: () => _openPlan(plan),
+            ),
+        ],
+      );
     }
 
-    if (_errorMessage != null) {
-      return AppLoadingError(message: _errorMessage!, onRetry: _load);
-    }
-
-    if (_plans.isEmpty) {
-      return const Center(child: Text('Nenhum plano cadastrado ainda.'));
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Stack(
       children: [
-        const AppSectionTitle('Planos ativos'),
-        for (final plan in _plans)
-          AppPlanTile(
-            plan.name,
-            '${formatCents(plan.priceCents)}/mes',
-            plan.usageLimitLabel,
+        body,
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openNewPlan,
+            tooltip: 'Criar plano de assinatura',
+            child: const Icon(Icons.add),
           ),
+        ),
       ],
     );
   }
@@ -774,40 +818,68 @@ class _ClientsPageState extends State<ClientsPage> {
     }
   }
 
+  Future<void> _openNewClient() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NewClientPage(clientsRepository: widget.clientsRepository),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _openClient(ClientModel client) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClientDetailPage(
+          clientsRepository: widget.clientsRepository,
+          client: client,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final Widget body;
+
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_clients.isEmpty) {
+      body = const Center(child: Text('Nenhum cliente cadastrado ainda.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        children: [
+          const AppSectionTitle('Clientes'),
+          for (final client in _clients)
+            AppClientTile(
+              client.name,
+              client.activeSubscription == null
+                  ? 'Sem plano'
+                  : 'Plano ${client.activeSubscription!.plan?.name ?? '-'}',
+              client.activeSubscription?.paymentStatusLabel ?? '-',
+              onTap: () => _openClient(client),
+            ),
+        ],
+      );
     }
 
-    if (_errorMessage != null) {
-      return AppLoadingError(message: _errorMessage!, onRetry: _load);
-    }
-
-    if (_clients.isEmpty) {
-      return const Center(child: Text('Nenhum cliente cadastrado ainda.'));
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Stack(
       children: [
-        const AppSectionTitle('Clientes'),
-        for (final client in _clients)
-          AppClientTile(
-            client.name,
-            client.activeSubscription == null
-                ? 'Sem plano'
-                : 'Plano ${client.activeSubscription!.plan?.name ?? '-'}',
-            client.activeSubscription?.paymentStatusLabel ?? '-',
-            onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ClientDetailPage(client: client),
-                ),
-              );
-              _load();
-            },
+        body,
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openNewClient,
+            tooltip: 'Cadastrar cliente',
+            child: const Icon(Icons.add),
           ),
+        ),
       ],
     );
   }
@@ -889,8 +961,15 @@ class _NewClientPageState extends State<NewClientPage> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
-              decoration: const InputDecoration(labelText: 'Telefone'),
+              decoration: const InputDecoration(
+                labelText: 'Telefone',
+                hintText: 'Ex: 11912345678',
+              ),
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
               validator: (value) => (value == null || value.isEmpty)
                   ? 'Informe o telefone'
                   : null,
@@ -1151,6 +1230,252 @@ class _NewPlanPageState extends State<NewPlanPage> {
   }
 }
 
+/// Detalhe e edicao de um plano de assinatura ja cadastrado, incluindo
+/// trocar servicos/profissionais habilitados e desativar sem apagar.
+class EditPlanPage extends StatefulWidget {
+  const EditPlanPage({
+    super.key,
+    required this.plansRepository,
+    required this.servicesRepository,
+    required this.professionalsRepository,
+    required this.plan,
+  });
+
+  final SubscriptionPlansRepository plansRepository;
+  final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
+  final SubscriptionPlanModel plan;
+
+  @override
+  State<EditPlanPage> createState() => _EditPlanPageState();
+}
+
+class _EditPlanPageState extends State<EditPlanPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.plan.name);
+  late final _priceController = TextEditingController(
+    text: (widget.plan.priceCents / 100).toStringAsFixed(2).replaceAll('.', ','),
+  );
+  late final _limitController = TextEditingController(
+    text: widget.plan.usageLimit?.toString() ?? '',
+  );
+  late final Set<int> _selectedServiceIds = {
+    for (final service in widget.plan.services) service.id,
+  };
+  late final Set<int> _selectedProfessionalIds = {
+    ...widget.plan.professionalIds,
+  };
+  late bool _isActive = widget.plan.isActive;
+
+  bool _isLoadingOptions = true;
+  String? _optionsError;
+  List<ServiceModel> _services = [];
+  List<ProfessionalModel> _professionals = [];
+
+  bool _isSaving = false;
+  String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOptions();
+  }
+
+  Future<void> _loadOptions() async {
+    setState(() {
+      _isLoadingOptions = true;
+      _optionsError = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        widget.servicesRepository.index(),
+        widget.professionalsRepository.index(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _services = results[0] as List<ServiceModel>;
+        _professionals = results[1] as List<ProfessionalModel>;
+        _isLoadingOptions = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _optionsError = error.userMessage;
+        _isLoadingOptions = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await widget.plansRepository.update(
+        id: widget.plan.id,
+        name: _nameController.text.trim(),
+        priceCents: parsePriceToCents(_priceController.text),
+        usageLimit: _limitController.text.trim().isEmpty
+            ? null
+            : int.tryParse(_limitController.text.trim()),
+        isActive: _isActive,
+        serviceIds: _selectedServiceIds.toList(),
+        professionalIds: _selectedProfessionalIds.toList(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Plano atualizado.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: Text(widget.plan.name)),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome do plano'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _priceController,
+              decoration: const InputDecoration(
+                labelText: 'Preco mensal',
+                hintText: 'Ex: 99,90',
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o preco' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _limitController,
+              decoration: const InputDecoration(
+                labelText: 'Limite de usos mensais (opcional)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Ativo'),
+              subtitle: const Text(
+                'Planos inativos somem da lista de contratacao do cliente.',
+              ),
+              value: _isActive,
+              onChanged: (value) => setState(() => _isActive = value),
+            ),
+            const SizedBox(height: 8),
+            const AppSectionTitle('Serviços inclusos'),
+            if (_isLoadingOptions)
+              const Center(child: CircularProgressIndicator())
+            else if (_optionsError != null)
+              AppLoadingError(message: _optionsError!, onRetry: _loadOptions)
+            else ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final service in _services)
+                    FilterChip(
+                      label: Text(service.name),
+                      selected: _selectedServiceIds.contains(service.id),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _selectedServiceIds.add(service.id);
+                        } else {
+                          _selectedServiceIds.remove(service.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const AppSectionTitle('Profissionais habilitados'),
+              Text(
+                'Deixe sem selecionar para permitir qualquer profissional atender assinantes deste plano.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final professional in _professionals)
+                    FilterChip(
+                      label: Text(professional.name),
+                      selected: _selectedProfessionalIds.contains(
+                        professional.id,
+                      ),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _selectedProfessionalIds.add(professional.id);
+                        } else {
+                          _selectedProfessionalIds.remove(professional.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ],
+            if (_saveError != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _saveError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Lista de pagamentos pendentes de confirmacao manual.
 class PendingPaymentsPage extends StatefulWidget {
   const PendingPaymentsPage({super.key, required this.paymentsRepository});
@@ -1230,6 +1555,7 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
         children: [
           for (final payment in _pending)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: Icon(
                   payment.isAvulso ? Icons.content_cut : Icons.price_check,
@@ -1341,6 +1667,7 @@ class _DebtManagementPageState extends State<DebtManagementPage> {
           else
             for (final payment in _pending)
               Card(
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: const Icon(Icons.receipt_long),
                   title: Text(payment.clientName ?? 'Cliente'),
@@ -1473,6 +1800,7 @@ class _DebtDetailPageState extends State<DebtDetailPage> {
           else
             for (final receipt in payment.receipts)
               Card(
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: const Icon(Icons.payments_outlined),
                   title: Text(formatCents(receipt.amountCents)),
@@ -1654,6 +1982,7 @@ class _ProfessionalCommissionsPageState
           const SizedBox(height: 16),
           for (final professional in _professionals)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.badge),
                 title: Text(professional.name),
@@ -1841,6 +2170,7 @@ class _ProfessionalCommissionDetailPageState
           else
             for (final advance in finance.advances)
               Card(
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: const Icon(Icons.payments_outlined),
                   title: Text(formatCents(advance.amountCents)),
@@ -2025,45 +2355,164 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
 }
 
 /// Detalhe de um cliente com os dados reais de plano e pagamento.
-class ClientDetailPage extends StatelessWidget {
-  const ClientDetailPage({super.key, required this.client});
+/// Detalhe e edicao de um cliente ja cadastrado. Plano e pagamento sao
+/// somente leitura aqui (vem da assinatura, nao do cadastro do cliente).
+class ClientDetailPage extends StatefulWidget {
+  const ClientDetailPage({
+    super.key,
+    required this.clientsRepository,
+    required this.client,
+  });
 
+  final ClientsRepository clientsRepository;
   final ClientModel client;
 
   @override
+  State<ClientDetailPage> createState() => _ClientDetailPageState();
+}
+
+class _ClientDetailPageState extends State<ClientDetailPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.client.name);
+  late final _phoneController = TextEditingController(text: widget.client.phone);
+  late final _notesController = TextEditingController(
+    text: widget.client.notes ?? '',
+  );
+  late bool _isActive = widget.client.status != 'inactive';
+
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.clientsRepository.update(
+        id: widget.client.id,
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        status: _isActive ? 'active' : 'inactive',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cliente atualizado.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final subscription = client.activeSubscription;
+    final subscription = widget.client.activeSubscription;
 
     return AppScaffold(
-      appBar: AppBar(title: Text(client.name)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  title: const Text('Telefone'),
-                  trailing: Text(client.phone),
-                ),
-                if (client.email != null)
-                  ListTile(
-                    title: const Text('E-mail'),
-                    trailing: Text(client.email!),
-                  ),
-                ListTile(
-                  title: const Text('Plano'),
-                  trailing: Text(subscription?.plan?.name ?? 'Sem plano ativo'),
-                ),
-                if (subscription != null)
-                  ListTile(
-                    title: const Text('Pagamento'),
-                    trailing: Text(subscription.paymentStatusLabel),
-                  ),
-              ],
+      appBar: AppBar(title: Text(widget.client.name)),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Telefone',
+                hintText: 'Ex: 11912345678',
+              ),
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
+              validator: (value) => (value == null || value.isEmpty)
+                  ? 'Informe o telefone'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(labelText: 'Observações'),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Ativo'),
+              subtitle: const Text(
+                'Clientes inativos continuam no historico, sem poder agendar.',
+              ),
+              value: _isActive,
+              onChanged: (value) => setState(() => _isActive = value),
+            ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Assinatura'),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text('Plano'),
+                    trailing: Text(subscription?.plan?.name ?? 'Sem plano ativo'),
+                  ),
+                  if (subscription != null)
+                    ListTile(
+                      title: const Text('Pagamento'),
+                      trailing: Text(subscription.paymentStatusLabel),
+                    ),
+                ],
+              ),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2176,6 +2625,18 @@ class _ServicesPageState extends State<ServicesPage> {
     _load();
   }
 
+  Future<void> _openService(ServiceModel service) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditServicePage(
+          servicesRepository: widget.servicesRepository,
+          service: service,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final Widget body;
@@ -2192,6 +2653,7 @@ class _ServicesPageState extends State<ServicesPage> {
         children: [
           for (final service in _services)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.content_cut),
                 title: Text(service.name),
@@ -2199,6 +2661,7 @@ class _ServicesPageState extends State<ServicesPage> {
                   formatDuration(Duration(minutes: service.durationMinutes)),
                 ),
                 trailing: Text(formatCents(service.priceCents)),
+                onTap: () => _openService(service),
               ),
             ),
         ],
@@ -2357,6 +2820,167 @@ class _NewServicePageState extends State<NewServicePage> {
   }
 }
 
+/// Detalhe e edicao de um servico ja cadastrado.
+class EditServicePage extends StatefulWidget {
+  const EditServicePage({
+    super.key,
+    required this.servicesRepository,
+    required this.service,
+  });
+
+  final ServicesRepository servicesRepository;
+  final ServiceModel service;
+
+  @override
+  State<EditServicePage> createState() => _EditServicePageState();
+}
+
+class _EditServicePageState extends State<EditServicePage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.service.name);
+  late final _durationController = TextEditingController(
+    text: widget.service.durationMinutes.toString(),
+  );
+  late final _priceController = TextEditingController(
+    text: widget.service.priceCents == null
+        ? ''
+        : (widget.service.priceCents! / 100).toStringAsFixed(2).replaceAll('.', ','),
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.service.description ?? '',
+  );
+  late bool _isActive = widget.service.isActive;
+
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _durationController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.servicesRepository.update(
+        id: widget.service.id,
+        name: _nameController.text.trim(),
+        durationMinutes: int.parse(_durationController.text.trim()),
+        priceCents: _priceController.text.trim().isEmpty
+            ? null
+            : parsePriceToCents(_priceController.text),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        isActive: _isActive,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Serviço atualizado.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: Text(widget.service.name)),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome do serviço'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _durationController,
+              decoration: const InputDecoration(labelText: 'Duração (minutos)'),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Informe a duração';
+                return int.tryParse(value) == null
+                    ? 'Informe um número válido'
+                    : null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _priceController,
+              decoration: const InputDecoration(
+                labelText: 'Preco (opcional)',
+                hintText: 'Ex: 60,00',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Descricao (opcional)',
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Ativo'),
+              subtitle: const Text(
+                'Serviços inativos somem do agendamento do cliente.',
+              ),
+              value: _isActive,
+              onChanged: (value) => setState(() => _isActive = value),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Lista de profissionais do estabelecimento, com atalho para cadastrar um
 /// novo e para reabrir um existente e revisar servicos habilitados.
 class ProfessionalsPage extends StatefulWidget {
@@ -2448,6 +3072,7 @@ class _ProfessionalsPageState extends State<ProfessionalsPage> {
         children: [
           for (final professional in _professionals)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.badge),
                 title: Text(professional.name),
@@ -2621,8 +3246,13 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
               controller: _phoneController,
               decoration: const InputDecoration(
                 labelText: 'Telefone (opcional)',
+                hintText: 'Ex: 11912345678',
               ),
               keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -2990,6 +3620,7 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
         children: [
           for (final entry in _entries)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.groups),
                 title: Text(entry.clientName ?? 'Cliente'),
@@ -3379,6 +4010,7 @@ class _SaasPlanPageState extends State<SaasPlanPage> {
           const AppSectionTitle('Planos disponíveis'),
           for (final plan in _plans)
             Card(
+              margin: const EdgeInsets.only(bottom: 10),
               color: subscription.plan?.code == plan.code
                   ? Theme.of(context).colorScheme.primaryContainer
                   : null,

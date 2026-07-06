@@ -277,6 +277,78 @@ void main() {
     },
   );
 
+  testWidgets('proprietario edita um plano existente pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Planos'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bronze'), findsOneWidget);
+    await tester.tap(find.text('Bronze'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Bronze'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(1), '119,90');
+    await scrollToText(tester, 'Salvar');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plano atualizado.'), findsOneWidget);
+  });
+
+  testWidgets('proprietario edita um servico existente pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Catalogo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corte masculino'), findsOneWidget);
+    await tester.tap(find.text('Corte masculino'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Corte masculino'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(2), '65,00');
+    await scrollToText(tester, 'Salvar');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Serviço atualizado.'), findsOneWidget);
+  });
+
+  testWidgets('proprietario edita um cliente existente pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Clientes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Joao Ribeiro'), findsOneWidget);
+    await tester.tap(find.text('Joao Ribeiro'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Joao Ribeiro'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(1), '11966665555');
+    await scrollToText(tester, 'Salvar');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cliente atualizado.'), findsOneWidget);
+  });
+
   testWidgets('cliente troca de plano pela API', (tester) async {
     await pumpMobileApp(tester);
 

@@ -47,4 +47,32 @@ class SubscriptionPlansRepository {
 
     return SubscriptionPlanModel.fromJson(response);
   }
+
+  /// Edicao de um plano pelo proprietario (`PATCH /subscription-plans/{id}`),
+  /// incluindo servicos e profissionais habilitados.
+  Future<SubscriptionPlanModel> update({
+    required int id,
+    String? name,
+    int? priceCents,
+    int? usageLimit,
+    bool? isActive,
+    List<int>? serviceIds,
+    List<int>? professionalIds,
+  }) async {
+    final response =
+        await _client.patch(
+              '/subscription-plans/$id',
+              body: {
+                'name': ?name,
+                'price_cents': ?priceCents,
+                'usage_limit': ?usageLimit,
+                'is_active': ?isActive,
+                'services': ?serviceIds?.map((serviceId) => {'id': serviceId}).toList(),
+                'professional_ids': ?professionalIds,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return SubscriptionPlanModel.fromJson(response);
+  }
 }

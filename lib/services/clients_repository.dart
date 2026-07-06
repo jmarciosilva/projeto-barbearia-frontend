@@ -44,4 +44,27 @@ class ClientsRepository {
 
     return ClientModel.fromJson(response);
   }
+
+  /// Edicao de um cliente pelo proprietario (`PATCH /clients/{id}`).
+  Future<ClientModel> update({
+    required int id,
+    String? name,
+    String? phone,
+    String? notes,
+    String? status,
+  }) async {
+    final response =
+        await _client.patch(
+              '/clients/$id',
+              body: {
+                'name': ?name,
+                'phone': ?phone,
+                'notes': ?notes,
+                'status': ?status,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return ClientModel.fromJson(response);
+  }
 }

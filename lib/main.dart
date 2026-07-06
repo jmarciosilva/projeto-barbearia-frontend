@@ -145,11 +145,13 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
         scaffoldBackgroundColor: const Color(0xFFEFF7F1),
         useMaterial3: true,
         fontFamily: 'Manrope',
-        cardTheme: const CardThemeData(
+        cardTheme: CardThemeData(
           elevation: 0,
           margin: EdgeInsets.zero,
+          color: colorScheme.primaryContainer.withValues(alpha: 0.35),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.25)),
           ),
         ),
       ),
@@ -531,6 +533,7 @@ class _DashboardShellState extends State<DashboardShell> {
           PlansPage(
             plansRepository: SubscriptionPlansRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
           ),
         ),
         _ShellPage(

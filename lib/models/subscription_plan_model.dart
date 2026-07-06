@@ -37,10 +37,12 @@ class SubscriptionPlanModel {
     this.allowedEndTime,
     this.isActive = true,
     this.services = const [],
+    this.professionalIds = const [],
   });
 
   factory SubscriptionPlanModel.fromJson(Map<String, dynamic> json) {
     final servicesJson = json['services'] as List<dynamic>? ?? const [];
+    final professionalsJson = json['professionals'] as List<dynamic>? ?? const [];
 
     return SubscriptionPlanModel(
       id: json['id'] as int,
@@ -57,6 +59,9 @@ class SubscriptionPlanModel {
       services: servicesJson
           .map((service) => PlanServiceModel.fromJson(service as Map<String, dynamic>))
           .toList(),
+      professionalIds: professionalsJson
+          .map((professional) => (professional as Map<String, dynamic>)['id'] as int)
+          .toList(),
     );
   }
 
@@ -70,6 +75,7 @@ class SubscriptionPlanModel {
   final String? allowedEndTime;
   final bool isActive;
   final List<PlanServiceModel> services;
+  final List<int> professionalIds;
 
   String get usageLimitLabel =>
       usageLimit == null ? 'Uso ilimitado' : '$usageLimit usos mensais';
