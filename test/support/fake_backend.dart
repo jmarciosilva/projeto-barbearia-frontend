@@ -168,7 +168,34 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, {
         ..._tenantJson,
         'professional_payment_day': body['professional_payment_day'],
+        if (body.containsKey('opening_time'))
+          'opening_time': body['opening_time'],
+        if (body.containsKey('closing_time'))
+          'closing_time': body['closing_time'],
+        if (body.containsKey('break_start_time'))
+          'break_start_time': body['break_start_time'],
+        if (body.containsKey('break_end_time'))
+          'break_end_time': body['break_end_time'],
       });
+    }
+
+    if (method == 'GET' && path.endsWith('/tenant/schedule-overrides')) {
+      return _jsonResponse(200, _scheduleOverridesJson);
+    }
+
+    if (method == 'POST' && path.endsWith('/tenant/schedule-overrides')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 1,
+        'date': body['date'],
+        'is_closed': body['is_closed'] ?? false,
+        'opens_at': body['opens_at'],
+        'closes_at': body['closes_at'],
+      });
+    }
+
+    if (method == 'DELETE' && path.contains('/tenant/schedule-overrides/')) {
+      return http.Response('', 204);
     }
 
     if (method == 'GET' && path.endsWith('/saas-plans')) {
@@ -574,6 +601,8 @@ const _tenantJson = {
     'usage': {'professionals': 2, 'client_subscriptions': 3, 'units': 1},
   },
 };
+
+const _scheduleOverridesJson = <Map<String, dynamic>>[];
 
 const _saasPlansJson = [
   {

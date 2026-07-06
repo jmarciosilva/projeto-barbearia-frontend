@@ -12,6 +12,7 @@ import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/account_settings_page.dart';
+import 'package:clube_do_salao/pages/business_hours_page.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
 import 'package:clube_do_salao/pages/owner_invite_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
@@ -297,6 +298,17 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           },
         ),
         AppActionTile(
+          icon: Icons.schedule,
+          title: 'Horário de funcionamento',
+          subtitle: 'Defina abertura, fechamento, pausas e exceções por data.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  BusinessHoursPage(tenantRepository: widget.tenantRepository),
+            ),
+          ),
+        ),
+        AppActionTile(
           icon: Icons.qr_code,
           title: 'Convidar clientes',
           subtitle: 'Compartilhe o link/QR para o cliente se cadastrar sozinho.',
@@ -536,6 +548,7 @@ class AgendaPage extends StatefulWidget {
     required this.professionalsRepository,
     required this.clientsRepository,
     required this.servicesRepository,
+    required this.tenantRepository,
   });
 
   final AppointmentsRepository appointmentsRepository;
@@ -543,6 +556,7 @@ class AgendaPage extends StatefulWidget {
   final ProfessionalsRepository professionalsRepository;
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
+  final TenantRepository tenantRepository;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -653,6 +667,7 @@ class _AgendaPageState extends State<AgendaPage> {
           servicesRepository: widget.servicesRepository,
           professionalsRepository: widget.professionalsRepository,
           appointmentsRepository: widget.appointmentsRepository,
+          tenantRepository: widget.tenantRepository,
         ),
       ),
     );
@@ -735,12 +750,14 @@ class ChooseClientPage extends StatefulWidget {
     required this.servicesRepository,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.tenantRepository,
   });
 
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final TenantRepository tenantRepository;
 
   @override
   State<ChooseClientPage> createState() => _ChooseClientPageState();
@@ -851,6 +868,7 @@ class _ChooseClientPageState extends State<ChooseClientPage> {
                           servicesRepository: widget.servicesRepository,
                           professionalsRepository: widget.professionalsRepository,
                           appointmentsRepository: widget.appointmentsRepository,
+                          tenantRepository: widget.tenantRepository,
                           client: _selected,
                         ),
                       ),

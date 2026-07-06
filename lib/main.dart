@@ -529,6 +529,7 @@ class _DashboardShellState extends State<DashboardShell> {
             professionalsRepository: ProfessionalsRepository(apiClient),
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
+            tenantRepository: TenantRepository(apiClient),
           ),
         ),
         _ShellPage(
@@ -571,6 +572,7 @@ class _DashboardShellState extends State<DashboardShell> {
             professionalsRepository: ProfessionalsRepository(apiClient),
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
+            tenantRepository: TenantRepository(apiClient),
           ),
         ),
         _ShellPage(
@@ -603,6 +605,7 @@ class _DashboardShellState extends State<DashboardShell> {
             professionalsRepository: ProfessionalsRepository(apiClient),
             appointmentsRepository: AppointmentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
+            tenantRepository: TenantRepository(apiClient),
           ),
         ),
         _ShellPage(

@@ -7,6 +7,8 @@ import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/tenant_model.dart';
+import 'package:clube_do_salao/models/tenant_schedule_override_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart'
     show AppointmentDetailPage;
@@ -18,6 +20,7 @@ import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/services_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/services/subscription_plans_repository.dart';
+import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 
@@ -402,6 +405,7 @@ class BookingPage extends StatelessWidget {
     required this.professionalsRepository,
     required this.appointmentsRepository,
     required this.waitlistRepository,
+    required this.tenantRepository,
   });
 
   final ClientsRepository clientsRepository;
@@ -409,6 +413,7 @@ class BookingPage extends StatelessWidget {
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
   final WaitlistRepository waitlistRepository;
+  final TenantRepository tenantRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -466,6 +471,7 @@ class BookingPage extends StatelessWidget {
                 servicesRepository: servicesRepository,
                 professionalsRepository: professionalsRepository,
                 appointmentsRepository: appointmentsRepository,
+                tenantRepository: tenantRepository,
               ),
             ),
           ),
@@ -492,6 +498,7 @@ class ChooseServicePage extends StatefulWidget {
     required this.servicesRepository,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.tenantRepository,
     this.client,
   });
 
@@ -499,6 +506,7 @@ class ChooseServicePage extends StatefulWidget {
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final TenantRepository tenantRepository;
   final ClientModel? client;
 
   @override
@@ -576,6 +584,7 @@ class _ChooseServicePageState extends State<ChooseServicePage> {
                   builder: (_) => ChooseProfessionalPage(
                     professionalsRepository: widget.professionalsRepository,
                     appointmentsRepository: widget.appointmentsRepository,
+                    tenantRepository: widget.tenantRepository,
                     service: _selected!,
                     client: _client!,
                   ),
@@ -603,12 +612,14 @@ class ChooseProfessionalPage extends StatefulWidget {
     super.key,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.tenantRepository,
     required this.service,
     required this.client,
   });
 
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final TenantRepository tenantRepository;
   final ServiceModel service;
   final ClientModel client;
 
@@ -690,6 +701,7 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
                 MaterialPageRoute(
                   builder: (_) => ChooseTimePage(
                     appointmentsRepository: widget.appointmentsRepository,
+                    tenantRepository: widget.tenantRepository,
                     service: widget.service,
                     professional: _selected!,
                     client: widget.client,
@@ -717,12 +729,14 @@ class ChooseTimePage extends StatefulWidget {
   const ChooseTimePage({
     super.key,
     required this.appointmentsRepository,
+    required this.tenantRepository,
     required this.service,
     required this.professional,
     required this.client,
   });
 
   final AppointmentsRepository appointmentsRepository;
+  final TenantRepository tenantRepository;
   final ServiceModel service;
   final ProfessionalModel professional;
   final ClientModel client;
@@ -732,46 +746,149 @@ class ChooseTimePage extends StatefulWidget {
 }
 
 class _ChooseTimePageState extends State<ChooseTimePage> {
-  // Nao existe endpoint de disponibilidade real ainda; a lista de horarios
-  // continua fixa. A confirmacao abaixo, porem, e uma chamada real — se o
-  // horario ja estiver ocupado ou violar alguma regra do plano, o erro
-  // verdadeiro da API aparece aqui embaixo.
-  static const _allSlots = ['09:00', '10:30', '13:00', '14:30', '16:00', '17:30'];
+  // Fallback usado so quando o dono nunca configurou horario de funcionamento
+  // (ver `BusinessHoursPage`) — mantem o app utilizavel antes disso.
+  static const _legacyFixedSlots = [
+    '09:00',
+    '10:30',
+    '13:00',
+    '14:30',
+    '16:00',
+    '17:30',
+  ];
   static const _weekdayLabels = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+  static const _slotStepMinutes = 30;
 
   final List<DateTime> _days = List.generate(
     7,
     (i) => DateTime.now().add(Duration(days: i)),
   );
 
-  late DateTime _selectedDay = _days.firstWhere(
-    (day) => _availableSlots(day).isNotEmpty,
-    orElse: () => _days.first,
-  );
-  late String? _selected = _availableSlots(_selectedDay).isEmpty
-      ? null
-      : _availableSlots(_selectedDay).first;
+  bool _isLoading = true;
+  String? _loadErrorMessage;
+  TenantModel? _tenant;
+  List<TenantScheduleOverrideModel> _overrides = [];
+
+  late DateTime _selectedDay = _days.first;
+  String? _selected;
   bool _isSaving = false;
-  String? _errorMessage;
+  String? _saveErrorMessage;
 
-  // So filtra os horarios ja passados quando o dia escolhido e hoje — dias
-  // futuros mostram a lista fixa inteira, ja que nao ha disponibilidade
-  // real por profissional ainda.
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _loadErrorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        widget.tenantRepository.show(),
+        widget.tenantRepository.listScheduleOverrides(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _tenant = results[0] as TenantModel;
+        _overrides = results[1] as List<TenantScheduleOverrideModel>;
+        _selectedDay = _days.firstWhere(
+          (day) => _availableSlots(day).isNotEmpty,
+          orElse: () => _days.first,
+        );
+        final slots = _availableSlots(_selectedDay);
+        _selected = slots.isEmpty ? null : slots.first;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadErrorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  TenantScheduleOverrideModel? _overrideFor(DateTime day) {
+    for (final override in _overrides) {
+      if (DateUtils.isSameDay(override.date, day)) return override;
+    }
+    return null;
+  }
+
+  /// Gera os horarios possiveis para [day] considerando abertura, fechamento
+  /// e pausa do salao (com excecao pontual por data quando existir), e o
+  /// tempo de duracao do servico escolhido. Sem nada configurado, cai na
+  /// lista fixa antiga filtrando so os horarios ja passados hoje.
   List<String> _availableSlots(DateTime day) {
-    if (!DateUtils.isSameDay(day, DateTime.now())) return _allSlots;
+    final override = _overrideFor(day);
+    if (override != null && override.isClosed) return [];
 
-    final now = DateTime.now();
-    return _allSlots.where((slot) {
-      final parts = slot.split(':');
-      final slotTime = DateTime(
-        day.year,
-        day.month,
-        day.day,
-        int.parse(parts[0]),
-        int.parse(parts[1]),
-      );
-      return slotTime.isAfter(now);
-    }).toList();
+    final opensAtRaw = override?.opensAt ?? _tenant?.openingTime;
+    final closesAtRaw = override?.closesAt ?? _tenant?.closingTime;
+
+    if (opensAtRaw == null || closesAtRaw == null) {
+      return _legacyFixedSlots.where((slot) => !_isPast(day, slot)).toList();
+    }
+
+    final opensMinutes = _minutesSinceMidnight(opensAtRaw);
+    final closesMinutes = _minutesSinceMidnight(closesAtRaw);
+    final breakStartMinutes = _tenant?.breakStartTime == null
+        ? null
+        : _minutesSinceMidnight(_tenant!.breakStartTime!);
+    final breakEndMinutes = _tenant?.breakEndTime == null
+        ? null
+        : _minutesSinceMidnight(_tenant!.breakEndTime!);
+    final serviceDuration = widget.service.durationMinutes;
+    final isToday = DateUtils.isSameDay(day, DateTime.now());
+    final nowMinutes = isToday
+        ? DateTime.now().hour * 60 + DateTime.now().minute
+        : null;
+
+    final slots = <String>[];
+    for (
+      var cursor = opensMinutes;
+      cursor + serviceDuration <= closesMinutes;
+      cursor += _slotStepMinutes
+    ) {
+      final slotEnd = cursor + serviceDuration;
+      final overlapsBreak = breakStartMinutes != null &&
+          breakEndMinutes != null &&
+          cursor < breakEndMinutes &&
+          slotEnd > breakStartMinutes;
+      final isPast = nowMinutes != null && cursor <= nowMinutes;
+
+      if (!overlapsBreak && !isPast) {
+        final hour = (cursor ~/ 60).toString().padLeft(2, '0');
+        final minute = (cursor % 60).toString().padLeft(2, '0');
+        slots.add('$hour:$minute');
+      }
+    }
+
+    return slots;
+  }
+
+  bool _isPast(DateTime day, String slot) {
+    if (!DateUtils.isSameDay(day, DateTime.now())) return false;
+
+    final parts = slot.split(':');
+    final slotTime = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      int.parse(parts[0]),
+      int.parse(parts[1]),
+    );
+    return !slotTime.isAfter(DateTime.now());
+  }
+
+  int _minutesSinceMidnight(String raw) {
+    final parts = raw.split(':');
+    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
   String _dayLabel(DateTime day) {
@@ -795,7 +912,7 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
 
     setState(() {
       _isSaving = true;
-      _errorMessage = null;
+      _saveErrorMessage = null;
     });
 
     final parts = _selected!.split(':');
@@ -824,7 +941,7 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
       );
     } on AppException catch (error) {
       if (!mounted) return;
-      setState(() => _errorMessage = error.userMessage);
+      setState(() => _saveErrorMessage = error.userMessage);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -832,6 +949,20 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return AppScaffold(
+        appBar: AppBar(title: const Text('Confirmar horário')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_loadErrorMessage != null) {
+      return AppScaffold(
+        appBar: AppBar(title: const Text('Confirmar horário')),
+        body: AppLoadingError(message: _loadErrorMessage!, onRetry: _load),
+      );
+    }
+
     final slots = _availableSlots(_selectedDay);
 
     return AppScaffold(
@@ -841,47 +972,58 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionTitle('Escolha o dia'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final day in _days)
-                  ChoiceChip(
-                    label: Text(_dayLabel(day)),
-                    selected: DateUtils.isSameDay(day, _selectedDay),
-                    onSelected: (_) => _onDaySelected(day),
-                  ),
-              ],
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AppSectionTitle('Escolha o dia'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final day in _days)
+                          ChoiceChip(
+                            label: Text(_dayLabel(day)),
+                            selected: DateUtils.isSameDay(day, _selectedDay),
+                            onSelected: (_) => _onDaySelected(day),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const AppSectionTitle('Horários disponíveis'),
+                    if (slots.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text('Nenhum horário disponível para este dia.'),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final slot in slots)
+                            ChoiceChip(
+                              label: Text(slot),
+                              selected: _selected == slot,
+                              onSelected: (_) => setState(() => _selected = slot),
+                            ),
+                        ],
+                      ),
+                    if (_saveErrorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _saveErrorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
-            const AppSectionTitle('Horários disponíveis'),
-            if (slots.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Nenhum horário disponível para este dia.'),
-              )
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final slot in slots)
-                    ChoiceChip(
-                      label: Text(slot),
-                      selected: _selected == slot,
-                      onSelected: (_) => setState(() => _selected = slot),
-                    ),
-                ],
-              ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const Spacer(),
             FilledButton(
               onPressed: _isSaving || _selected == null ? null : _confirm,
               style: FilledButton.styleFrom(

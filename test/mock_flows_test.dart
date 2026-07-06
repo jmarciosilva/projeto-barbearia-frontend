@@ -21,6 +21,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cliente Ana Souza cadastrado.'), findsOneWidget);
+
+    await scrollToTop(tester);
     expect(find.text('Próximas ações'), findsOneWidget);
   });
 

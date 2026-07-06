@@ -64,6 +64,12 @@ class ApiClient {
     );
   }
 
+  Future<dynamic> delete(String path) {
+    final uri = Uri.parse('$baseUrl$path');
+
+    return _send(() => _httpClient.delete(uri, headers: _headers));
+  }
+
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     late final http.Response response;
 

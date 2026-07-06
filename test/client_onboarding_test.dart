@@ -172,6 +172,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
+    await scrollToText(tester, 'Convidar clientes');
     await tester.tap(find.text('Convidar clientes'));
     await tester.pumpAndSettle();
 

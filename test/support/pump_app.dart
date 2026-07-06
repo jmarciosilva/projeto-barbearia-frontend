@@ -78,3 +78,21 @@ Future<void> scrollToText(WidgetTester tester, String text) async {
   await tester.pump();
   await tester.pumpAndSettle();
 }
+
+/// Volta o scroll de uma `ListView` para o topo. Util depois de
+/// `scrollToText` quando o teste ainda precisa localizar algo perto do
+/// inicio da lista (fora do cache do Sliver na posicao rolada).
+Future<void> scrollToTop(WidgetTester tester) async {
+  final scrollable = find
+      .descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+
+  for (var i = 0; i < 20; i++) {
+    await tester.drag(scrollable, const Offset(0, 400));
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
