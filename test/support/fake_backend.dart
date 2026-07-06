@@ -519,6 +519,21 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, _paymentsJson);
     }
 
+    if (method == 'POST' && path.endsWith('/payments')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 99,
+        'amount_cents': body['amount_cents'],
+        'method': 'pix',
+        'status': body['status'] ?? 'pending',
+        'client_subscription_id': body['client_subscription_id'],
+        'subscription': {
+          'client': {'name': 'Carlos Mendes'},
+        },
+        'receipts': <dynamic>[],
+      });
+    }
+
     if (method == 'POST' &&
         path.contains('/payments/') &&
         path.endsWith('/mark-paid')) {

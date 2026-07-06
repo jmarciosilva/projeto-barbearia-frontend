@@ -351,6 +351,32 @@ void main() {
     expect(find.text('Cliente atualizado.'), findsOneWidget);
   });
 
+  testWidgets('dono registra pagamento de assinatura pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Clientes'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Carlos Mendes'));
+    await tester.pumpAndSettle();
+
+    await scrollToText(tester, 'Registrar pagamento');
+    await tester.tap(find.text('Registrar pagamento'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Confirmar pagamento'), findsOneWidget);
+    expect(find.text('R\$ 99,90'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pagamento confirmado'), findsOneWidget);
+  });
+
   testWidgets('cliente troca de plano pela API', (tester) async {
     await pumpMobileApp(tester);
 

@@ -2,6 +2,7 @@ import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
+import 'package:clube_do_salao/models/client_subscription_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/professional_finance_model.dart';
@@ -256,6 +257,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) => ActiveSubscribersPage(
                       clientsRepository: widget.clientsRepository,
+                      paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
                 );
@@ -271,6 +273,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) => ActiveSubscribersPage(
                       clientsRepository: widget.clientsRepository,
+                      paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
                 );
@@ -1059,9 +1062,14 @@ class _PlansPageState extends State<PlansPage> {
 }
 
 class ClientsPage extends StatefulWidget {
-  const ClientsPage({super.key, required this.clientsRepository});
+  const ClientsPage({
+    super.key,
+    required this.clientsRepository,
+    required this.paymentsRepository,
+  });
 
   final ClientsRepository clientsRepository;
+  final PaymentsRepository paymentsRepository;
 
   @override
   State<ClientsPage> createState() => _ClientsPageState();
@@ -1116,6 +1124,7 @@ class _ClientsPageState extends State<ClientsPage> {
       MaterialPageRoute(
         builder: (_) => ClientDetailPage(
           clientsRepository: widget.clientsRepository,
+          paymentsRepository: widget.paymentsRepository,
           client: client,
         ),
       ),
@@ -1868,9 +1877,14 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
 /// mesma lista de assinaturas ativas explica os dois numeros (MRR e a soma
 /// dos precos dos planos aqui listados).
 class ActiveSubscribersPage extends StatefulWidget {
-  const ActiveSubscribersPage({super.key, required this.clientsRepository});
+  const ActiveSubscribersPage({
+    super.key,
+    required this.clientsRepository,
+    required this.paymentsRepository,
+  });
 
   final ClientsRepository clientsRepository;
+  final PaymentsRepository paymentsRepository;
 
   @override
   State<ActiveSubscribersPage> createState() => _ActiveSubscribersPageState();
@@ -1917,6 +1931,7 @@ class _ActiveSubscribersPageState extends State<ActiveSubscribersPage> {
       MaterialPageRoute(
         builder: (_) => ClientDetailPage(
           clientsRepository: widget.clientsRepository,
+          paymentsRepository: widget.paymentsRepository,
           client: client,
         ),
       ),
@@ -2850,10 +2865,12 @@ class ClientDetailPage extends StatefulWidget {
   const ClientDetailPage({
     super.key,
     required this.clientsRepository,
+    required this.paymentsRepository,
     required this.client,
   });
 
   final ClientsRepository clientsRepository;
+  final PaymentsRepository paymentsRepository;
   final ClientModel client;
 
   @override
@@ -2868,8 +2885,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
     text: widget.client.notes ?? '',
   );
   late bool _isActive = widget.client.status != 'inactive';
+  late ClientSubscriptionModel? _subscription = widget.client.activeSubscription;
 
   bool _isSaving = false;
+  bool _isRegisteringPayment = false;
   String? _errorMessage;
 
   @override
@@ -2878,6 +2897,47 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
     _phoneController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _registerPayment() async {
+    final subscription = _subscription;
+    if (subscription == null) return;
+
+    setState(() {
+      _isRegisteringPayment = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final payment = await widget.paymentsRepository.create(
+        clientSubscriptionId: subscription.id,
+        amountCents: subscription.plan?.priceCents ?? 0,
+        status: 'pending',
+      );
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PaymentConfirmationPage(
+            paymentsRepository: widget.paymentsRepository,
+            payment: payment,
+          ),
+        ),
+      );
+
+      // Recarrega o cliente para refletir o novo status de pagamento da
+      // assinatura, ja sincronizado no backend pelo fluxo de confirmacao.
+      final clients = await widget.clientsRepository.index();
+      final refreshed = clients.where((c) => c.id == widget.client.id).firstOrNull;
+
+      if (!mounted) return;
+      setState(() => _subscription = refreshed?.activeSubscription ?? subscription);
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() => _errorMessage = error.userMessage);
+    } finally {
+      if (mounted) setState(() => _isRegisteringPayment = false);
+    }
   }
 
   Future<void> _save() async {
@@ -2915,7 +2975,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final subscription = widget.client.activeSubscription;
+    final subscription = _subscription;
 
     return AppScaffold(
       appBar: AppBar(title: Text(widget.client.name)),
@@ -2971,11 +3031,33 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                     title: const Text('Plano'),
                     trailing: Text(subscription?.plan?.name ?? 'Sem plano ativo'),
                   ),
-                  if (subscription != null)
+                  if (subscription != null) ...[
                     ListTile(
                       title: const Text('Pagamento'),
                       trailing: Text(subscription.paymentStatusLabel),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isRegisteringPayment
+                              ? null
+                              : _registerPayment,
+                          icon: _isRegisteringPayment
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.price_check),
+                          label: const Text('Registrar pagamento'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

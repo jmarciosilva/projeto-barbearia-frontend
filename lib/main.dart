@@ -552,7 +552,10 @@ class _DashboardShellState extends State<DashboardShell> {
         _ShellPage(
           'Clientes',
           Icons.groups,
-          ClientsPage(clientsRepository: ClientsRepository(apiClient)),
+          ClientsPage(
+            clientsRepository: ClientsRepository(apiClient),
+            paymentsRepository: PaymentsRepository(apiClient),
+          ),
         ),
       ],
       UserRole.professional => [
