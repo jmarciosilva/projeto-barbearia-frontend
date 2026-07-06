@@ -4,6 +4,7 @@ import 'package:app_links/app_links.dart';
 import 'package:clube_do_salao/core/error_reporter.dart';
 import 'package:clube_do_salao/pages/client_onboarding_pages.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
+import 'package:clube_do_salao/pages/help_center_page.dart';
 import 'package:clube_do_salao/pages/owner_pages.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
@@ -48,6 +49,12 @@ enum UserRole {
       orElse: () => UserRole.customer,
     );
   }
+
+  HelpAudience get helpAudience => switch (this) {
+    UserRole.owner => HelpAudience.owner,
+    UserRole.professional => HelpAudience.professional,
+    UserRole.customer => HelpAudience.customer,
+  };
 }
 
 class ClubeDoSalaoApp extends StatefulWidget {
@@ -452,6 +459,15 @@ class _DashboardShellState extends State<DashboardShell> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Ajuda',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => HelpCenterPage(audience: role.helpAudience),
+              ),
+            ),
+            icon: const Icon(Icons.help_outline),
+          ),
           IconButton(
             tooltip: 'Sair',
             onPressed: widget.authSession.logout,

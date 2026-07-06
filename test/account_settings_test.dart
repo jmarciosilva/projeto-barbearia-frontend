@@ -11,8 +11,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Meus dados de acesso');
 
     await tester.tap(find.text('Meus dados de acesso'));
     await tester.pumpAndSettle();
@@ -34,8 +33,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Meus dados de acesso');
 
     await tester.tap(find.text('Meus dados de acesso'));
     await tester.pumpAndSettle();
@@ -53,8 +51,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Meus dados de acesso');
 
     await tester.tap(find.text('Meus dados de acesso'));
     await tester.pumpAndSettle();

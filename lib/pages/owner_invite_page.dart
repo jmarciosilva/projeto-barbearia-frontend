@@ -43,7 +43,7 @@ class _InviteCodePageState extends State<InviteCodePage> {
       'app Clube do Salão: $_inviteLink\n\nOu digite o código '
       '${_tenant.inviteCode} na tela de cadastro do app.',
     );
-    await widget.checklistStorage.markInviteShared();
+    await widget.checklistStorage.markInviteShared(_tenant.id);
   }
 
   Future<void> _regenerate() async {

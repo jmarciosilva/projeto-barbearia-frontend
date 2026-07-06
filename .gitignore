@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Diffs gerados automaticamente quando um golden test falha
+/test/failures/
+
 # Symbolication related
 app.*.symbols
 

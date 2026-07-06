@@ -18,14 +18,14 @@ class FakeOnboardingChecklistStorage implements OnboardingChecklistStorage {
   bool _dismissed;
 
   @override
-  Future<bool> hasSharedInvite() async => _sharedInvite;
+  Future<bool> hasSharedInvite(int tenantId) async => _sharedInvite;
 
   @override
-  Future<void> markInviteShared() async => _sharedInvite = true;
+  Future<void> markInviteShared(int tenantId) async => _sharedInvite = true;
 
   @override
-  Future<bool> isDismissed() async => _dismissed;
+  Future<bool> isDismissed(int tenantId) async => _dismissed;
 
   @override
-  Future<void> dismiss() async => _dismissed = true;
+  Future<void> dismiss(int tenantId) async => _dismissed = true;
 }

@@ -9,6 +9,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
+    await scrollToText(tester, 'Cadastrar cliente');
     await tester.tap(find.text('Cadastrar cliente'));
     await tester.pumpAndSettle();
 
@@ -30,8 +31,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Confirmar pagamento manual');
 
     await tester.tap(find.text('Confirmar pagamento manual'));
     await tester.pumpAndSettle();
@@ -63,8 +63,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -300));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Confirmar pagamento manual');
 
     await tester.tap(find.text('Confirmar pagamento manual'));
     await tester.pumpAndSettle();
@@ -89,8 +88,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Gestão do fiado');
 
     await tester.tap(find.text('Gestão do fiado'));
     await tester.pumpAndSettle();
@@ -113,8 +111,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await tester.drag(find.byType(ListView), const Offset(0, -700));
-    await tester.pumpAndSettle();
+    await scrollToText(tester, 'Comissoes profissionais');
 
     await tester.tap(find.text('Comissoes profissionais'));
     await tester.pumpAndSettle();
@@ -262,8 +259,7 @@ void main() {
 
       await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
-      await tester.pumpAndSettle();
+      await scrollToText(tester, 'Criar plano de assinatura');
 
       await tester.tap(find.text('Criar plano de assinatura'));
       await tester.pumpAndSettle();

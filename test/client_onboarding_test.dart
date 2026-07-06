@@ -121,9 +121,49 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Vamos configurar seu salão'), findsNothing);
-      expect(await checklistStorage.isDismissed(), isTrue);
+      expect(await checklistStorage.isDismissed(1), isTrue);
     },
   );
+
+  testWidgets(
+    'checklist do dono inclui criar plano de assinatura',
+    (tester) async {
+      final checklistStorage = FakeOnboardingChecklistStorage(
+        dismissed: false,
+      );
+      final session = buildTestAuthSession(checklistStorage: checklistStorage);
+      await pumpMobileApp(tester, authSession: session);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      expect(
+        find.text(
+          'Crie um plano de assinatura com os serviços e profissionais',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('dono abre a central de ajuda pelo icone da barra superior', (
+    tester,
+  ) async {
+    final session = buildTestAuthSession();
+    await pumpMobileApp(tester, authSession: session);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.byTooltip('Ajuda'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Central de ajuda'), findsOneWidget);
+    expect(
+      find.text(
+        'Crie um plano de assinatura em "Criar plano de assinatura", escolhendo os serviços e profissionais liberados para quem assinar.',
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('dono ve o codigo de convite e consegue regenerar', (
     tester,

@@ -69,6 +69,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
   TenantModel? _tenant;
   int _professionalsCount = 0;
   int _servicesCount = 0;
+  int _plansCount = 0;
   bool _hasSharedInvite = false;
   bool _checklistDismissed = false;
 
@@ -80,10 +81,13 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
   bool get _showChecklist =>
       !_checklistDismissed &&
-      !(_professionalsCount > 0 && _servicesCount > 0 && _hasSharedInvite);
+      !(_professionalsCount > 0 &&
+          _servicesCount > 0 &&
+          _plansCount > 0 &&
+          _hasSharedInvite);
 
   Future<void> _dismissChecklist() async {
-    await widget.checklistStorage.dismiss();
+    await widget.checklistStorage.dismiss(_tenant!.id);
     if (!mounted) return;
     setState(() => _checklistDismissed = true);
   }
@@ -108,8 +112,13 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
       final tenant = await widget.tenantRepository.show();
       final professionals = await widget.professionalsRepository.index();
       final services = await widget.servicesRepository.index();
-      final hasSharedInvite = await widget.checklistStorage.hasSharedInvite();
-      final checklistDismissed = await widget.checklistStorage.isDismissed();
+      final plans = await widget.plansRepository.index();
+      final hasSharedInvite = await widget.checklistStorage.hasSharedInvite(
+        tenant.id,
+      );
+      final checklistDismissed = await widget.checklistStorage.isDismissed(
+        tenant.id,
+      );
 
       final activeSubscriptions = clients
           .expand((client) => client.subscriptions)
@@ -130,6 +139,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         _tenant = tenant;
         _professionalsCount = professionals.length;
         _servicesCount = services.length;
+        _plansCount = plans.length;
         _hasSharedInvite = hasSharedInvite;
         _checklistDismissed = checklistDismissed;
         _isLoading = false;
@@ -183,6 +193,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             child: _OnboardingChecklistCard(
               hasProfessional: _professionalsCount > 0,
               hasService: _servicesCount > 0,
+              hasPlan: _plansCount > 0,
               hasSharedInvite: _hasSharedInvite,
               onDismiss: _dismissChecklist,
               onAddProfessional: () async {
@@ -201,6 +212,18 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) =>
                         NewServicePage(servicesRepository: widget.servicesRepository),
+                  ),
+                );
+                _load();
+              },
+              onAddPlan: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => NewPlanPage(
+                      plansRepository: widget.plansRepository,
+                      servicesRepository: widget.servicesRepository,
+                      professionalsRepository: widget.professionalsRepository,
+                    ),
                   ),
                 );
                 _load();
@@ -238,7 +261,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         const SizedBox(height: 16),
         const AppSectionTitle('Próximas ações'),
         AppActionTile(
-          icon: Icons.workspace_premium,
+          icon: Icons.diamond,
           title: 'Meu plano',
           subtitle: subscription.isTrial
               ? 'Trial - faltam ${subscription.trialDaysRemaining} dias'
@@ -249,6 +272,22 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 builder: (_) => SaasPlanPage(
                   tenantRepository: widget.tenantRepository,
                   saasSubscriptionRepository: widget.saasSubscriptionRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.storefront,
+          title: 'Catálogo',
+          subtitle: 'Gerencie serviços e profissionais do seu salão.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CatalogPage(
+                  servicesRepository: widget.servicesRepository,
+                  professionalsRepository: widget.professionalsRepository,
                 ),
               ),
             );
@@ -372,19 +411,23 @@ class _OnboardingChecklistCard extends StatelessWidget {
   const _OnboardingChecklistCard({
     required this.hasProfessional,
     required this.hasService,
+    required this.hasPlan,
     required this.hasSharedInvite,
     required this.onDismiss,
     required this.onAddProfessional,
     required this.onAddService,
+    required this.onAddPlan,
     required this.onShareInvite,
   });
 
   final bool hasProfessional;
   final bool hasService;
+  final bool hasPlan;
   final bool hasSharedInvite;
   final VoidCallback onDismiss;
   final VoidCallback onAddProfessional;
   final VoidCallback onAddService;
+  final VoidCallback onAddPlan;
   final VoidCallback onShareInvite;
 
   @override
@@ -412,15 +455,21 @@ class _OnboardingChecklistCard extends StatelessWidget {
                 ),
               ],
             ),
+           
             _ChecklistItem(
+              done: hasService,
+              label: 'Cadastre seu primeiro serviço',
+              onTap: onAddService,
+            ),
+             _ChecklistItem(
               done: hasProfessional,
               label: 'Cadastre seu primeiro profissional',
               onTap: onAddProfessional,
             ),
             _ChecklistItem(
-              done: hasService,
-              label: 'Cadastre seu primeiro serviço',
-              onTap: onAddService,
+              done: hasPlan,
+              label: 'Crie um plano de assinatura com os serviços e profissionais',
+              onTap: onAddPlan,
             ),
             _ChecklistItem(
               done: hasSharedInvite,

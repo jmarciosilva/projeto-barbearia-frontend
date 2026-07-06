@@ -49,3 +49,32 @@ Future<void> loginAs(
   await tester.tap(find.widgetWithText(FilledButton, 'Entrar'));
   await tester.pumpAndSettle();
 }
+
+/// Rola a `ListView` principal ate um texto ficar visivel e clicavel.
+///
+/// `ListView(children: ...)` monta os itens sob demanda conforme a posicao
+/// de rolagem, entao um item bem abaixo na tela pode nem existir ainda como
+/// elemento -- por isso um scroll de distancia fixa (`tester.drag`) quebra
+/// sempre que a lista ganha ou perde itens acima do alvo. Rola aos poucos
+/// ate o finder aparecer e depois rola um pouco mais, porque o item pode
+/// montar bem na borda da tela, ainda coberto pela barra de navegacao fixa
+/// no rodape (fisicamente presente por cima do fim do `ListView`).
+Future<void> scrollToText(WidgetTester tester, String text) async {
+  final finder = find.text(text);
+  final scrollable = find
+      .descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+
+  var attempts = 0;
+  while (finder.evaluate().isEmpty && attempts < 20) {
+    await tester.drag(scrollable, const Offset(0, -200));
+    await tester.pump();
+    attempts++;
+  }
+  await tester.drag(scrollable, const Offset(0, -150));
+  await tester.pump();
+  await tester.pumpAndSettle();
+}

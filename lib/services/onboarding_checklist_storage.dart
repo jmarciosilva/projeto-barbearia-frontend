@@ -4,11 +4,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// inicial do dono que nao tem como ser calculado a partir da API (ex:
 /// "compartilhou o convite" e uma acao, nao um registro no banco) e se o
 /// dono ja dispensou o checklist inteiro.
+///
+/// Escopado por [tenantId]: o mesmo aparelho pode logar em mais de um
+/// estabelecimento (ex: dono cria uma segunda conta para testar), e sem o
+/// escopo o progresso de um tenant "vazava" para os outros — um tenant novo
+/// nascia com o checklist ja dispensado so porque um tenant anterior no
+/// mesmo aparelho tinha dispensado o dele.
 abstract class OnboardingChecklistStorage {
-  Future<bool> hasSharedInvite();
-  Future<void> markInviteShared();
-  Future<bool> isDismissed();
-  Future<void> dismiss();
+  Future<bool> hasSharedInvite(int tenantId);
+  Future<void> markInviteShared(int tenantId);
+  Future<bool> isDismissed(int tenantId);
+  Future<void> dismiss(int tenantId);
 }
 
 class SecureOnboardingChecklistStorage implements OnboardingChecklistStorage {
@@ -22,17 +28,20 @@ class SecureOnboardingChecklistStorage implements OnboardingChecklistStorage {
   final FlutterSecureStorage _storage;
 
   @override
-  Future<bool> hasSharedInvite() async =>
-      (await _storage.read(key: _sharedInviteKey)) == 'true';
+  Future<bool> hasSharedInvite(int tenantId) async =>
+      (await _storage.read(key: '${_sharedInviteKey}_$tenantId')) == 'true';
 
   @override
-  Future<void> markInviteShared() =>
-      _storage.write(key: _sharedInviteKey, value: 'true');
+  Future<void> markInviteShared(int tenantId) => _storage.write(
+    key: '${_sharedInviteKey}_$tenantId',
+    value: 'true',
+  );
 
   @override
-  Future<bool> isDismissed() async =>
-      (await _storage.read(key: _dismissedKey)) == 'true';
+  Future<bool> isDismissed(int tenantId) async =>
+      (await _storage.read(key: '${_dismissedKey}_$tenantId')) == 'true';
 
   @override
-  Future<void> dismiss() => _storage.write(key: _dismissedKey, value: 'true');
+  Future<void> dismiss(int tenantId) =>
+      _storage.write(key: '${_dismissedKey}_$tenantId', value: 'true');
 }
