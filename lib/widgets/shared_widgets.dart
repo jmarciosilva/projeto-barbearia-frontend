@@ -134,11 +134,12 @@ class AppActionTile extends StatelessWidget {
 }
 
 class AppMetric {
-  const AppMetric(this.label, this.value, this.icon);
+  const AppMetric(this.label, this.value, this.icon, {this.onTap});
 
   final String label;
   final String value;
   final IconData icon;
+  final VoidCallback? onTap;
 }
 
 class AppMetricGrid extends StatelessWidget {
@@ -168,21 +169,35 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(metric.icon, color: Theme.of(context).colorScheme.primary),
-            Text(
-              metric.value,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            Text(metric.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: metric.onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(metric.icon, color: Theme.of(context).colorScheme.primary),
+                  if (metric.onTap != null)
+                    Icon(
+                      Icons.chevron_right,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                ],
+              ),
+              Text(
+                metric.value,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              Text(metric.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ),
     );

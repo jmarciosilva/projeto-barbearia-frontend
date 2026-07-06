@@ -247,18 +247,66 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ),
         AppMetricGrid(
           metrics: [
-            AppMetric('MRR previsto', formatCents(_mrrCents), Icons.payments),
+            AppMetric(
+              'MRR previsto',
+              formatCents(_mrrCents),
+              Icons.payments,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ActiveSubscribersPage(
+                      clientsRepository: widget.clientsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
             AppMetric(
               'Assinantes',
               '$_activeSubscribers',
               Icons.card_membership,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ActiveSubscribersPage(
+                      clientsRepository: widget.clientsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
             ),
             AppMetric(
               'Agenda hoje',
               '$_todayAppointments',
               Icons.event_available,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayAppointmentsPage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
             ),
-            AppMetric('Pendentes', '$_pendingPayments', Icons.warning_amber),
+            AppMetric(
+              'Pendentes',
+              '$_pendingPayments',
+              Icons.warning_amber,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => PendingPaymentsPage(
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -1811,6 +1859,212 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Pagamentos pendentes')),
+      body: body,
+    );
+  }
+}
+
+/// Detalhe por tras dos cards "Assinantes" e "MRR previsto" do dashboard: a
+/// mesma lista de assinaturas ativas explica os dois numeros (MRR e a soma
+/// dos precos dos planos aqui listados).
+class ActiveSubscribersPage extends StatefulWidget {
+  const ActiveSubscribersPage({super.key, required this.clientsRepository});
+
+  final ClientsRepository clientsRepository;
+
+  @override
+  State<ActiveSubscribersPage> createState() => _ActiveSubscribersPageState();
+}
+
+class _ActiveSubscribersPageState extends State<ActiveSubscribersPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ClientModel> _subscribers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final clients = await widget.clientsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _subscribers = clients
+            .where((client) => client.activeSubscription?.status == 'active')
+            .toList();
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openClient(ClientModel client) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClientDetailPage(
+          clientsRepository: widget.clientsRepository,
+          client: client,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_subscribers.isEmpty) {
+      body = const Center(child: Text('Nenhum assinante ativo no momento.'));
+    } else {
+      final totalCents = _subscribers.fold<int>(
+        0,
+        (sum, client) => sum + (client.activeSubscription?.plan?.priceCents ?? 0),
+      );
+
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: ListTile(
+              leading: const Icon(Icons.payments),
+              title: Text(formatCents(totalCents)),
+              subtitle: const Text('MRR previsto (soma dos planos ativos)'),
+            ),
+          ),
+          for (final client in _subscribers)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const Icon(Icons.card_membership),
+                title: Text(client.name),
+                subtitle: Text(
+                  client.activeSubscription?.plan?.name ?? 'Plano',
+                ),
+                trailing: Text(
+                  formatCents(client.activeSubscription?.plan?.priceCents),
+                ),
+                onTap: () => _openClient(client),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Assinantes ativos')),
+      body: body,
+    );
+  }
+}
+
+/// Detalhe por tras do card "Agenda hoje" do dashboard: os agendamentos de
+/// hoje agrupados por horario, reaproveitando o mesmo `AppDayTimeline` da
+/// aba Agenda.
+class TodayAppointmentsPage extends StatefulWidget {
+  const TodayAppointmentsPage({
+    super.key,
+    required this.appointmentsRepository,
+  });
+
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<TodayAppointmentsPage> createState() => _TodayAppointmentsPageState();
+}
+
+class _TodayAppointmentsPageState extends State<TodayAppointmentsPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final appointments = await widget.appointmentsRepository.index(
+        from: startOfDay,
+        to: endOfDay,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openDetail(AppointmentModel appointment) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AppointmentDetailPage(
+          appointment: appointment,
+          appointmentsRepository: widget.appointmentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      body = Padding(
+        padding: const EdgeInsets.all(16),
+        child: AppDayTimeline(
+          appointments: _appointments,
+          onAppointmentTap: _openDetail,
+          emptyMessage: 'Nenhum agendamento para hoje.',
+        ),
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Agenda de hoje')),
       body: body,
     );
   }
