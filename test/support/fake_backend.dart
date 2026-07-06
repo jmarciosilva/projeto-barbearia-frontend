@@ -638,6 +638,10 @@ const _professionalMeJson = {
   'commission_percentage': 40,
   'is_active': true,
   'user_id': 2,
+  'services': [
+    {'id': 1, 'name': 'Corte masculino'},
+    {'id': 2, 'name': 'Barba completa'},
+  ],
 };
 
 const _professionalFinanceJson = {
@@ -674,6 +678,10 @@ final _professionalsJson = [
     'commission_percentage': 35,
     'is_active': true,
     'user_id': 3,
+    'services': [
+      {'id': 1, 'name': 'Corte masculino'},
+      {'id': 2, 'name': 'Barba completa'},
+    ],
   },
 ];
 

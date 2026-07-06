@@ -635,7 +635,13 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
     });
 
     try {
-      final professionals = await widget.professionalsRepository.index();
+      final allProfessionals = await widget.professionalsRepository.index();
+      // So lista quem de fato atende o servico escolhido — sem isso, a tela
+      // deixava escolher qualquer profissional e o erro real ("Profissional
+      // nao realiza este servico") so aparecia depois, na confirmacao.
+      final professionals = allProfessionals
+          .where((professional) => professional.serviceIds.contains(widget.service.id))
+          .toList();
 
       if (!mounted) return;
       setState(() {
@@ -661,7 +667,9 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_professionals.isEmpty) {
-      body = const Center(child: Text('Nenhum profissional disponível.'));
+      body = const Center(
+        child: Text('Nenhum profissional habilitado para este serviço.'),
+      );
     } else {
       body = RadioGroup<ProfessionalModel>(
         groupValue: _selected,
@@ -728,23 +736,73 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
   // continua fixa. A confirmacao abaixo, porem, e uma chamada real — se o
   // horario ja estiver ocupado ou violar alguma regra do plano, o erro
   // verdadeiro da API aparece aqui embaixo.
-  static const _slots = ['09:00', '10:30', '13:00', '14:30', '16:00', '17:30'];
-  String _selected = _slots.first;
+  static const _allSlots = ['09:00', '10:30', '13:00', '14:30', '16:00', '17:30'];
+  static const _weekdayLabels = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+
+  final List<DateTime> _days = List.generate(
+    7,
+    (i) => DateTime.now().add(Duration(days: i)),
+  );
+
+  late DateTime _selectedDay = _days.firstWhere(
+    (day) => _availableSlots(day).isNotEmpty,
+    orElse: () => _days.first,
+  );
+  late String? _selected = _availableSlots(_selectedDay).isEmpty
+      ? null
+      : _availableSlots(_selectedDay).first;
   bool _isSaving = false;
   String? _errorMessage;
 
+  // So filtra os horarios ja passados quando o dia escolhido e hoje — dias
+  // futuros mostram a lista fixa inteira, ja que nao ha disponibilidade
+  // real por profissional ainda.
+  List<String> _availableSlots(DateTime day) {
+    if (!DateUtils.isSameDay(day, DateTime.now())) return _allSlots;
+
+    final now = DateTime.now();
+    return _allSlots.where((slot) {
+      final parts = slot.split(':');
+      final slotTime = DateTime(
+        day.year,
+        day.month,
+        day.day,
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+      );
+      return slotTime.isAfter(now);
+    }).toList();
+  }
+
+  String _dayLabel(DateTime day) {
+    if (DateUtils.isSameDay(day, DateTime.now())) return 'Hoje';
+    if (DateUtils.isSameDay(day, DateTime.now().add(const Duration(days: 1)))) {
+      return 'Amanhã';
+    }
+    return '${_weekdayLabels[day.weekday - 1]} ${day.day}';
+  }
+
+  void _onDaySelected(DateTime day) {
+    setState(() {
+      _selectedDay = day;
+      final slots = _availableSlots(day);
+      _selected = slots.isEmpty ? null : slots.first;
+    });
+  }
+
   Future<void> _confirm() async {
+    if (_selected == null) return;
+
     setState(() {
       _isSaving = true;
       _errorMessage = null;
     });
 
-    final parts = _selected.split(':');
-    final now = DateTime.now();
+    final parts = _selected!.split(':');
     final startsAt = DateTime(
-      now.year,
-      now.month,
-      now.day + 1,
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
       int.parse(parts[0]),
       int.parse(parts[1]),
     );
@@ -774,6 +832,8 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
 
   @override
   Widget build(BuildContext context) {
+    final slots = _availableSlots(_selectedDay);
+
     return AppScaffold(
       appBar: AppBar(title: const Text('Confirmar horário')),
       body: Padding(
@@ -781,19 +841,39 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionTitle('Horários disponíveis (amanhã)'),
+            const AppSectionTitle('Escolha o dia'),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final slot in _slots)
+                for (final day in _days)
                   ChoiceChip(
-                    label: Text(slot),
-                    selected: _selected == slot,
-                    onSelected: (_) => setState(() => _selected = slot),
+                    label: Text(_dayLabel(day)),
+                    selected: DateUtils.isSameDay(day, _selectedDay),
+                    onSelected: (_) => _onDaySelected(day),
                   ),
               ],
             ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Horários disponíveis'),
+            if (slots.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Nenhum horário disponível para este dia.'),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final slot in slots)
+                    ChoiceChip(
+                      label: Text(slot),
+                      selected: _selected == slot,
+                      onSelected: (_) => setState(() => _selected = slot),
+                    ),
+                ],
+              ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 16),
               Text(
@@ -803,7 +883,7 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
             ],
             const Spacer(),
             FilledButton(
-              onPressed: _isSaving ? null : _confirm,
+              onPressed: _isSaving || _selected == null ? null : _confirm,
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
               ),
