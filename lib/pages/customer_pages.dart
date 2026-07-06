@@ -480,6 +480,11 @@ class BookingPage extends StatelessWidget {
   }
 }
 
+/// Primeira tela do fluxo de agendamento. Uso duplo: cliente logado
+/// agendando para si mesmo (sem [client] informado, resolve o proprio
+/// cadastro via `clientsRepository.me()`) ou dono/profissional agendando
+/// manualmente em nome de um cliente ja escolhido (passa [client] pronto,
+/// pulando a chamada `.me()` que so funciona para o papel `customer`).
 class ChooseServicePage extends StatefulWidget {
   const ChooseServicePage({
     super.key,
@@ -487,12 +492,14 @@ class ChooseServicePage extends StatefulWidget {
     required this.servicesRepository,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    this.client,
   });
 
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final ClientModel? client;
 
   @override
   State<ChooseServicePage> createState() => _ChooseServicePageState();
@@ -518,15 +525,13 @@ class _ChooseServicePageState extends State<ChooseServicePage> {
     });
 
     try {
-      final results = await Future.wait([
-        widget.servicesRepository.index(),
-        widget.clientsRepository.me(),
-      ]);
+      final services = await widget.servicesRepository.index();
+      final client = widget.client ?? await widget.clientsRepository.me();
 
       if (!mounted) return;
       setState(() {
-        _services = results[0] as List<ServiceModel>;
-        _client = results[1] as ClientModel;
+        _services = services;
+        _client = client;
         _selected = _services.isEmpty ? null : _services.first;
         _isLoading = false;
       });
@@ -1245,6 +1250,7 @@ class MyAppointmentsPage extends StatefulWidget {
 }
 
 class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
+  DateTime _selectedDay = DateTime.now();
   bool _isLoading = true;
   String? _errorMessage;
   List<AppointmentModel> _appointments = [];
@@ -1262,7 +1268,16 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
     });
 
     try {
-      final appointments = await widget.appointmentsRepository.index();
+      final startOfDay = DateTime(
+        _selectedDay.year,
+        _selectedDay.month,
+        _selectedDay.day,
+      );
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final appointments = await widget.appointmentsRepository.index(
+        from: startOfDay,
+        to: endOfDay,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -1276,6 +1291,11 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _onDaySelected(DateTime day) {
+    setState(() => _selectedDay = day);
+    _load();
   }
 
   Future<void> _openDetail(AppointmentModel appointment) async {
@@ -1293,47 +1313,42 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget body;
+    final Widget schedule;
 
     if (_isLoading) {
-      body = const Center(child: CircularProgressIndicator());
+      schedule = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
     } else if (_errorMessage != null) {
-      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
-    } else if (_appointments.isEmpty) {
-      body = const Center(child: Text('Você ainda não tem agendamentos.'));
+      schedule = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else {
-      body = ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          for (final appointment in _appointments)
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: const Icon(Icons.event),
-                title: Text(appointment.serviceName ?? 'Serviço'),
-                subtitle: Text(
-                  '${appointment.professionalName ?? 'Profissional'} - ${formatTime(appointment.startsAt)}',
-                ),
-                trailing: Text(_statusLabel(appointment.status)),
-                onTap: () => _openDetail(appointment),
-              ),
-            ),
-        ],
+      schedule = AppDayTimeline(
+        appointments: _appointments,
+        onAppointmentTap: _openDetail,
+        emptyMessage: 'Você não tem agendamentos neste dia.',
       );
     }
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Meus agendamentos')),
-      body: body,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: CalendarDatePicker(
+              initialDate: _selectedDay,
+              firstDate: DateTime.now().subtract(const Duration(days: 365)),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+              onDateChanged: _onDaySelected,
+            ),
+          ),
+          schedule,
+        ],
+      ),
     );
   }
-
-  String _statusLabel(String status) => switch (status) {
-    'completed' => 'Concluído',
-    'canceled' => 'Cancelado',
-    'no_show' => 'Faltou',
-    _ => 'Agendado',
-  };
 }
 
 /// Fila de espera do proprio cliente: lista as entradas ja pedidas e permite
@@ -1455,8 +1470,10 @@ class _MyWaitlistPageState extends State<MyWaitlistPage> {
                 leading: const Icon(Icons.groups),
                 title: Text(entry.serviceName ?? 'Serviço'),
                 subtitle: Text(
-                  entry.professionalName ?? 'Qualquer profissional',
+                  '${entry.professionalName ?? 'Qualquer profissional'}\n'
+                  'Entrou na fila às ${formatTime(entry.createdAt)}',
                 ),
+                isThreeLine: true,
                 trailing: entry.status == 'waiting'
                     ? IconButton(
                         tooltip: 'Sair da fila',

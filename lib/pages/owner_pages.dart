@@ -12,6 +12,7 @@ import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/account_settings_page.dart';
+import 'package:clube_do_salao/pages/customer_pages.dart';
 import 'package:clube_do_salao/pages/owner_invite_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
@@ -520,31 +521,41 @@ class _ChecklistItem extends StatelessWidget {
   }
 }
 
-/// Agenda do dia. O profissional ainda usa dados mockados nesta fase
-/// ([appointmentsRepository] omitido); o proprietario ja recebe dados reais.
 /// Agenda do dia. Proprietario ve o estabelecimento inteiro; profissional
 /// ve so os proprios atendimentos (o backend ja aplica esse recorte).
+///
+/// Cobre o caso do cliente que liga ou manda mensagem em vez de usar o
+/// app: dono/profissional podem criar um agendamento manual em nome dele
+/// ("Novo agendamento") ou coloca-lo na fila de espera do dia sem precisar
+/// que o proprio cliente esteja logado.
 class AgendaPage extends StatefulWidget {
   const AgendaPage({
     super.key,
     required this.appointmentsRepository,
     required this.waitlistRepository,
     required this.professionalsRepository,
+    required this.clientsRepository,
+    required this.servicesRepository,
   });
 
   final AppointmentsRepository appointmentsRepository;
   final WaitlistRepository waitlistRepository;
   final ProfessionalsRepository professionalsRepository;
+  final ClientsRepository clientsRepository;
+  final ServicesRepository servicesRepository;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
 }
 
 class _AgendaPageState extends State<AgendaPage> {
+  DateTime _selectedDay = DateTime.now();
   bool _isLoading = true;
   String? _errorMessage;
   List<AppointmentModel> _appointments = [];
-  List<AppScheduleItem> _items = [];
+  List<WaitlistEntryModel> _waitlistEntries = [];
+
+  bool get _isToday => DateUtils.isSameDay(_selectedDay, DateTime.now());
 
   @override
   void initState() {
@@ -559,30 +570,26 @@ class _AgendaPageState extends State<AgendaPage> {
     });
 
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfDay = DateTime(
+        _selectedDay.year,
+        _selectedDay.month,
+        _selectedDay.day,
+      );
       final endOfDay = startOfDay.add(const Duration(days: 1));
       final appointments = await widget.appointmentsRepository.index(
         from: startOfDay,
         to: endOfDay,
       );
+      // Fila de espera nao tem data marcada — so faz sentido mostrar junto
+      // da agenda de hoje, que e quando o cliente esta de fato esperando.
+      final waitlistEntries = _isToday
+          ? await widget.waitlistRepository.index(status: 'waiting')
+          : <WaitlistEntryModel>[];
 
       if (!mounted) return;
       setState(() {
         _appointments = appointments;
-        _items = appointments
-            .map(
-              (appointment) => AppScheduleItem(
-                formatTime(appointment.startsAt),
-                appointment.serviceName ?? 'Serviço',
-                appointment.clientName ?? 'Cliente',
-                duration: formatDuration(
-                  appointment.endsAt.difference(appointment.startsAt),
-                ),
-                notes: appointment.notes ?? 'Sem observações registradas.',
-              ),
-            )
-            .toList();
+        _waitlistEntries = waitlistEntries;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -594,14 +601,30 @@ class _AgendaPageState extends State<AgendaPage> {
     }
   }
 
-  Future<void> _openDetail(AppScheduleItem item) async {
-    final appointment = _appointments[_items.indexOf(item)];
+  void _onDaySelected(DateTime day) {
+    setState(() => _selectedDay = day);
+    _load();
+  }
 
+  Future<void> _openDetail(AppointmentModel appointment) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => AppointmentDetailPage(
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _openWaitlistEntry(WaitlistEntryModel entry) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AssignWaitlistPage(
+          waitlistRepository: widget.waitlistRepository,
+          professionalsRepository: widget.professionalsRepository,
+          entry: entry,
         ),
       ),
     );
@@ -614,7 +637,156 @@ class _AgendaPageState extends State<AgendaPage> {
         builder: (_) => ManageWaitlistPage(
           waitlistRepository: widget.waitlistRepository,
           professionalsRepository: widget.professionalsRepository,
+          clientsRepository: widget.clientsRepository,
+          servicesRepository: widget.servicesRepository,
         ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _openNewAppointment() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChooseClientPage(
+          clientsRepository: widget.clientsRepository,
+          servicesRepository: widget.servicesRepository,
+          professionalsRepository: widget.professionalsRepository,
+          appointmentsRepository: widget.appointmentsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget schedule;
+
+    if (_isLoading) {
+      schedule = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_errorMessage != null) {
+      schedule = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      schedule = AppDayTimeline(
+        appointments: _appointments,
+        waitlistEntries: _waitlistEntries,
+        onAppointmentTap: _openDetail,
+        onWaitlistTap: _openWaitlistEntry,
+        emptyMessage: 'Nenhum agendamento para este dia.',
+      );
+    }
+
+    return Stack(
+      children: [
+        ListView(
+          // Espaco reservado embaixo pros dois FABs empilhados nao cobrirem
+          // o ultimo item da lista.
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 160),
+          children: [
+            Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: CalendarDatePicker(
+                initialDate: _selectedDay,
+                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+                onDateChanged: _onDaySelected,
+              ),
+            ),
+            schedule,
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: 88,
+          child: FloatingActionButton.extended(
+            heroTag: 'novoAgendamento',
+            onPressed: _openNewAppointment,
+            icon: const Icon(Icons.add),
+            label: const Text('Novo agendamento'),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.extended(
+            heroTag: 'filaDeEspera',
+            onPressed: _openWaitlist,
+            icon: const Icon(Icons.groups),
+            label: const Text('Fila de espera'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Escolha do cliente para um agendamento manual criado pelo dono ou
+/// profissional (ex: cliente ligou ou mandou mensagem em vez de usar o
+/// app). Depois de escolhido, reaproveita o mesmo fluxo de agendamento do
+/// cliente (servico > profissional > horario), so que em nome dele.
+class ChooseClientPage extends StatefulWidget {
+  const ChooseClientPage({
+    super.key,
+    required this.clientsRepository,
+    required this.servicesRepository,
+    required this.professionalsRepository,
+    required this.appointmentsRepository,
+  });
+
+  final ClientsRepository clientsRepository;
+  final ServicesRepository servicesRepository;
+  final ProfessionalsRepository professionalsRepository;
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<ChooseClientPage> createState() => _ChooseClientPageState();
+}
+
+class _ChooseClientPageState extends State<ChooseClientPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ClientModel> _clients = [];
+  ClientModel? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final clients = await widget.clientsRepository.index();
+
+      if (!mounted) return;
+      setState(() {
+        _clients = clients;
+        _selected = clients.isEmpty ? null : clients.first;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openNewClient() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NewClientPage(clientsRepository: widget.clientsRepository),
       ),
     );
     _load();
@@ -628,29 +800,74 @@ class _AgendaPageState extends State<AgendaPage> {
       body = const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
-    } else if (_items.isEmpty) {
-      body = const Center(child: Text('Nenhum agendamento para hoje.'));
+    } else if (_clients.isEmpty) {
+      body = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Nenhum cliente cadastrado ainda.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _openNewClient,
+                icon: const Icon(Icons.person_add),
+                label: const Text('Cadastrar cliente'),
+              ),
+            ],
+          ),
+        ),
+      );
     } else {
-      body = AppScheduleList(
-        title: 'Agenda',
-        items: _items,
-        onItemTap: _openDetail,
+      body = RadioGroup<ClientModel>(
+        groupValue: _selected,
+        onChanged: (value) => setState(() => _selected = value),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextButton.icon(
+              onPressed: _openNewClient,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Cliente novo? Cadastre primeiro'),
+            ),
+            const SizedBox(height: 8),
+            for (final client in _clients)
+              RadioListTile<ClientModel>(
+                title: Text(client.name),
+                subtitle: Text(client.phone),
+                value: client,
+              ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _selected == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ChooseServicePage(
+                          clientsRepository: widget.clientsRepository,
+                          servicesRepository: widget.servicesRepository,
+                          professionalsRepository: widget.professionalsRepository,
+                          appointmentsRepository: widget.appointmentsRepository,
+                          client: _selected,
+                        ),
+                      ),
+                    ),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
       );
     }
 
-    return Stack(
-      children: [
-        body,
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: FloatingActionButton.extended(
-            onPressed: _openWaitlist,
-            icon: const Icon(Icons.groups),
-            label: const Text('Fila de espera'),
-          ),
-        ),
-      ],
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Novo agendamento')),
+      body: body,
     );
   }
 }
@@ -3543,15 +3760,21 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
 
 /// Fila de espera vista pelo staff: lista quem esta `waiting` e permite
 /// atribuir um horario, transformando a entrada em agendamento de verdade.
+/// Tambem permite colocar um cliente na fila manualmente (ex: cliente ligou
+/// avisando que esta a caminho, sem preferencia de profissional).
 class ManageWaitlistPage extends StatefulWidget {
   const ManageWaitlistPage({
     super.key,
     required this.waitlistRepository,
     required this.professionalsRepository,
+    required this.clientsRepository,
+    required this.servicesRepository,
   });
 
   final WaitlistRepository waitlistRepository;
   final ProfessionalsRepository professionalsRepository;
+  final ClientsRepository clientsRepository;
+  final ServicesRepository servicesRepository;
 
   @override
   State<ManageWaitlistPage> createState() => _ManageWaitlistPageState();
@@ -3604,6 +3827,19 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
     _load();
   }
 
+  Future<void> _openAddToWaitlist() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddClientToWaitlistPage(
+          waitlistRepository: widget.waitlistRepository,
+          clientsRepository: widget.clientsRepository,
+          servicesRepository: widget.servicesRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final Widget body;
@@ -3616,7 +3852,7 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
       body = const Center(child: Text('Nenhum cliente aguardando vaga.'));
     } else {
       body = ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
         children: [
           for (final entry in _entries)
             Card(
@@ -3625,8 +3861,10 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
                 leading: const Icon(Icons.groups),
                 title: Text(entry.clientName ?? 'Cliente'),
                 subtitle: Text(
-                  '${entry.serviceName ?? 'Serviço'} - ${entry.professionalName ?? 'Qualquer profissional'}',
+                  '${entry.serviceName ?? 'Serviço'} - ${entry.professionalName ?? 'Qualquer profissional'}\n'
+                  'Entrou na fila às ${formatTime(entry.createdAt)}',
                 ),
+                isThreeLine: true,
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openAssign(entry),
               ),
@@ -3635,8 +3873,213 @@ class _ManageWaitlistPageState extends State<ManageWaitlistPage> {
       );
     }
 
+    return Stack(
+      children: [
+        AppScaffold(
+          appBar: AppBar(title: const Text('Fila de espera')),
+          body: body,
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            onPressed: _openAddToWaitlist,
+            tooltip: 'Colocar cliente na fila',
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Coloca um cliente na fila de espera em nome dele (ex: ligou avisando que
+/// esta a caminho do salao). Mesma ideia da fila que o proprio cliente
+/// preenche pelo app, so que com um passo a mais pra escolher quem e.
+class AddClientToWaitlistPage extends StatefulWidget {
+  const AddClientToWaitlistPage({
+    super.key,
+    required this.waitlistRepository,
+    required this.clientsRepository,
+    required this.servicesRepository,
+  });
+
+  final WaitlistRepository waitlistRepository;
+  final ClientsRepository clientsRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<AddClientToWaitlistPage> createState() =>
+      _AddClientToWaitlistPageState();
+}
+
+class _AddClientToWaitlistPageState extends State<AddClientToWaitlistPage> {
+  bool _isLoadingOptions = true;
+  String? _loadError;
+  List<ClientModel> _clients = [];
+  List<ServiceModel> _services = [];
+  ClientModel? _selectedClient;
+  ServiceModel? _selectedService;
+  final _notesController = TextEditingController();
+
+  bool _isSaving = false;
+  String? _saveError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOptions();
+  }
+
+  Future<void> _loadOptions() async {
+    setState(() {
+      _isLoadingOptions = true;
+      _loadError = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        widget.clientsRepository.index(),
+        widget.servicesRepository.index(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _clients = results[0] as List<ClientModel>;
+        _services = results[1] as List<ServiceModel>;
+        _selectedClient = _clients.isEmpty ? null : _clients.first;
+        _selectedService = _services.isEmpty ? null : _services.first;
+        _isLoadingOptions = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = error.userMessage;
+        _isLoadingOptions = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_selectedClient == null || _selectedService == null) return;
+
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
+
+    try {
+      await widget.waitlistRepository.create(
+        clientId: _selectedClient!.id,
+        serviceId: _selectedService!.id,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_selectedClient!.name} entrou na fila de espera.'),
+        ),
+      );
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+
+    if (_isLoadingOptions) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_loadError != null) {
+      body = AppLoadingError(message: _loadError!, onRetry: _loadOptions);
+    } else if (_clients.isEmpty) {
+      body = const Center(child: Text('Nenhum cliente cadastrado ainda.'));
+    } else if (_services.isEmpty) {
+      body = const Center(child: Text('Nenhum serviço cadastrado ainda.'));
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AppSectionTitle('Cliente'),
+          RadioGroup<ClientModel>(
+            groupValue: _selectedClient,
+            onChanged: (value) => setState(() => _selectedClient = value),
+            child: Column(
+              children: [
+                for (final client in _clients)
+                  RadioListTile<ClientModel>(
+                    title: Text(client.name),
+                    subtitle: Text(client.phone),
+                    value: client,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const AppSectionTitle('Serviço'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final service in _services)
+                ChoiceChip(
+                  label: Text(service.name),
+                  selected: _selectedService?.id == service.id,
+                  onSelected: (_) =>
+                      setState(() => _selectedService = service),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Observações (opcional)',
+            ),
+            maxLines: 3,
+          ),
+          if (_saveError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _saveError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _isSaving ? null : _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Colocar na fila'),
+          ),
+        ],
+      );
+    }
+
     return AppScaffold(
-      appBar: AppBar(title: const Text('Fila de espera')),
+      appBar: AppBar(title: const Text('Colocar cliente na fila')),
       body: body,
     );
   }

@@ -21,6 +21,7 @@ import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/services/waitlist_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
   runZonedGuarded(() {
@@ -140,6 +141,15 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
       navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Clube do Salão',
+      // Sem isso, widgets nativos do Material que dependem de localizacao
+      // (ex: CalendarDatePicker da Agenda) caem no ingles por padrao.
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('pt', 'BR')],
+      locale: const Locale('pt', 'BR'),
       theme: ThemeData(
         colorScheme: colorScheme,
         scaffoldBackgroundColor: const Color(0xFFEFF7F1),
@@ -517,6 +527,8 @@ class _DashboardShellState extends State<DashboardShell> {
             appointmentsRepository: AppointmentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
+            clientsRepository: ClientsRepository(apiClient),
+            servicesRepository: ServicesRepository(apiClient),
           ),
         ),
         _ShellPage(
@@ -557,6 +569,8 @@ class _DashboardShellState extends State<DashboardShell> {
             appointmentsRepository: AppointmentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
+            clientsRepository: ClientsRepository(apiClient),
+            servicesRepository: ServicesRepository(apiClient),
           ),
         ),
         _ShellPage(

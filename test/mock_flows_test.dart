@@ -469,6 +469,62 @@ void main() {
     expect(find.text('Fila de espera'), findsWidgets);
   });
 
+  testWidgets('dono cria agendamento manual para um cliente', (tester) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Agenda'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Novo agendamento'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Novo agendamento'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Escolher serviço'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Escolher profissional'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirmar horário'), findsOneWidget);
+    await tester.tap(find.text('Confirmar agendamento'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Agendamento confirmado'), findsWidgets);
+  });
+
+  testWidgets('dono coloca cliente manualmente na fila de espera', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Agenda'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Fila de espera'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Colocar cliente na fila'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.widgetWithText(AppBar, 'Colocar cliente na fila'),
+      findsOneWidget,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Colocar na fila'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Carlos Mendes entrou na fila de espera.'), findsOneWidget);
+  });
+
   testWidgets('proprietario troca de plano SaaS pela API', (tester) async {
     await pumpMobileApp(tester);
 

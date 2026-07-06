@@ -1,3 +1,6 @@
+import 'package:clube_do_salao/core/formatting.dart';
+import 'package:clube_do_salao/models/appointment_model.dart';
+import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:flutter/material.dart';
 
 /// Scaffold padrao do app: aplica o mesmo degrade verde bem claro atras do
@@ -393,4 +396,103 @@ class AppMockSuccessPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Agenda de um dia especifico, agrupada por horario. Um mesmo horario pode
+/// ter mais de um agendamento (profissionais diferentes atendendo ao mesmo
+/// tempo) — cada um aparece como uma linha dentro do grupo daquele horario.
+/// Entradas da fila de espera (sem horario marcado por definicao) entram no
+/// grupo do horario em que o cliente entrou na fila, para dar visibilidade
+/// de tudo que esta acontecendo no salao ao longo do dia num unico lugar.
+///
+/// Nao tem rolagem propria (nem `Scaffold`/padding fixo) de proposito: quem
+/// usa decide se isso fica dentro de um `ListView`/`SingleChildScrollView`
+/// junto com outra coisa (ex: o calendario do mes acima), evitando o
+/// classico erro de `ListView` dentro de `ListView`.
+class AppDayTimeline extends StatelessWidget {
+  const AppDayTimeline({
+    super.key,
+    required this.appointments,
+    this.waitlistEntries = const [],
+    required this.onAppointmentTap,
+    this.onWaitlistTap,
+    this.emptyMessage = 'Nada agendado para este dia.',
+  });
+
+  final List<AppointmentModel> appointments;
+  final List<WaitlistEntryModel> waitlistEntries;
+  final ValueChanged<AppointmentModel> onAppointmentTap;
+  final ValueChanged<WaitlistEntryModel>? onWaitlistTap;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (appointments.isEmpty && waitlistEntries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: Text(emptyMessage)),
+      );
+    }
+
+    final slots = <String, _DaySlot>{};
+
+    for (final appointment in appointments) {
+      final key = formatTime(appointment.startsAt);
+      slots.putIfAbsent(key, () => _DaySlot(appointment.startsAt)).appointments.add(appointment);
+    }
+    for (final entry in waitlistEntries) {
+      final key = formatTime(entry.createdAt);
+      slots.putIfAbsent(key, () => _DaySlot(entry.createdAt)).waitlistEntries.add(entry);
+    }
+
+    final sortedKeys = slots.keys.toList()
+      ..sort((a, b) => slots[a]!.time.compareTo(slots[b]!.time));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final key in sortedKeys) ...[
+          AppSectionTitle(key),
+          for (final appointment in slots[key]!.appointments)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const Icon(Icons.event),
+                title: Text(appointment.serviceName ?? 'Serviço'),
+                subtitle: Text(
+                  '${appointment.clientName ?? 'Cliente'} - ${appointment.professionalName ?? 'Profissional'}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => onAppointmentTap(appointment),
+              ),
+            ),
+          for (final entry in slots[key]!.waitlistEntries)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const Icon(Icons.groups),
+                title: Text(entry.clientName ?? 'Cliente'),
+                subtitle: Text(
+                  'Entrou na fila de espera - ${entry.serviceName ?? 'Serviço'}',
+                ),
+                trailing: onWaitlistTap == null
+                    ? null
+                    : const Icon(Icons.chevron_right),
+                onTap: onWaitlistTap == null
+                    ? null
+                    : () => onWaitlistTap!(entry),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _DaySlot {
+  _DaySlot(this.time);
+
+  final DateTime time;
+  final List<AppointmentModel> appointments = [];
+  final List<WaitlistEntryModel> waitlistEntries = [];
 }

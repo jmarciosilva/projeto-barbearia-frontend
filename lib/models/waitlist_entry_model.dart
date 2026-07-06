@@ -4,6 +4,7 @@ class WaitlistEntryModel {
   const WaitlistEntryModel({
     required this.id,
     required this.status,
+    required this.createdAt,
     this.serviceId,
     this.serviceName,
     this.professionalId,
@@ -22,6 +23,11 @@ class WaitlistEntryModel {
     return WaitlistEntryModel(
       id: json['id'] as int,
       status: json['status'] as String,
+      // O backend sempre grava `created_at` (timestamps padrao do Laravel);
+      // so cai no agora se faltar por algum motivo, pra nao quebrar a tela.
+      createdAt: json['created_at'] == null
+          ? DateTime.now()
+          : DateTime.parse(json['created_at'] as String),
       serviceId: json['service_id'] as int?,
       serviceName: service?['name'] as String?,
       professionalId: json['professional_id'] as int?,
@@ -34,6 +40,7 @@ class WaitlistEntryModel {
 
   final int id;
   final String status;
+  final DateTime createdAt;
   final int? serviceId;
   final String? serviceName;
   final int? professionalId;
