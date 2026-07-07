@@ -3,7 +3,10 @@ import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/client_model.dart';
 import 'package:clube_do_salao/models/client_subscription_model.dart';
+import 'package:clube_do_salao/models/dashboard_summary_model.dart';
+import 'package:clube_do_salao/models/occupancy_model.dart';
 import 'package:clube_do_salao/models/payment_model.dart';
+import 'package:clube_do_salao/models/return_risk_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/saas_plan_model.dart';
@@ -20,6 +23,7 @@ import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
+import 'package:clube_do_salao/services/dashboard_repository.dart';
 import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
@@ -45,6 +49,8 @@ class OwnerHomePage extends StatefulWidget {
     required this.saasSubscriptionRepository,
     required this.checklistStorage,
     required this.authSession,
+    required this.dashboardRepository,
+    required this.waitlistRepository,
   });
 
   final ClientsRepository clientsRepository;
@@ -57,6 +63,8 @@ class OwnerHomePage extends StatefulWidget {
   final SaasSubscriptionRepository saasSubscriptionRepository;
   final OnboardingChecklistStorage checklistStorage;
   final AuthSession authSession;
+  final DashboardRepository dashboardRepository;
+  final WaitlistRepository waitlistRepository;
 
   @override
   State<OwnerHomePage> createState() => _OwnerHomePageState();
@@ -65,10 +73,7 @@ class OwnerHomePage extends StatefulWidget {
 class _OwnerHomePageState extends State<OwnerHomePage> {
   bool _isLoading = true;
   String? _errorMessage;
-  int _activeSubscribers = 0;
-  int _mrrCents = 0;
-  int _todayAppointments = 0;
-  int _pendingPayments = 0;
+  DashboardSummaryModel? _summary;
   SaasSubscriptionModel? _saasSubscription;
   TenantModel? _tenant;
   int _professionalsCount = 0;
@@ -103,16 +108,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     });
 
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      final clients = await widget.clientsRepository.index();
-      final appointments = await widget.appointmentsRepository.index(
-        from: startOfDay,
-        to: endOfDay,
-      );
-      final payments = await widget.paymentsRepository.index();
+      final summary = await widget.dashboardRepository.summary();
       final tenant = await widget.tenantRepository.show();
       final professionals = await widget.professionalsRepository.index();
       final services = await widget.servicesRepository.index();
@@ -124,21 +120,9 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         tenant.id,
       );
 
-      final activeSubscriptions = clients
-          .expand((client) => client.subscriptions)
-          .where((subscription) => subscription.status == 'active');
-
       if (!mounted) return;
       setState(() {
-        _activeSubscribers = activeSubscriptions.length;
-        _mrrCents = activeSubscriptions.fold<int>(
-          0,
-          (sum, subscription) => sum + (subscription.plan?.priceCents ?? 0),
-        );
-        _todayAppointments = appointments.length;
-        _pendingPayments = payments
-            .where((payment) => payment.status == 'pending')
-            .length;
+        _summary = summary;
         _saasSubscription = tenant.saasSubscription;
         _tenant = tenant;
         _professionalsCount = professionals.length;
@@ -246,43 +230,12 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               },
             ),
           ),
+        const AppSectionTitle('Hoje'),
         AppMetricGrid(
           metrics: [
             AppMetric(
-              'MRR previsto',
-              formatCents(_mrrCents),
-              Icons.payments,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ActiveSubscribersPage(
-                      clientsRepository: widget.clientsRepository,
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Assinantes',
-              '$_activeSubscribers',
-              Icons.card_membership,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ActiveSubscribersPage(
-                      clientsRepository: widget.clientsRepository,
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Agenda hoje',
-              '$_todayAppointments',
+              'Agendamentos',
+              '${_summary!.appointmentsToday}',
               Icons.event_available,
               onTap: () async {
                 await Navigator.of(context).push(
@@ -296,13 +249,113 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               },
             ),
             AppMetric(
+              'Confirmados',
+              '${_summary!.confirmedToday}',
+              Icons.check_circle_outline,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayAppointmentsPage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
               'Pendentes',
-              '$_pendingPayments',
+              '${_summary!.pendingToday}',
               Icons.warning_amber,
               onTap: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => PendingPaymentsPage(
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Fila de espera',
+              '${_summary!.waitlistCount}',
+              Icons.people_outline,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ManageWaitlistPage(
+                      waitlistRepository: widget.waitlistRepository,
+                      professionalsRepository: widget.professionalsRepository,
+                      clientsRepository: widget.clientsRepository,
+                      servicesRepository: widget.servicesRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Cancelamentos',
+              '${_summary!.canceledToday}',
+              Icons.event_busy,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayAppointmentsPage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const AppSectionTitle('Receita'),
+        AppMetricGrid(
+          metrics: [
+            AppMetric(
+              'Prevista hoje',
+              formatCents(_summary!.expectedRevenueTodayCents),
+              Icons.today,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayRevenuePage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Recorrente do mês',
+              formatCents(_summary!.recurringRevenueMonthCents),
+              Icons.autorenew,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ActiveSubscribersPage(
+                      clientsRepository: widget.clientsRepository,
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Avulsa do mês',
+              formatCents(_summary!.walkinRevenueMonthCents),
+              Icons.point_of_sale,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => WalkinRevenueMonthPage(
                       paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
@@ -375,6 +428,33 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             );
             _load();
           },
+        ),
+        AppActionTile(
+          icon: Icons.bar_chart,
+          title: 'Ocupação da equipe',
+          subtitle: 'Veja o quanto da agenda de cada profissional está ocupada.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  OccupancyPage(
+                dashboardRepository: widget.dashboardRepository,
+                professionalsRepository: widget.professionalsRepository,
+                servicesRepository: widget.servicesRepository,
+              ),
+            ),
+          ),
+        ),
+        AppActionTile(
+          icon: Icons.favorite_border,
+          title: 'Clientes para reconquistar',
+          subtitle:
+              'Veja quem está no momento certo de voltar, segundo o histórico.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ReturnRiskPage(dashboardRepository: widget.dashboardRepository),
+            ),
+          ),
         ),
         AppActionTile(
           icon: Icons.lock_outline,
@@ -2085,6 +2165,226 @@ class _TodayAppointmentsPageState extends State<TodayAppointmentsPage> {
   }
 }
 
+/// Extrato por tras do card "Prevista hoje" (Painel Inteligente): lista os
+/// agendamentos de hoje que contam para a receita, com o valor de cada um
+/// (preco do servico), somando exatamente o valor mostrado no card.
+class TodayRevenuePage extends StatefulWidget {
+  const TodayRevenuePage({super.key, required this.appointmentsRepository});
+
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<TodayRevenuePage> createState() => _TodayRevenuePageState();
+}
+
+class _TodayRevenuePageState extends State<TodayRevenuePage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final appointments = await widget.appointmentsRepository.index(
+        from: startOfDay,
+        to: endOfDay,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments
+            .where((appointment) => appointment.countsTowardExpectedRevenue)
+            .toList();
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_appointments.isEmpty) {
+      body = const Center(child: Text('Nenhum agendamento hoje.'));
+    } else {
+      final totalCents = _appointments.fold<int>(
+        0,
+        (sum, appointment) => sum + (appointment.servicePriceCents ?? 0),
+      );
+
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              title: const Text('Total previsto hoje'),
+              trailing: Text(
+                formatCents(totalCents),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+          for (final appointment in _appointments)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: Icon(
+                  appointment.clientSubscriptionId == null
+                      ? Icons.content_cut
+                      : Icons.card_membership,
+                ),
+                title: Text(appointment.clientName ?? 'Cliente'),
+                subtitle: Text(
+                  '${appointment.serviceName ?? 'Servico'} - ${appointment.professionalName ?? ''} - '
+                  '${appointment.clientSubscriptionId == null ? 'Avulso' : 'Assinatura'}',
+                ),
+                trailing: Text(formatCents(appointment.servicePriceCents ?? 0)),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Receita prevista hoje')),
+      body: body,
+    );
+  }
+}
+
+/// Extrato por tras do card "Avulsa do mês" (Painel Inteligente): pagamentos
+/// avulsos ja confirmados como pagos dentro do mes corrente.
+class WalkinRevenueMonthPage extends StatefulWidget {
+  const WalkinRevenueMonthPage({super.key, required this.paymentsRepository});
+
+  final PaymentsRepository paymentsRepository;
+
+  @override
+  State<WalkinRevenueMonthPage> createState() =>
+      _WalkinRevenueMonthPageState();
+}
+
+class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<PaymentModel> _payments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final payments = await widget.paymentsRepository.index();
+      final now = DateTime.now();
+
+      if (!mounted) return;
+      setState(() {
+        _payments = payments.where((payment) {
+          if (payment.status != 'paid' || !payment.isAvulso) return false;
+          final paidAt = payment.paidAt == null
+              ? null
+              : DateTime.tryParse(payment.paidAt!);
+          return paidAt != null &&
+              paidAt.year == now.year &&
+              paidAt.month == now.month;
+        }).toList();
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_payments.isEmpty) {
+      body = const Center(
+        child: Text('Nenhuma receita avulsa confirmada este mês.'),
+      );
+    } else {
+      final totalCents = _payments.fold<int>(
+        0,
+        (sum, payment) => sum + payment.amountCents,
+      );
+
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              title: const Text('Total avulso no mês'),
+              trailing: Text(
+                formatCents(totalCents),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+          for (final payment in _payments)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const Icon(Icons.content_cut),
+                title: Text(payment.clientName ?? 'Cliente'),
+                subtitle: Text(
+                  '${payment.serviceName ?? 'Avulso'} - ${payment.methodLabel}',
+                ),
+                trailing: Text(formatCents(payment.amountCents)),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Receita avulsa do mês')),
+      body: body,
+    );
+  }
+}
+
 class DebtManagementPage extends StatefulWidget {
   const DebtManagementPage({super.key, required this.paymentsRepository});
 
@@ -3698,6 +3998,7 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
   final _commissionController = TextEditingController();
   final _passwordController = TextEditingController();
   final Set<int> _selectedServiceIds = {};
+  List<ProfessionalWorkingHourModel> _workingHours = [];
 
   bool _isLoadingServices = true;
   String? _servicesError;
@@ -3773,6 +4074,7 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
             ? null
             : _passwordController.text,
         serviceIds: _selectedServiceIds.toList(),
+        workingHours: _workingHours,
       );
 
       if (!mounted) return;
@@ -3879,6 +4181,19 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
                     ),
                 ],
               ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Horário de trabalho'),
+            Text(
+              'Usado para calcular o indice de ocupacao. Deixe os dias '
+              'desligados se o profissional ainda nao tem horario definido.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            WorkingHoursEditor(
+              initialWorkingHours: const [],
+              onChanged: (workingHours) =>
+                  setState(() => _workingHours = workingHours),
+            ),
             if (_saveError != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -3939,6 +4254,8 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
   );
   late final Set<int> _selectedServiceIds = {...widget.professional.serviceIds};
   late bool _isActive = widget.professional.isActive;
+  late List<ProfessionalWorkingHourModel> _workingHours =
+      widget.professional.workingHours;
 
   bool _isLoadingServices = true;
   String? _servicesError;
@@ -4004,6 +4321,7 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
             : int.tryParse(_commissionController.text.trim()),
         isActive: _isActive,
         serviceIds: _selectedServiceIds.toList(),
+        workingHours: _workingHours,
       );
 
       if (!mounted) return;
@@ -4084,6 +4402,18 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
                     ),
                 ],
               ),
+            const SizedBox(height: 16),
+            const AppSectionTitle('Horário de trabalho'),
+            Text(
+              'Usado para calcular o indice de ocupacao.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            WorkingHoursEditor(
+              initialWorkingHours: widget.professional.workingHours,
+              onChanged: (workingHours) =>
+                  setState(() => _workingHours = workingHours),
+            ),
             if (_saveError != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -4108,6 +4438,351 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Indice de ocupacao da equipe (roadmap Fase 4): para cada profissional
+/// ativo, quanto do horario de trabalho cadastrado (semana corrente) esta
+/// ocupado por agendamentos, dia a dia. Ajuda o dono a distribuir melhor
+/// os atendimentos entre a equipe.
+class OccupancyPage extends StatefulWidget {
+  const OccupancyPage({
+    super.key,
+    required this.dashboardRepository,
+    required this.professionalsRepository,
+    required this.servicesRepository,
+  });
+
+  final DashboardRepository dashboardRepository;
+  final ProfessionalsRepository professionalsRepository;
+  final ServicesRepository servicesRepository;
+
+  @override
+  State<OccupancyPage> createState() => _OccupancyPageState();
+}
+
+class _OccupancyPageState extends State<OccupancyPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<OccupancyProfessionalModel> _occupancy = [];
+  List<ProfessionalModel> _professionals = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        widget.dashboardRepository.occupancy(),
+        widget.professionalsRepository.index(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _occupancy = results[0] as List<OccupancyProfessionalModel>;
+        _professionals = results[1] as List<ProfessionalModel>;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Color _percentageColor(BuildContext context, int percentage) {
+    if (percentage >= 80) return Colors.green;
+    if (percentage >= 40) return Colors.amber.shade800;
+    return Theme.of(context).colorScheme.error;
+  }
+
+  /// Toque no card leva o dono a editar o horario de trabalho recorrente
+  /// do profissional (mesma tela de cadastro/edicao, com o
+  /// `WorkingHoursEditor` ja existente) — configurar ocupacao e cadastrar
+  /// horario sao a mesma acao, o dono nao precisa saber que sao telas
+  /// diferentes.
+  Future<void> _openEdit(OccupancyProfessionalModel occupancy) async {
+    final professional = _professionals.firstWhere(
+      (item) => item.id == occupancy.professionalId,
+    );
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditProfessionalPage(
+          professionalsRepository: widget.professionalsRepository,
+          servicesRepository: widget.servicesRepository,
+          professional: professional,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_occupancy.isEmpty) {
+      body = const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Nenhum profissional com horário de trabalho configurado ainda. '
+            'Toque em "Cadastrar horário" para configurar.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Toque num profissional para ver ou ajustar o horário de trabalho '
+            'dele.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          for (final professional in _occupancy)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: () => _openEdit(professional),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              professional.professionalName,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (professional.days.isEmpty)
+                        Text(
+                          'Sem horário de trabalho configurado.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      else
+                        for (final day in professional.days)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 80,
+                                  child: Text(weekdayLabels[day.weekday]),
+                                ),
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                      value: day.percentage / 100,
+                                      minHeight: 10,
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.surfaceContainerHighest,
+                                      color: _percentageColor(
+                                        context,
+                                        day.percentage,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 40,
+                                  child: Text(
+                                    '${day.percentage}%',
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                                if (day.hasOverride) ...[
+                                  const SizedBox(width: 4),
+                                  Tooltip(
+                                    message: 'Horário ajustado neste dia',
+                                    child: Icon(
+                                      Icons.info_outline,
+                                      size: 16,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Ocupação da equipe')),
+      body: body,
+    );
+  }
+}
+
+/// Inteligencia de retorno (roadmap Fase 4): para cada cliente com pelo
+/// menos 2 atendimentos concluidos, compara o tempo desde o ultimo
+/// atendimento com a media historica do proprio cliente, sinalizando quando
+/// vale a pena contatar. Probabilidade e uma heuristica, nao uma previsao de
+/// IA de verdade.
+class ReturnRiskPage extends StatefulWidget {
+  const ReturnRiskPage({super.key, required this.dashboardRepository});
+
+  final DashboardRepository dashboardRepository;
+
+  @override
+  State<ReturnRiskPage> createState() => _ReturnRiskPageState();
+}
+
+class _ReturnRiskPageState extends State<ReturnRiskPage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ReturnRiskEntryModel> _entries = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final entries = await widget.dashboardRepository.returnRisk();
+
+      if (!mounted) return;
+      setState(() {
+        _entries = entries;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  (Color, Color) _probabilityColors(BuildContext context, String probability) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return switch (probability) {
+      'alta' => (Colors.green.shade100, Colors.green.shade900),
+      'media' => (Colors.amber.shade100, Colors.amber.shade900),
+      _ => (colorScheme.surfaceContainerHighest, colorScheme.onSurfaceVariant),
+    };
+  }
+
+  String _probabilityLabel(String probability) => switch (probability) {
+    'alta' => 'Alta',
+    'media' => 'Média',
+    _ => 'Baixa',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_entries.isEmpty) {
+      body = const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Nenhum cliente com histórico suficiente ainda. Clientes com '
+            'pelo menos 2 atendimentos concluídos aparecem aqui.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          for (final entry in _entries)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                title: Text(entry.clientName),
+                subtitle: Text(
+                  'Último atendimento: ${entry.daysSinceLast} dias atrás\n'
+                  'Média: ${entry.avgIntervalDays} dias',
+                ),
+                isThreeLine: true,
+                trailing: Builder(
+                  builder: (context) {
+                    final (background, foreground) = _probabilityColors(
+                      context,
+                      entry.probability,
+                    );
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: background,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _probabilityLabel(entry.probability),
+                        style: TextStyle(
+                          color: foreground,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Clientes para reconquistar')),
+      body: body,
     );
   }
 }

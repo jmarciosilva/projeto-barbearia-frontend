@@ -14,7 +14,7 @@ void main() {
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
     expect(find.text('Proprietário'), findsOneWidget);
-    expect(find.text('MRR previsto'), findsOneWidget);
+    expect(find.text('Recorrente do mês'), findsOneWidget);
   });
 
   testWidgets('mostra erro quando as credenciais sao invalidas', (

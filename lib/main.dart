@@ -11,6 +11,7 @@ import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
+import 'package:clube_do_salao/services/dashboard_repository.dart';
 import 'package:clube_do_salao/services/onboarding_repository.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
@@ -518,6 +519,8 @@ class _DashboardShellState extends State<DashboardShell> {
             saasSubscriptionRepository: SaasSubscriptionRepository(apiClient),
             checklistStorage: widget.authSession.checklistStorage,
             authSession: widget.authSession,
+            dashboardRepository: DashboardRepository(apiClient),
+            waitlistRepository: WaitlistRepository(apiClient),
           ),
         ),
         _ShellPage(

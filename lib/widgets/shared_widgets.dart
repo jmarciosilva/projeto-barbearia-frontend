@@ -1,5 +1,6 @@
 import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
+import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:flutter/material.dart';
 
@@ -499,6 +500,135 @@ class AppDayTimeline extends StatelessWidget {
               ),
             ),
         ],
+      ],
+    );
+  }
+}
+
+const weekdayLabels = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado',
+];
+
+String formatTimeOfDay(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+TimeOfDay parseTimeOfDay(String raw) {
+  final parts = raw.split(':');
+  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+}
+
+/// Editor do horario de trabalho do profissional por dia da semana (0 =
+/// domingo), usado tanto no cadastro quanto na edicao. Reporta a lista
+/// completa a cada alteracao via [onChanged]; dias desabilitados nao entram
+/// na lista (profissional nao trabalha naquele dia).
+class WorkingHoursEditor extends StatefulWidget {
+  const WorkingHoursEditor({
+    super.key,
+    required this.initialWorkingHours,
+    required this.onChanged,
+  });
+
+  final List<ProfessionalWorkingHourModel> initialWorkingHours;
+  final ValueChanged<List<ProfessionalWorkingHourModel>> onChanged;
+
+  @override
+  State<WorkingHoursEditor> createState() => _WorkingHoursEditorState();
+}
+
+class _WorkingHoursEditorState extends State<WorkingHoursEditor> {
+  late final List<bool> _enabled = List.generate(
+    7,
+    (weekday) => widget.initialWorkingHours.any((h) => h.weekday == weekday),
+  );
+  late final List<TimeOfDay> _starts = List.generate(7, (weekday) {
+    final match = widget.initialWorkingHours
+        .where((h) => h.weekday == weekday)
+        .firstOrNull;
+    return match == null
+        ? const TimeOfDay(hour: 9, minute: 0)
+        : parseTimeOfDay(match.startsAt);
+  });
+  late final List<TimeOfDay> _ends = List.generate(7, (weekday) {
+    final match = widget.initialWorkingHours
+        .where((h) => h.weekday == weekday)
+        .firstOrNull;
+    return match == null
+        ? const TimeOfDay(hour: 18, minute: 0)
+        : parseTimeOfDay(match.endsAt);
+  });
+
+  void _notify() {
+    widget.onChanged([
+      for (var weekday = 0; weekday < 7; weekday++)
+        if (_enabled[weekday])
+          ProfessionalWorkingHourModel(
+            weekday: weekday,
+            startsAt: formatTimeOfDay(_starts[weekday]),
+            endsAt: formatTimeOfDay(_ends[weekday]),
+          ),
+    ]);
+  }
+
+  Future<void> _pickTime(int weekday, {required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _starts[weekday] : _ends[weekday],
+    );
+
+    if (picked == null) return;
+
+    setState(() {
+      if (isStart) {
+        _starts[weekday] = picked;
+      } else {
+        _ends[weekday] = picked;
+      }
+    });
+    _notify();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var weekday = 0; weekday < 7; weekday++)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: Text(weekdayLabels[weekday]),
+                  value: _enabled[weekday],
+                  onChanged: (value) {
+                    setState(() => _enabled[weekday] = value);
+                    _notify();
+                  },
+                ),
+                if (_enabled[weekday]) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    title: const Text('Início'),
+                    subtitle: Text(formatTimeOfDay(_starts[weekday])),
+                    trailing: const Icon(Icons.edit),
+                    onTap: () => _pickTime(weekday, isStart: true),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    title: const Text('Fim'),
+                    subtitle: Text(formatTimeOfDay(_ends[weekday])),
+                    trailing: const Icon(Icons.edit),
+                    onTap: () => _pickTime(weekday, isStart: false),
+                  ),
+                ],
+              ],
+            ),
+          ),
       ],
     );
   }

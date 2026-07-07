@@ -23,6 +23,7 @@ void main() {
     expect(find.text('Cliente Ana Souza cadastrado.'), findsOneWidget);
 
     await scrollToTop(tester);
+    await scrollToText(tester, 'Próximas ações');
     expect(find.text('Próximas ações'), findsOneWidget);
   });
 
@@ -205,7 +206,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Proprietário'), findsOneWidget);
-    expect(find.text('MRR previsto'), findsOneWidget);
+    expect(find.text('Recorrente do mês'), findsOneWidget);
   });
 
   testWidgets('proprietario cadastra servico no catalogo pela API', (
@@ -247,6 +248,7 @@ void main() {
 
       await tester.enterText(find.byType(TextFormField).at(0), 'Bruna Lima');
       await tester.tap(find.widgetWithText(FilterChip, 'Corte masculino'));
+      await scrollToText(tester, 'Salvar');
       await tester.tap(find.text('Salvar'));
       await tester.pumpAndSettle();
 
@@ -558,6 +560,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
+    await scrollToText(tester, 'Meu plano');
     await tester.tap(find.text('Meu plano'));
     await tester.pumpAndSettle();
 
@@ -574,4 +577,74 @@ void main() {
 
     expect(find.text('Meu plano'), findsWidgets);
   });
+
+  testWidgets(
+    'proprietario abre o extrato de receita prevista hoje e avulsa do mes',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Prevista hoje'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Receita prevista hoje'), findsOneWidget);
+      expect(find.text('Carlos Mendes'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await scrollToText(tester, 'Avulsa do mês');
+      await tester.tap(find.text('Avulsa do mês'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Receita avulsa do mês'), findsOneWidget);
+      expect(find.text('Nenhuma receita avulsa confirmada este mês.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('profissional registra ajuste de horario de um dia', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    await scrollToText(tester, 'Ajuste de horário');
+    await tester.tap(find.text('Ajuste de horário'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Das 10:00 às 18:00'), findsOneWidget);
+
+    await tester.tap(find.text('Registrar ajuste de horário'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar ajuste'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ajuste de horário'), findsWidgets);
+  });
+
+  testWidgets(
+    'proprietario ajusta horario do profissional pela tela de ocupacao',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Ocupação da equipe');
+      await tester.tap(find.text('Ocupação da equipe'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ana Souza'), findsOneWidget);
+
+      await tester.tap(find.text('Ana Souza'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Horário de trabalho'), findsOneWidget);
+    },
+  );
 }

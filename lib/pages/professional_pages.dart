@@ -3,6 +3,7 @@ import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
 import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
+import 'package:clube_do_salao/models/professional_schedule_override_model.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
@@ -241,6 +242,21 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
                 builder: (_) => EditProfessionalProfilePage(
                   professionalsRepository: widget.professionalsRepository,
                   professional: professional,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.schedule,
+          title: 'Ajuste de horário',
+          subtitle: 'Registre quando chegou/saiu diferente do horário normal.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProfessionalScheduleOverridePage(
+                  professionalsRepository: widget.professionalsRepository,
                 ),
               ),
             );
@@ -638,6 +654,306 @@ class _EditProfessionalProfilePageState
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatDate(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+/// Ajuste pontual do proprio horario de trabalho para uma data especifica
+/// (ex: chegou mais tarde hoje), sem alterar o horario recorrente cadastrado
+/// pelo dono (ver `WorkingHoursEditor`). Reaproveita a mesma ideia das
+/// excecoes por data do horario do salao (`business_hours_page.dart`), so
+/// que aqui e o proprio profissional quem registra, para o proprio horario.
+class ProfessionalScheduleOverridePage extends StatefulWidget {
+  const ProfessionalScheduleOverridePage({
+    super.key,
+    required this.professionalsRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<ProfessionalScheduleOverridePage> createState() =>
+      _ProfessionalScheduleOverridePageState();
+}
+
+class _ProfessionalScheduleOverridePageState
+    extends State<ProfessionalScheduleOverridePage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<ProfessionalScheduleOverrideModel> _overrides = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final overrides = await widget.professionalsRepository
+          .myScheduleOverrides();
+
+      if (!mounted) return;
+      setState(() {
+        _overrides = overrides;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openAdd() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddProfessionalScheduleOverridePage(
+          professionalsRepository: widget.professionalsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  Future<void> _delete(ProfessionalScheduleOverrideModel override) async {
+    try {
+      await widget.professionalsRepository.deleteMyScheduleOverride(
+        override.id,
+      );
+      _load();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Use quando seu horario num dia especifico for diferente do '
+            'normal (ex: chegou mais tarde hoje), sem mudar seu horario '
+            'fixo de todo dia.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          if (_overrides.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Nenhum ajuste registrado.'),
+            )
+          else
+            for (final override in _overrides)
+              Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  leading: const Icon(Icons.edit_calendar),
+                  title: Text(_formatDate(DateTime.parse(override.date))),
+                  subtitle: Text(
+                    override.isOff
+                        ? 'Não vou trabalhar neste dia'
+                        : 'Das ${override.startsAt} às ${override.endsAt}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Remover ajuste',
+                    onPressed: () => _delete(override),
+                  ),
+                ),
+              ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _openAdd,
+            icon: const Icon(Icons.add),
+            label: const Text('Registrar ajuste de horário'),
+          ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Ajuste de horário')),
+      body: body,
+    );
+  }
+}
+
+/// Registra o ajuste pontual: uma data, um horario de inicio/fim (ou "nao
+/// vou trabalhar"). Upsert por data no backend — registrar de novo a mesma
+/// data substitui o ajuste anterior.
+class AddProfessionalScheduleOverridePage extends StatefulWidget {
+  const AddProfessionalScheduleOverridePage({
+    super.key,
+    required this.professionalsRepository,
+  });
+
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<AddProfessionalScheduleOverridePage> createState() =>
+      _AddProfessionalScheduleOverridePageState();
+}
+
+class _AddProfessionalScheduleOverridePageState
+    extends State<AddProfessionalScheduleOverridePage> {
+  DateTime _selectedDate = DateTime.now();
+  bool _isOff = false;
+  TimeOfDay? _startsAt = const TimeOfDay(hour: 10, minute: 0);
+  TimeOfDay? _endsAt = const TimeOfDay(hour: 18, minute: 0);
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _pickTime({required bool isStart}) async {
+    final initial =
+        (isStart ? _startsAt : _endsAt) ?? const TimeOfDay(hour: 9, minute: 0);
+    final picked = await showTimePicker(context: context, initialTime: initial);
+
+    if (picked == null) return;
+
+    setState(() {
+      if (isStart) {
+        _startsAt = picked;
+      } else {
+        _endsAt = picked;
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.professionalsRepository.createMyScheduleOverride(
+        date: _selectedDate,
+        isOff: _isOff,
+        startsAt: _isOff || _startsAt == null
+            ? null
+            : formatTimeOfDay(_startsAt!),
+        endsAt: _isOff || _endsAt == null ? null : formatTimeOfDay(_endsAt!),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      setState(() => _errorMessage = error.userMessage);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Ajuste de horário')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.edit_calendar),
+                title: const Text('Data'),
+                subtitle: Text(_formatDate(_selectedDate)),
+                onTap: _pickDate,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Não vou trabalhar neste dia'),
+                    value: _isOff,
+                    onChanged: (value) => setState(() => _isOff = value),
+                  ),
+                  if (!_isOff) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Início'),
+                      subtitle: Text(
+                        _startsAt == null
+                            ? 'Toque para definir'
+                            : formatTimeOfDay(_startsAt!),
+                      ),
+                      trailing: const Icon(Icons.edit),
+                      onTap: () => _pickTime(isStart: true),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Fim'),
+                      subtitle: Text(
+                        _endsAt == null
+                            ? 'Toque para definir'
+                            : formatTimeOfDay(_endsAt!),
+                      ),
+                      trailing: const Icon(Icons.edit),
+                      onTap: () => _pickTime(isStart: false),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const Spacer(),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar ajuste'),
             ),
           ],
         ),

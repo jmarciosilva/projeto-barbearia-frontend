@@ -1,5 +1,6 @@
 import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
+import 'package:clube_do_salao/models/professional_schedule_override_model.dart';
 import 'package:clube_do_salao/services/api_client.dart';
 
 class ProfessionalsRepository {
@@ -59,6 +60,7 @@ class ProfessionalsRepository {
     int? commissionPercentage,
     String? password,
     List<int> serviceIds = const [],
+    List<ProfessionalWorkingHourModel>? workingHours,
   }) async {
     final response =
         await _client.post(
@@ -71,6 +73,8 @@ class ProfessionalsRepository {
                 'commission_percentage': ?commissionPercentage,
                 'password': ?password,
                 'service_ids': serviceIds,
+                if (workingHours != null)
+                  'working_hours': workingHours.map((h) => h.toJson()).toList(),
               },
             )
             as Map<String, dynamic>;
@@ -79,7 +83,7 @@ class ProfessionalsRepository {
   }
 
   /// Edicao de um profissional pelo proprietario (`PATCH /professionals/{id}`),
-  /// incluindo os servicos habilitados (spec 4.1).
+  /// incluindo os servicos habilitados (spec 4.1) e o horario de trabalho.
   Future<ProfessionalModel> update({
     required int id,
     String? name,
@@ -89,6 +93,7 @@ class ProfessionalsRepository {
     int? commissionPercentage,
     bool? isActive,
     List<int>? serviceIds,
+    List<ProfessionalWorkingHourModel>? workingHours,
   }) async {
     final response =
         await _client.patch(
@@ -101,6 +106,8 @@ class ProfessionalsRepository {
                 'commission_percentage': ?commissionPercentage,
                 'is_active': ?isActive,
                 'service_ids': ?serviceIds,
+                if (workingHours != null)
+                  'working_hours': workingHours.map((h) => h.toJson()).toList(),
               },
             )
             as Map<String, dynamic>;
@@ -143,5 +150,50 @@ class ProfessionalsRepository {
             as Map<String, dynamic>;
 
     return ProfessionalAdvanceModel.fromJson(response);
+  }
+
+  /// Ajustes pontuais do proprio horario por data (`GET
+  /// /me/professional/schedule-overrides`), sem alterar o horario recorrente.
+  Future<List<ProfessionalScheduleOverrideModel>> myScheduleOverrides() async {
+    final response =
+        await _client.get('/me/professional/schedule-overrides')
+            as List<dynamic>;
+
+    return response
+        .map(
+          (json) => ProfessionalScheduleOverrideModel.fromJson(
+            json as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  /// Cria/atualiza (upsert por data) um ajuste pontual do proprio horario
+  /// (`POST /me/professional/schedule-overrides`). `isOff` marca que o
+  /// profissional nao vai trabalhar naquele dia; caso contrario, `startsAt`
+  /// e `endsAt` (formato `HH:mm`) sao obrigatorios.
+  Future<ProfessionalScheduleOverrideModel> createMyScheduleOverride({
+    required DateTime date,
+    bool isOff = false,
+    String? startsAt,
+    String? endsAt,
+  }) async {
+    final response =
+        await _client.post(
+              '/me/professional/schedule-overrides',
+              body: {
+                'date': date.toIso8601String().split('T').first,
+                'is_off': isOff,
+                'starts_at': ?startsAt,
+                'ends_at': ?endsAt,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return ProfessionalScheduleOverrideModel.fromJson(response);
+  }
+
+  Future<void> deleteMyScheduleOverride(int id) {
+    return _client.delete('/me/professional/schedule-overrides/$id');
   }
 }

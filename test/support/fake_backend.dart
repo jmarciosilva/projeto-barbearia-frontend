@@ -226,6 +226,73 @@ http.Client buildFakeBackend() {
       });
     }
 
+    if (method == 'GET' && path.endsWith('/dashboard/summary')) {
+      return _jsonResponse(200, {
+        'appointments_today': 4,
+        'confirmed_today': 2,
+        'pending_today': 1,
+        'canceled_today': 1,
+        'waitlist_count': 2,
+        'expected_revenue_today_cents': 24000,
+        'recurring_revenue_month_cents': 18400,
+        'walkin_revenue_month_cents': 7350,
+      });
+    }
+
+    if (method == 'GET' && path.endsWith('/dashboard/occupancy')) {
+      return _jsonResponse(200, [
+        {
+          'professional_id': 10,
+          'professional_name': 'Ana Souza',
+          'days': [
+            {
+              'weekday': 1,
+              'date': '2026-07-06',
+              'has_override': false,
+              'available_minutes': 240,
+              'occupied_minutes': 192,
+              'percentage': 80,
+            },
+          ],
+        },
+      ]);
+    }
+
+    if (method == 'GET' &&
+        path.endsWith('/me/professional/schedule-overrides')) {
+      return _jsonResponse(200, _professionalScheduleOverridesJson);
+    }
+
+    if (method == 'POST' &&
+        path.endsWith('/me/professional/schedule-overrides')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(201, {
+        'id': 9,
+        'date': body['date'],
+        'is_off': body['is_off'] ?? false,
+        'starts_at': body['starts_at'],
+        'ends_at': body['ends_at'],
+      });
+    }
+
+    if (method == 'DELETE' &&
+        path.contains('/me/professional/schedule-overrides/')) {
+      return http.Response('', 204);
+    }
+
+    if (method == 'GET' && path.endsWith('/dashboard/return-risk')) {
+      return _jsonResponse(200, [
+        {
+          'client_id': 5,
+          'client_name': 'Maria Oliveira',
+          'last_visit_at': '2026-05-30',
+          'avg_interval_days': 25,
+          'days_since_last': 38,
+          'probability': 'alta',
+        },
+      ]);
+    }
+
     if (method == 'GET' && path.endsWith('/me/professional')) {
       return _jsonResponse(200, _professionalMeJson);
     }
@@ -859,6 +926,16 @@ final _appointmentsJson = [
     'professional': {'name': 'Ana Souza'},
     'service': {'name': 'Corte masculino'},
     'notes': null,
+  },
+];
+
+final _professionalScheduleOverridesJson = [
+  {
+    'id': 1,
+    'date': '2026-07-06',
+    'is_off': false,
+    'starts_at': '10:00',
+    'ends_at': '18:00',
   },
 ];
 

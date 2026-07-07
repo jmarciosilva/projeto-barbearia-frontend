@@ -13,6 +13,7 @@ class AppointmentModel {
     this.clientName,
     this.professionalName,
     this.serviceName,
+    this.servicePriceCents,
     this.paymentAmountCents,
     this.paymentStatus,
   });
@@ -37,6 +38,7 @@ class AppointmentModel {
       clientName: client?['name'] as String?,
       professionalName: professional?['name'] as String?,
       serviceName: service?['name'] as String?,
+      servicePriceCents: service?['price_cents'] as int?,
       paymentAmountCents: payment?['amount_cents'] as int?,
       paymentStatus: payment?['status'] as String?,
     );
@@ -55,6 +57,12 @@ class AppointmentModel {
   final String? clientName;
   final String? professionalName;
   final String? serviceName;
+  final int? servicePriceCents;
   final int? paymentAmountCents;
   final String? paymentStatus;
+
+  /// Contribuicao deste agendamento para a receita prevista do dia (spec
+  /// Painel Inteligente): agendamentos cancelados/no-show nao geram receita.
+  bool get countsTowardExpectedRevenue =>
+      status != 'canceled' && status != 'no_show';
 }

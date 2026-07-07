@@ -216,7 +216,52 @@ Objetivo: eliminar a dependencia do dono cadastrar manualmente cada cliente, per
 | 2026-07-05 | Deep link usa scheme customizado (`clubedosalao://convite/{codigo}`) em vez de universal link com dominio verificado | Universal/app link exige dominio proprio com arquivo `assetlinks.json` publicado e verificado, indisponivel neste estagio do projeto; o link `https://clubedosalao.app/c/{codigo}` continua funcionando como fallback textual (mostra o codigo para digitacao manual) mesmo sem o dominio existir de fato |
 | 2026-07-05 | Checklist do dono guarda "convite compartilhado" e "dispensado" localmente no aparelho (`OnboardingChecklistStorage`), nao no backend | Sao preferencias de interface por sessao/aparelho, nao dado de negocio do tenant; evita criar coluna/endpoint no backend so para isso, mesmo padrao ja usado para o token de autenticacao |
 
-## Fase 4 - Fidelidade e Avaliacoes
+## Fase 4 - Painel Inteligente do Proprietario
+
+Status: `Em auditoria`
+
+Objetivo: dar ao dono uma visao de 5 segundos do negocio (spec secao 4.5, mas com nomenclatura simples em vez de jargao financeiro) e duas ferramentas de gestao proativa: distribuicao de atendimentos entre a equipe e priorizacao de quem contatar para reconquistar.
+
+### Escopo previsto
+
+- [x] Cards "Hoje" no dashboard do dono: agendamentos, confirmados, pendentes, fila de espera, cancelamentos
+- [x] Cards de receita com nomenclatura simples: prevista hoje, recorrente do mes (substitui "MRR previsto"), avulsa do mes — dono leigo em tecnologia nao deve precisar entender jargao financeiro (spec secao 1)
+- [x] Horario de trabalho individual do profissional (dia da semana, inicio, fim), cadastrado no proprio cadastro do profissional
+- [x] Indice de ocupacao por profissional/dia da semana (semana corrente), calculado a partir do horario de trabalho cadastrado
+- [x] Inteligencia de retorno: para clientes com 2+ atendimentos concluidos, dias desde o ultimo atendimento vs. media historica do proprio cliente, com probabilidade de retorno (heuristica, nao IA de verdade)
+- [x] Cards "Prevista hoje" e "Avulsa do mes" clicaveis, abrindo o extrato de agendamentos/pagamentos que compoe cada valor — dono precisa entender do que se trata a receita, nao so o numero
+- [x] Dono configura o horario de trabalho do profissional diretamente pela tela de ocupacao (mesmo formulario do cadastro), sem precisar ir ate Catalogo
+- [x] Profissional registra o proprio ajuste pontual de horario para uma data especifica (ex: chegou as 10h em vez das 8h de costume), sem mudar o horario fixo recorrente; a ocupacao daquele dia reflete o ajuste
+
+### Criterios de aceite
+
+- [x] Dono ve os 5 cards de "Hoje" e os 3 cards de receita com dados reais da API
+- [x] Cadastro/edicao de profissional permite configurar horario de trabalho por dia da semana
+- [x] Tela de ocupacao mostra uma barra por dia configurado, com o percentual ocupado da semana corrente
+- [x] Tela de inteligencia de retorno lista clientes com historico suficiente, ordenados por quem esta mais "devendo" retornar
+- [x] Tocar em "Prevista hoje" ou "Avulsa do mes" abre uma lista detalhada cujo somatorio bate com o valor do card
+- [x] Tocar num profissional na tela de ocupacao abre a edicao do horario de trabalho dele
+- [x] Profissional consegue registrar, ver e remover o proprio ajuste de horario por data, e a ocupacao daquele dia usa o ajuste em vez do horario recorrente
+- [ ] Validado ponta a ponta em dispositivo real contra o backend real
+
+### Decisoes
+
+| Data | Decisao | Motivo |
+|---|---|---|
+| 2026-07-07 | Horario de trabalho passa a ser individual por profissional, nao mais so o horario do salao | Ate entao so existia horario de funcionamento do estabelecimento (nivel tenant); sem horario por profissional nao ha como calcular ocupacao individual real. Confirmado com o usuario antes de implementar |
+| 2026-07-07 | "Pendente" no card de hoje significa pagamento avulso ainda nao confirmado pelo dono; "confirmado" e o restante dos agendamentos ativos do dia | O agendamento em si nao tem um status "confirmado" separado (so `scheduled`/`canceled`/`completed`/`no_show`); a semantica foi definida com o usuario para nao inventar um novo status so para o card |
+| 2026-07-07 | Probabilidade de retorno usa faixas de razao (dias desde o ultimo atendimento / media historica do cliente): <0,85 baixa, 0,85-1,6 alta, >1,6 media | Calibrado pelo proprio exemplo do usuario (38 dias desde o ultimo atendimento, media de 25 dias, deveria aparecer como "alta"); e uma heuristica simples, nao IA (isso continua reservado para a Fase 9) |
+| 2026-07-07 | Ajuste pontual de horario e uma entidade separada do horario recorrente (`professional_schedule_overrides`, uma por profissional+data), nao uma edicao do `professional_working_hours` | Preserva o horario fixo de toda semana intacto; o profissional so descreve o desvio daquele dia especifico (inclusive registrar "nao vou trabalhar hoje"), sem o dono precisar recadastrar o horario normal depois |
+
+### Auditoria da fase
+
+| Data | Responsavel | Resultado | Evidencias | Pendencias |
+|---|---|---|---|---|
+| 2026-07-07 | Claude | Parcial aprovado | Backend: `OwnerDashboardController` (`summary`/`occupancy`/`returnRisk`), nova tabela `professional_working_hours` e sync no `ProfessionalController`; 4 testes novos em `PhaseQuatroOwnerDashboardTest` (81/81 testes de backend passando). App: dashboard do dono reescrito com os cards "Hoje"/"Receita" (nomenclatura simples, sem "MRR previsto"), `WorkingHoursEditor` compartilhado no cadastro/edicao de profissional, `OccupancyPage` e `ReturnRiskPage` novas com tiles em "Proximas acoes"; `flutter analyze` limpo e 43/43 testes de widget passando (golden do dashboard do dono atualizado) | Ainda sem validacao ponta a ponta em dispositivo real (emulador/fisico) contra o backend real — usuario optou por validar manualmente esta rodada |
+| 2026-07-07 | Claude | Parcial aprovado | Usuario pediu que os cards "Prevista hoje" e "Avulsa do mes" tambem fossem clicaveis com extrato, como ja acontecia em "Recorrente do mes". Nenhum endpoint novo foi necessario: o `service` de cada agendamento ja vinha com `price_cents` na resposta de `GET /appointments` (o model so nao lia o campo); `AppointmentModel` ganhou `servicePriceCents` e `countsTowardExpectedRevenue` (exclui `canceled`/`no_show`, mesma regra do backend). Nova `TodayRevenuePage` lista os agendamentos de hoje que contam pra receita com o valor de cada um (assinatura ou avulso) somando exatamente o valor do card; nova `WalkinRevenueMonthPage` reaproveita `GET /payments` (ja usado por `PendingPaymentsPage`) filtrando pagamento avulso pago dentro do mes corrente. `flutter analyze` limpo e 44/44 testes passando (1 novo cobrindo a navegacao e o conteudo dos dois extratos; golden do dashboard atualizado pelo novo `onTap`) | Extratos ainda nao validados em dispositivo real com dados de verdade — usuario vai validar manualmente |
+| 2026-07-07 | Claude | Parcial aprovado | Usuario pediu duas coisas: (1) o dono configurar o horario do profissional direto pela tela de ocupacao (pratica comum); (2) o proprio profissional poder ajustar seu horario num dia especifico (ex: chegou as 10h em vez das 8h de costume), sem mudar o horario fixo. Para (1): `OccupancyPage` passou a carregar tambem `professionalsRepository.index()` junto da ocupacao, e cada card de profissional agora e clicavel, abrindo a mesma `EditProfessionalPage` ja usada no Catalogo (com o `WorkingHoursEditor`). Para (2): nova tabela `professional_schedule_overrides` (uma por profissional+data, com `is_off` para "nao vou trabalhar"), novo `ProfessionalScheduleOverrideController` exclusivo do proprio profissional logado (`GET/POST /me/professional/schedule-overrides`, `DELETE .../{id}`); `OwnerDashboardController::occupancy()` foi reescrito para iterar as datas reais da semana (nao so o dia da semana) e, para cada data, usar o ajuste pontual quando existir (inclusive pulando o dia inteiro se `is_off`) em vez do horario recorrente — resposta ganhou `date` e `has_override` por dia. App: nova `ProfessionalScheduleOverridePage`/`AddProfessionalScheduleOverridePage` (mesmo padrao visual das excecoes de horario do salao) com tile "Ajuste de horário" no perfil do profissional; `OccupancyDayModel` ganhou `date`/`hasOverride` (mostrado como um icone "horario ajustado" na barra). Helpers `formatTimeOfDay`/`parseTimeOfDay` deixaram de ser privados do `WorkingHoursEditor` para serem reaproveitados pela nova tela, em vez de duplicar pela terceira vez. 3 testes novos no backend (validam o CRUD do ajuste, a ocupacao usando o ajuste em vez do horario recorrente, e o dia sumindo quando marcado como folga — 80/80 testes de backend passando) e 2 novos no app (profissional registra ajuste; dono edita horario pela ocupacao — 46/46 testes de widget passando); `flutter analyze` limpo | Ainda sem validacao ponta a ponta em dispositivo real — usuario vai validar manualmente |
+
+## Fase 5 - Fidelidade e Avaliacoes
 
 Status: `Nao iniciado`
 
@@ -227,7 +272,7 @@ Status: `Nao iniciado`
 - [ ] Nivel do cliente
 - [ ] Beneficios por nivel
 
-## Fase 5 - CRM Avancado e Estoque
+## Fase 6 - CRM Avancado e Estoque
 
 Status: `Nao iniciado`
 
@@ -238,7 +283,7 @@ Status: `Nao iniciado`
 - [ ] Historico ampliado
 - [ ] Produtos e estoque para proprietario
 
-## Fase 6 - Marketing Automation
+## Fase 7 - Marketing Automation
 
 Status: `Nao iniciado`
 
@@ -249,7 +294,7 @@ Status: `Nao iniciado`
 - [ ] Indicacao de amigos
 - [ ] Recuperacao de inativos
 
-## Fase 7 - Business Intelligence
+## Fase 8 - Business Intelligence
 
 Status: `Nao iniciado`
 
@@ -259,7 +304,7 @@ Status: `Nao iniciado`
 - [ ] Ranking de profissionais
 - [ ] Cards executivos para proprietario
 
-## Fase 8 - Inteligencia Artificial
+## Fase 9 - Inteligencia Artificial
 
 Status: `Nao iniciado`
 
@@ -282,3 +327,4 @@ Status: `Nao iniciado`
 | 2026-07-03 | Remover "Notificacao push via FCM" da Fase 0, manter so na Fase 2 | Item aparecia duplicado sem fase "dona"; push so faz sentido completo junto com lembretes de cobranca/agendamento, nao como parte da fundacao/validacao | Fase 0 nao fica mais bloqueada por um item que nao e essencial para validar o nucleo do produto |
 | 2026-07-04 | Adicionar agendamento avulso e fila de espera ao escopo da Fase 0, a pedido do usuario | A especificacao do produto nao cobre atendimento de cliente sem assinatura (nem agendamento avulso nem fila de espera) — sem isso, o app so serve quem ja assinou um plano, deixando de fora um caso de uso real do salao (cliente eventual). Cobranca do avulso reaproveita a confirmacao manual de pagamento ja existente; fila de espera e resolvida manualmente pelo dono/profissional (sem auto-atribuicao) | Fase 0 ganha 3 itens de escopo e 3 criterios de aceite novos; nenhuma fase futura muda de numero |
 | 2026-07-05 | Inserir a Fase 3 "Onboarding e Autocadastro", a pedido do usuario apos revisao de usabilidade | Hoje o cliente so entra no sistema se o dono cadastrar manualmente (`POST /clients`), e o onboarding do dono e um formulario unico sem nenhum guia — isso nao atende a expectativa de cliente se autocadastrar via convite/link/QR ou de forma avulsa escolhendo o salao, nem a premissa de produto de onboarding guiado para dono leigo em tecnologia (secao 1 da especificacao) | Fases antigas 3-7 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 4-8 |
+| 2026-07-07 | Inserir a Fase 4 "Painel Inteligente do Proprietario", a pedido do usuario | Nenhuma fase cobria uma visao rapida do dia a dia nem ferramentas de gestao proativa (ocupacao da equipe, reconquista de clientes); o card existente "MRR previsto" tambem contradizia a premissa de nomenclatura simples para dono leigo em tecnologia (secao 1) | Fases antigas 4-8 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 5-9 |
