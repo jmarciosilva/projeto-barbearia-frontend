@@ -773,6 +773,19 @@ const _professionalMeJson = {
     {'id': 1, 'name': 'Corte masculino'},
     {'id': 2, 'name': 'Barba completa'},
   ],
+  // Horario individual bem mais amplo que o horario padrao do salao
+  // (ver `_availableSlots` em ChooseTimePage), pra cobrir o bug real
+  // relatado pelo usuario: cliente via so ate 17:30 mesmo com o
+  // profissional configurado pra atender ate mais tarde.
+  'working_hours': [
+    {'weekday': 0, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 1, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 2, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 3, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 4, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 5, 'starts_at': '08:00', 'ends_at': '23:00'},
+    {'weekday': 6, 'starts_at': '08:00', 'ends_at': '23:00'},
+  ],
 };
 
 const _professionalFinanceJson = {

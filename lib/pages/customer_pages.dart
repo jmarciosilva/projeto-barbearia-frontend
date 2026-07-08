@@ -1006,16 +1006,36 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
     return null;
   }
 
+  /// Horario de trabalho cadastrado do profissional para o dia da semana de
+  /// [day], se houver. `ProfessionalWorkingHourModel.weekday` usa a mesma
+  /// convencao do backend (0 = domingo .. 6 = sabado, igual ao `Carbon`),
+  /// enquanto `DateTime.weekday` do Dart e 1 = segunda .. 7 = domingo — por
+  /// isso a conversao `% 7`.
+  ProfessionalWorkingHourModel? _professionalWorkingHoursFor(DateTime day) {
+    final carbonWeekday = day.weekday % 7;
+    for (final workingHour in widget.professional.workingHours) {
+      if (workingHour.weekday == carbonWeekday) return workingHour;
+    }
+    return null;
+  }
+
   /// Gera os horarios possiveis para [day] considerando abertura, fechamento
   /// e pausa do salao (com excecao pontual por data quando existir), e o
-  /// tempo de duracao do servico escolhido. Sem nada configurado, cai na
-  /// lista fixa antiga filtrando so os horarios ja passados hoje.
+  /// tempo de duracao do servico escolhido. O horario individual do
+  /// profissional (cadastro/edicao de profissional) tem prioridade sobre o
+  /// horario geral do salao quando cadastrado para o dia da semana; sem
+  /// nada configurado (nem profissional, nem salao), cai na lista fixa
+  /// antiga filtrando so os horarios ja passados hoje.
   List<String> _availableSlots(DateTime day) {
     final override = _overrideFor(day);
     if (override != null && override.isClosed) return [];
 
-    final opensAtRaw = override?.opensAt ?? _tenant?.openingTime;
-    final closesAtRaw = override?.closesAt ?? _tenant?.closingTime;
+    final professionalHours = _professionalWorkingHoursFor(day);
+
+    final opensAtRaw =
+        override?.opensAt ?? professionalHours?.startsAt ?? _tenant?.openingTime;
+    final closesAtRaw =
+        override?.closesAt ?? professionalHours?.endsAt ?? _tenant?.closingTime;
 
     if (opensAtRaw == null || closesAtRaw == null) {
       return _legacyFixedSlots.where((slot) => !_isPast(day, slot)).toList();

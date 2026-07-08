@@ -183,6 +183,40 @@ void main() {
     expect(find.text('Novo agendamento'), findsOneWidget);
   });
 
+  testWidgets(
+    'horario individual do profissional prevalece sobre o horario do salao',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Agendar'));
+      await tester.pumpAndSettle();
+
+      await scrollToText(tester, 'Iniciar agendamento');
+      await tester.tap(find.text('Iniciar agendamento'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Escolher profissional'), findsOneWidget);
+
+      // Ana Souza (profissional padrao selecionado) tem horario cadastrado
+      // ate as 23:00; o horario do salao na fixture nao tem nada
+      // configurado (cairia na lista legada, que vai so ate as 17:30).
+      await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirmar horário'), findsOneWidget);
+
+      // Amanha, pra nao depender do horario em que o teste roda (a lista
+      // filtra horarios ja passados so no dia de hoje).
+      await tester.tap(find.text('Amanhã'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('20:00'), findsOneWidget);
+    },
+  );
+
   testWidgets('proprietario cria conta do estabelecimento pela API', (
     tester,
   ) async {
