@@ -345,7 +345,27 @@ class AppProfileSummary extends StatelessWidget {
           child: Column(
             children: [
               for (final row in rows)
-                ListTile(title: Text(row.label), trailing: Text(row.value)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: Text(row.label)),
+                      const SizedBox(width: 12),
+                      // Valores longos (ex: e-mail) quebram linha em vez de
+                      // estourar a largura do card — ListTile.trailing nao
+                      // aceita widget flexivel, por isso a linha e montada
+                      // na mao aqui.
+                      Expanded(
+                        flex: 3,
+                        child: Text(row.value, textAlign: TextAlign.end),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

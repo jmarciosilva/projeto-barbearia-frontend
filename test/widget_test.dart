@@ -13,7 +13,7 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    expect(find.text('Proprietário'), findsOneWidget);
+    expect(find.text('Proprietário • Jose'), findsOneWidget);
     expect(find.text('Recorrente do mês'), findsOneWidget);
   });
 
@@ -39,7 +39,7 @@ void main() {
 
     await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
-    expect(find.text('Profissional'), findsWidgets);
+    expect(find.text('Profissional • Ana'), findsWidgets);
     expect(find.text('Este mês'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
@@ -56,7 +56,7 @@ void main() {
 
     await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
 
-    expect(find.text('Cliente'), findsWidgets);
+    expect(find.text('Cliente • Carlos'), findsWidgets);
     expect(find.text('Plano Bronze'), findsOneWidget);
   });
 }

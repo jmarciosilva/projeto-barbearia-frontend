@@ -10,9 +10,11 @@ import 'package:clube_do_salao/models/subscription_plan_model.dart';
 import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/tenant_schedule_override_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
+import 'package:clube_do_salao/pages/account_settings_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart'
     show AppointmentDetailPage;
 import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
 import 'package:clube_do_salao/services/clients_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
@@ -23,6 +25,7 @@ import 'package:clube_do_salao/services/subscription_plans_repository.dart';
 import 'package:clube_do_salao/services/tenant_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomerHomePage extends StatefulWidget {
   const CustomerHomePage({
@@ -221,9 +224,14 @@ class _SubscriptionCard extends StatelessWidget {
 }
 
 class CustomerProfilePage extends StatefulWidget {
-  const CustomerProfilePage({super.key, required this.clientsRepository});
+  const CustomerProfilePage({
+    super.key,
+    required this.clientsRepository,
+    required this.authSession,
+  });
 
   final ClientsRepository clientsRepository;
+  final AuthSession authSession;
 
   @override
   State<CustomerProfilePage> createState() => _CustomerProfilePageState();
@@ -379,11 +387,15 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
       return AppLoadingError(message: _errorMessage!, onRetry: _load);
     }
 
-    final subscription = _client!.activeSubscription;
+    final client = _client!;
+    final subscription = client.activeSubscription;
 
     return AppProfileSummary(
       title: 'Meu perfil',
       rows: [
+        AppInfoRow('Nome', client.name),
+        AppInfoRow('Telefone', client.phone),
+        AppInfoRow('E-mail', client.email ?? 'Não informado'),
         AppInfoRow('Plano', subscription?.plan?.name ?? 'Sem plano ativo'),
         AppInfoRow('Renovacao', subscription?.renewsOn ?? '-'),
         AppInfoRow(
@@ -393,6 +405,168 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
               : '${subscription!.usagesThisMonth()} de ${subscription.plan!.usageLimit}',
         ),
       ],
+      footer: [
+        const SizedBox(height: 16),
+        AppActionTile(
+          icon: Icons.edit,
+          title: 'Editar dados pessoais',
+          subtitle: 'Atualize nome, telefone e e-mail de contato.',
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => EditClientProfilePage(
+                  clientsRepository: widget.clientsRepository,
+                  client: client,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        AppActionTile(
+          icon: Icons.lock_outline,
+          title: 'Meus dados de acesso',
+          subtitle: 'Altere seu e-mail e/ou senha de login.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Autoedicao dos dados de contato do proprio cliente (`PATCH /me/client`).
+/// Nao mexe em e-mail/senha de login — isso fica em `AccountSettingsPage`,
+/// mesmo padrao ja usado em `EditProfessionalProfilePage`.
+class EditClientProfilePage extends StatefulWidget {
+  const EditClientProfilePage({
+    super.key,
+    required this.clientsRepository,
+    required this.client,
+  });
+
+  final ClientsRepository clientsRepository;
+  final ClientModel client;
+
+  @override
+  State<EditClientProfilePage> createState() => _EditClientProfilePageState();
+}
+
+class _EditClientProfilePageState extends State<EditClientProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.client.name);
+  late final _phoneController = TextEditingController(text: widget.client.phone);
+  late final _emailController = TextEditingController(
+    text: widget.client.email ?? '',
+  );
+
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.clientsRepository.updateMe(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Dados atualizados.')));
+      Navigator.of(context).pop();
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Editar dados pessoais')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Telefone',
+                hintText: 'Ex: 11912345678',
+              ),
+              keyboardType: TextInputType.phone,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o telefone' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'E-mail de contato (opcional)',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: _isSaving ? null : _save,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(double.infinity, 52),
+              ),
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Salvar'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

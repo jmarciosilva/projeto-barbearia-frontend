@@ -434,6 +434,11 @@ class _DecorativeBlob extends StatelessWidget {
   }
 }
 
+/// Primeiro nome do usuario logado, para personalizar a AppBar ao lado do
+/// papel (ex: "Cliente • Carlos").
+String _firstName(String fullName) =>
+    fullName.trim().split(RegExp(r'\s+')).first;
+
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key, required this.authSession});
 
@@ -464,7 +469,7 @@ class _DashboardShellState extends State<DashboardShell> {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                role.label,
+                '${role.label} • ${_firstName(user.name)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -626,7 +631,10 @@ class _DashboardShellState extends State<DashboardShell> {
         _ShellPage(
           'Perfil',
           Icons.person,
-          CustomerProfilePage(clientsRepository: ClientsRepository(apiClient)),
+          CustomerProfilePage(
+            clientsRepository: ClientsRepository(apiClient),
+            authSession: widget.authSession,
+          ),
         ),
       ],
     };

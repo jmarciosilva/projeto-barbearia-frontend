@@ -45,6 +45,19 @@ class ClientsRepository {
     return ClientModel.fromJson(response);
   }
 
+  /// Autoedicao do proprio perfil (`PATCH /me/client`). Nao mexe em e-mail/
+  /// senha de login — isso continua exclusivo de `PATCH /me/credentials`.
+  Future<ClientModel> updateMe({String? name, String? phone, String? email}) async {
+    final response =
+        await _client.patch(
+              '/me/client',
+              body: {'name': ?name, 'phone': ?phone, 'email': ?email},
+            )
+            as Map<String, dynamic>;
+
+    return ClientModel.fromJson(response);
+  }
+
   /// Edicao de um cliente pelo proprietario (`PATCH /clients/{id}`).
   Future<ClientModel> update({
     required int id,

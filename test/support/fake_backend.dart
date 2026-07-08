@@ -314,6 +314,16 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, _meClientJson);
     }
 
+    if (method == 'PATCH' && path.endsWith('/me/client')) {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      return _jsonResponse(200, {
+        ..._meClientJson,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['phone'] != null) 'phone': body['phone'],
+        if (body['email'] != null) 'email': body['email'],
+      });
+    }
+
     if (method == 'GET' && path.endsWith('/clients')) {
       return _jsonResponse(200, _clientsJson);
     }

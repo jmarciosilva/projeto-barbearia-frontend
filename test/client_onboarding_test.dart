@@ -42,7 +42,7 @@ void main() {
     await tester.tap(find.text('Pular'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Cliente'), findsOneWidget);
+    expect(find.text('Cliente • Maria'), findsOneWidget);
   });
 
   testWidgets('codigo de convite invalido mostra erro sem travar a tela', (

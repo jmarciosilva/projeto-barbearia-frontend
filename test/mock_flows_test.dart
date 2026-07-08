@@ -206,7 +206,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Criar conta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Proprietário'), findsOneWidget);
+    expect(find.text('Proprietário • Fulano'), findsOneWidget);
     expect(find.text('Recorrente do mês'), findsOneWidget);
   });
 
@@ -487,6 +487,37 @@ void main() {
     expect(find.text('Corte masculino'), findsOneWidget);
     expect(find.text('Ana Souza'), findsOneWidget);
     expect(find.text('Carlos Mendes'), findsNothing);
+  });
+
+  testWidgets('cliente atualiza os proprios dados pessoais pela API', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Carlos Mendes'), findsOneWidget);
+    expect(find.text('11988881234'), findsOneWidget);
+
+    await tester.tap(find.text('Editar dados pessoais'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Carlos Mendes'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(1), '11977776666');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dados atualizados.'), findsOneWidget);
+
+    await tester.tap(find.text('Meus dados de acesso'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Meus dados de acesso'), findsWidgets);
+    expect(find.text('Confirme sua senha atual para alterar o e-mail e/ou a senha de acesso ao app.'), findsOneWidget);
   });
 
   testWidgets('dono atribui horario da fila de espera pela API', (
