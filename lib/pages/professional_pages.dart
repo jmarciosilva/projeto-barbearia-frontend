@@ -416,7 +416,10 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
       ),
     );
 
-    if (!mounted || confirmed != true) return;
+    // `true` (pago) e `false` (fiado) sao os dois desfechos do fluxo de
+    // pagamento; so `null` (usuario voltou sem concluir) deve manter esta
+    // tela aberta em vez de retornar direto pra agenda.
+    if (!mounted || confirmed == null) return;
     Navigator.of(context).pop();
   }
 

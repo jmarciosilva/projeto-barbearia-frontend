@@ -167,6 +167,44 @@ void main() {
     },
   );
 
+  testWidgets(
+    'dono registra pagamento como fiado logo apos concluir atendimento avulso',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Corte masculino'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detalhe do atendimento'), findsOneWidget);
+
+      await tester.tap(find.text('Concluir atendimento'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Atendimento concluído'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Confirmar pagamento'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Fiado'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      // Fiado tambem e um desfecho valido do pagamento: deve fechar a tela
+      // de detalhe do atendimento e voltar direto pra Agenda, igual ao
+      // fluxo de pagamento a vista (bug reportado pelo usuario).
+      expect(find.text('Pagamento registrado como fiado.'), findsOneWidget);
+      expect(find.text('Detalhe do atendimento'), findsNothing);
+    },
+  );
+
   testWidgets('profissional conclui atendimento pela API', (tester) async {
     await pumpMobileApp(tester);
 

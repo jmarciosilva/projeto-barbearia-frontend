@@ -529,23 +529,10 @@ class AppDayTimeline extends StatelessWidget {
         for (final key in sortedKeys) ...[
           AppSectionTitle(key),
           for (final appointment in slots[key]!.appointments)
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: const Icon(Icons.event),
-                title: Text(appointment.serviceName ?? 'Serviço'),
-                subtitle: Text(
-                  showClientNames
-                      ? '${appointment.clientName ?? 'Cliente'} - ${appointment.professionalName ?? 'Profissional'}'
-                      : appointment.professionalName ?? 'Profissional',
-                ),
-                trailing: showClientNames
-                    ? const Icon(Icons.chevron_right)
-                    : null,
-                onTap: showClientNames
-                    ? () => onAppointmentTap(appointment)
-                    : null,
-              ),
+            _AppointmentCard(
+              appointment: appointment,
+              showClientNames: showClientNames,
+              onTap: showClientNames ? () => onAppointmentTap(appointment) : null,
             ),
           for (final entry in slots[key]!.waitlistEntries)
             Card(
@@ -566,6 +553,69 @@ class AppDayTimeline extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// Card de um atendimento na agenda, com cor e icone que variam pelo
+/// `status` do agendamento — da visibilidade imediata (pro dono, pro
+/// profissional e pro cliente na agenda do salao) de quais horarios ja
+/// foram atendidos, sem precisar abrir o detalhe.
+class _AppointmentCard extends StatelessWidget {
+  const _AppointmentCard({
+    required this.appointment,
+    required this.showClientNames,
+    required this.onTap,
+  });
+
+  final AppointmentModel appointment;
+  final bool showClientNames;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isCompleted = appointment.status == 'completed';
+    final isCanceled =
+        appointment.status == 'canceled' || appointment.status == 'no_show';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: isCompleted
+          ? colorScheme.primaryContainer.withValues(alpha: 0.45)
+          : isCanceled
+              ? colorScheme.errorContainer.withValues(alpha: 0.35)
+              : null,
+      child: ListTile(
+        leading: Icon(
+          isCompleted
+              ? Icons.check_circle
+              : isCanceled
+                  ? Icons.cancel_outlined
+                  : Icons.event,
+          color: isCompleted
+              ? colorScheme.primary
+              : isCanceled
+                  ? colorScheme.error
+                  : null,
+        ),
+        title: Text(
+          appointment.serviceName ?? 'Serviço',
+          style: isCanceled
+              ? TextStyle(
+                  decoration: TextDecoration.lineThrough,
+                  color: colorScheme.onSurfaceVariant,
+                )
+              : null,
+        ),
+        subtitle: Text(
+          showClientNames
+              ? '${appointment.clientName ?? 'Cliente'} - ${appointment.professionalName ?? 'Profissional'}'
+              : appointment.professionalName ?? 'Profissional',
+        ),
+        trailing: showClientNames ? const Icon(Icons.chevron_right) : null,
+        onTap: onTap,
+      ),
     );
   }
 }
