@@ -578,6 +578,7 @@ class BookingPage extends StatelessWidget {
     required this.servicesRepository,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.paymentsRepository,
     required this.waitlistRepository,
     required this.tenantRepository,
   });
@@ -586,6 +587,7 @@ class BookingPage extends StatelessWidget {
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final PaymentsRepository paymentsRepository;
   final WaitlistRepository waitlistRepository;
   final TenantRepository tenantRepository;
 
@@ -602,6 +604,7 @@ class BookingPage extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) => MyAppointmentsPage(
                 appointmentsRepository: appointmentsRepository,
+                paymentsRepository: paymentsRepository,
               ),
             ),
           ),
@@ -1669,9 +1672,14 @@ class _ChoosePlanPageState extends State<ChoosePlanPage> {
 /// isso continua exclusivo do dono/profissional). O backend ja escopa
 /// `GET /appointments` ao cliente logado quando o papel e `customer`.
 class MyAppointmentsPage extends StatefulWidget {
-  const MyAppointmentsPage({super.key, required this.appointmentsRepository});
+  const MyAppointmentsPage({
+    super.key,
+    required this.appointmentsRepository,
+    required this.paymentsRepository,
+  });
 
   final AppointmentsRepository appointmentsRepository;
+  final PaymentsRepository paymentsRepository;
 
   @override
   State<MyAppointmentsPage> createState() => _MyAppointmentsPageState();
@@ -1732,6 +1740,7 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
         builder: (_) => AppointmentDetailPage(
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
+          paymentsRepository: widget.paymentsRepository,
           allowComplete: false,
         ),
       ),

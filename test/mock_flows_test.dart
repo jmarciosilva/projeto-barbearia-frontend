@@ -128,6 +128,45 @@ void main() {
     expect(find.text('Adiantamento'), findsOneWidget);
   });
 
+  testWidgets(
+    'dono confirma pagamento logo apos concluir atendimento avulso',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Corte masculino'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detalhe do atendimento'), findsOneWidget);
+
+      await tester.tap(find.text('Concluir atendimento'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Atendimento concluído'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Confirmar pagamento'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pagamento confirmado'), findsOneWidget);
+
+      await tester.tap(find.text('Concluir'));
+      await tester.pumpAndSettle();
+
+      // Pagamento confirmado tambem fecha a tela de detalhe do atendimento,
+      // voltando direto pra Agenda (fluxo fluido pedido pelo usuario).
+      expect(find.text('Pagamento confirmado'), findsNothing);
+      expect(find.text('Detalhe do atendimento'), findsNothing);
+    },
+  );
+
   testWidgets('profissional conclui atendimento pela API', (tester) async {
     await pumpMobileApp(tester);
 
@@ -142,6 +181,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Atendimento concluído'), findsOneWidget);
+    // Confirmar pagamento e exclusivo do dono (POST /payments/{id}/mark-paid
+    // e role:owner no backend); profissional nunca deve ver esse atalho.
+    expect(find.text('Confirmar pagamento'), findsNothing);
 
     await tester.tap(find.text('Voltar para a agenda'));
     await tester.pumpAndSettle();

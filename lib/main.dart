@@ -533,11 +533,13 @@ class _DashboardShellState extends State<DashboardShell> {
           Icons.calendar_month,
           AgendaPage(
             appointmentsRepository: AppointmentsRepository(apiClient),
+            paymentsRepository: PaymentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
+            isOwner: true,
           ),
         ),
         _ShellPage(
@@ -574,6 +576,7 @@ class _DashboardShellState extends State<DashboardShell> {
           ProfessionalHomePage(
             appointmentsRepository: AppointmentsRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
+            paymentsRepository: PaymentsRepository(apiClient),
           ),
         ),
         _ShellPage(
@@ -581,11 +584,13 @@ class _DashboardShellState extends State<DashboardShell> {
           Icons.calendar_month,
           AgendaPage(
             appointmentsRepository: AppointmentsRepository(apiClient),
+            paymentsRepository: PaymentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
+            isOwner: false,
           ),
         ),
         _ShellPage(
@@ -617,6 +622,7 @@ class _DashboardShellState extends State<DashboardShell> {
             servicesRepository: ServicesRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
             appointmentsRepository: AppointmentsRepository(apiClient),
+            paymentsRepository: PaymentsRepository(apiClient),
             waitlistRepository: WaitlistRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
           ),

@@ -19,6 +19,7 @@ import 'package:clube_do_salao/pages/account_settings_page.dart';
 import 'package:clube_do_salao/pages/business_hours_page.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
 import 'package:clube_do_salao/pages/owner_invite_page.dart';
+import 'package:clube_do_salao/pages/payment_confirmation_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
@@ -243,6 +244,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) => TodayAppointmentsPage(
                       appointmentsRepository: widget.appointmentsRepository,
+                      paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
                 );
@@ -258,6 +260,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) => TodayAppointmentsPage(
                       appointmentsRepository: widget.appointmentsRepository,
+                      paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
                 );
@@ -306,6 +309,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                   MaterialPageRoute(
                     builder: (_) => TodayAppointmentsPage(
                       appointmentsRepository: widget.appointmentsRepository,
+                      paymentsRepository: widget.paymentsRepository,
                     ),
                   ),
                 );
@@ -677,19 +681,27 @@ class AgendaPage extends StatefulWidget {
   const AgendaPage({
     super.key,
     required this.appointmentsRepository,
+    required this.paymentsRepository,
     required this.waitlistRepository,
     required this.professionalsRepository,
     required this.clientsRepository,
     required this.servicesRepository,
     required this.tenantRepository,
+    required this.isOwner,
   });
 
   final AppointmentsRepository appointmentsRepository;
+  final PaymentsRepository paymentsRepository;
   final WaitlistRepository waitlistRepository;
   final ProfessionalsRepository professionalsRepository;
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
   final TenantRepository tenantRepository;
+
+  /// So o dono confirma pagamento (`POST /payments/{id}/mark-paid` e
+  /// `role:owner` no backend); a Agenda e compartilhada com o profissional,
+  /// que nunca deve ver o atalho de "Confirmar pagamento".
+  final bool isOwner;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -759,6 +771,8 @@ class _AgendaPageState extends State<AgendaPage> {
         builder: (_) => AppointmentDetailPage(
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
+          paymentsRepository: widget.paymentsRepository,
+          canConfirmPayment: widget.isOwner,
         ),
       ),
     );
@@ -2081,9 +2095,11 @@ class TodayAppointmentsPage extends StatefulWidget {
   const TodayAppointmentsPage({
     super.key,
     required this.appointmentsRepository,
+    required this.paymentsRepository,
   });
 
   final AppointmentsRepository appointmentsRepository;
+  final PaymentsRepository paymentsRepository;
 
   @override
   State<TodayAppointmentsPage> createState() => _TodayAppointmentsPageState();
@@ -2135,6 +2151,8 @@ class _TodayAppointmentsPageState extends State<TodayAppointmentsPage> {
         builder: (_) => AppointmentDetailPage(
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
+          paymentsRepository: widget.paymentsRepository,
+          canConfirmPayment: true,
         ),
       ),
     );
@@ -2992,172 +3010,6 @@ class _ProfessionalCommissionDetailPageState
       body: body,
     );
   }
-}
-
-/// Confirmacao de um pagamento manual, chamando a API.
-///
-/// Retorna `true` via [Navigator.pop] quando o pagamento e confirmado, para
-/// que a tela de origem possa atualizar sua lista.
-class PaymentConfirmationPage extends StatefulWidget {
-  const PaymentConfirmationPage({
-    super.key,
-    required this.paymentsRepository,
-    required this.payment,
-  });
-
-  final PaymentsRepository paymentsRepository;
-  final PaymentModel payment;
-
-  @override
-  State<PaymentConfirmationPage> createState() =>
-      _PaymentConfirmationPageState();
-}
-
-class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
-  bool _confirmed = false;
-  bool _isSaving = false;
-  String? _errorMessage;
-  String _selectedMethod = 'pix';
-
-  Future<void> _confirm() async {
-    setState(() {
-      _isSaving = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final result = await widget.paymentsRepository.markPaid(
-        widget.payment.id,
-        method: _selectedMethod,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _confirmed = result.status == 'paid';
-        _isSaving = false;
-      });
-
-      if (result.status != 'paid') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pagamento registrado como fiado.')),
-        );
-        Navigator.of(context).pop(false);
-      }
-    } on AppException catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = error.userMessage;
-        _isSaving = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final payment = widget.payment;
-    final selectedLabel = _paymentMethodLabel(_selectedMethod);
-
-    return AppScaffold(
-      appBar: AppBar(title: const Text('Confirmar pagamento')),
-      body: _confirmed
-          ? AppMockSuccessPanel(
-              title: 'Pagamento confirmado',
-              message:
-                  '${formatCents(payment.amountCents)} de ${payment.clientName ?? 'cliente'} via $selectedLabel.',
-              buttonLabel: 'Concluir',
-              onDone: () => Navigator.of(context).pop(true),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: const Text('Cliente'),
-                        trailing: Text(payment.clientName ?? '-'),
-                      ),
-                      if (payment.serviceName != null)
-                        ListTile(
-                          title: const Text('Serviço'),
-                          trailing: Text(payment.serviceName!),
-                        ),
-                      ListTile(
-                        title: const Text('Valor'),
-                        trailing: Text(formatCents(payment.amountCents)),
-                      ),
-                      ListTile(
-                        title: const Text('Forma de pagamento'),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final method in _manualPaymentMethods)
-                                ChoiceChip(
-                                  label: Text(_paymentMethodLabel(method)),
-                                  selected: _selectedMethod == method,
-                                  onSelected: _isSaving
-                                      ? null
-                                      : (_) {
-                                          setState(
-                                            () => _selectedMethod = method,
-                                          );
-                                        },
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_errorMessage != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: _isSaving ? null : _confirm,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check_circle_outline),
-                  label: const Text('Confirmar pagamento'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 52),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  static const _manualPaymentMethods = [
-    'pix',
-    'credit_card',
-    'debit_card',
-    'cash',
-    'fiado',
-  ];
-
-  String _paymentMethodLabel(String method) => switch (method) {
-    'pix' => 'PIX',
-    'credit_card' => 'Cartão crédito',
-    'debit_card' => 'Cartão débito',
-    'cash' => 'Dinheiro',
-    'fiado' => 'Fiado',
-    _ => method,
-  };
 }
 
 /// Detalhe de um cliente com os dados reais de plano e pagamento.

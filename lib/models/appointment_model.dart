@@ -14,8 +14,10 @@ class AppointmentModel {
     this.professionalName,
     this.serviceName,
     this.servicePriceCents,
+    this.paymentId,
     this.paymentAmountCents,
     this.paymentStatus,
+    this.paymentMethod,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -39,8 +41,10 @@ class AppointmentModel {
       professionalName: professional?['name'] as String?,
       serviceName: service?['name'] as String?,
       servicePriceCents: service?['price_cents'] as int?,
+      paymentId: payment?['id'] as int?,
       paymentAmountCents: payment?['amount_cents'] as int?,
       paymentStatus: payment?['status'] as String?,
+      paymentMethod: payment?['method'] as String?,
     );
   }
 
@@ -58,8 +62,10 @@ class AppointmentModel {
   final String? professionalName;
   final String? serviceName;
   final int? servicePriceCents;
+  final int? paymentId;
   final int? paymentAmountCents;
   final String? paymentStatus;
+  final String? paymentMethod;
 
   /// Contribuicao deste agendamento para a receita prevista do dia (spec
   /// Painel Inteligente): agendamentos cancelados/no-show nao geram receita.

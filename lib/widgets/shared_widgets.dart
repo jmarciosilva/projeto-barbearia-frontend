@@ -384,12 +384,20 @@ class AppMockSuccessPanel extends StatelessWidget {
     required this.message,
     required this.buttonLabel,
     required this.onDone,
+    this.secondaryButtonLabel,
+    this.onSecondary,
   });
 
   final String title;
   final String message;
   final String buttonLabel;
   final VoidCallback onDone;
+
+  /// Acao extra opcional (ex: "Confirmar pagamento" apos concluir um
+  /// atendimento avulso), exibida abaixo do botao principal quando
+  /// informada. Sem efeito nas demais telas que reaproveitam este painel.
+  final String? secondaryButtonLabel;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -419,14 +427,39 @@ class AppMockSuccessPanel extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onDone,
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
-                child: Text(buttonLabel),
+            if (secondaryButtonLabel != null && onSecondary != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: onSecondary,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                  ),
+                  child: Text(secondaryButtonLabel!),
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onDone,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                  ),
+                  child: Text(buttonLabel),
+                ),
+              ),
+            ] else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: onDone,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                  ),
+                  child: Text(buttonLabel),
+                ),
+              ),
           ],
         ),
       ),

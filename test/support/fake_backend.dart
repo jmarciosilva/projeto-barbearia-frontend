@@ -511,6 +511,14 @@ http.Client buildFakeBackend() {
       return _jsonResponse(200, {
         ..._appointmentsJson.first,
         'status': 'completed',
+        // Atendimento avulso concluido tem um pagamento pendente associado,
+        // que o app oferece confirmar direto na tela de conclusao.
+        'payment': {
+          'id': 30,
+          'amount_cents': 6000,
+          'method': 'pix',
+          'status': 'pending',
+        },
       });
     }
 

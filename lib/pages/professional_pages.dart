@@ -1,10 +1,13 @@
 import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/core/formatting.dart';
 import 'package:clube_do_salao/models/appointment_model.dart';
+import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/professional_schedule_override_model.dart';
+import 'package:clube_do_salao/pages/payment_confirmation_page.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
@@ -19,10 +22,12 @@ class ProfessionalHomePage extends StatefulWidget {
     super.key,
     required this.appointmentsRepository,
     required this.professionalsRepository,
+    required this.paymentsRepository,
   });
 
   final AppointmentsRepository appointmentsRepository;
   final ProfessionalsRepository professionalsRepository;
+  final PaymentsRepository paymentsRepository;
 
   @override
   State<ProfessionalHomePage> createState() => _ProfessionalHomePageState();
@@ -94,6 +99,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
         builder: (_) => AppointmentDetailPage(
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
+          paymentsRepository: widget.paymentsRepository,
         ),
       ),
     );
@@ -331,12 +337,21 @@ class AppointmentDetailPage extends StatefulWidget {
     super.key,
     required this.appointment,
     required this.appointmentsRepository,
+    required this.paymentsRepository,
     this.allowComplete = true,
+    this.canConfirmPayment = false,
   });
 
   final AppointmentModel appointment;
   final AppointmentsRepository appointmentsRepository;
+  final PaymentsRepository paymentsRepository;
   final bool allowComplete;
+
+  /// Libera o atalho "Confirmar pagamento" apos concluir um atendimento
+  /// avulso. Exclusivo do dono — `POST /payments/{id}/mark-paid` e restrito
+  /// a `role:owner` no backend, entao profissional/cliente nunca recebem
+  /// `true` aqui (o botao daria 403 se aparecesse pra eles).
+  final bool canConfirmPayment;
 
   @override
   State<AppointmentDetailPage> createState() => _AppointmentDetailPageState();
@@ -347,6 +362,7 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
   String? _resultMessage;
   bool _isSaving = false;
   String? _errorMessage;
+  AppointmentModel? _completedAppointment;
 
   bool get _isScheduled => widget.appointment.status == 'scheduled';
 
@@ -358,13 +374,16 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
 
     try {
       final appointment = widget.appointment;
-      await widget.appointmentsRepository.complete(appointment.id);
+      final completed = await widget.appointmentsRepository.complete(
+        appointment.id,
+      );
 
       if (!mounted) return;
       setState(() {
         _resultTitle = 'Atendimento concluído';
         _resultMessage =
             '${appointment.serviceName ?? 'Atendimento'} de ${appointment.clientName ?? 'cliente'} foi marcado como concluído.';
+        _completedAppointment = completed;
         _isSaving = false;
       });
     } on AppException catch (error) {
@@ -374,6 +393,31 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         _isSaving = false;
       });
     }
+  }
+
+  Future<void> _confirmPayment() async {
+    final completed = _completedAppointment;
+    if (completed?.paymentId == null) return;
+
+    final confirmed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PaymentConfirmationPage(
+          paymentsRepository: widget.paymentsRepository,
+          payment: PaymentModel(
+            id: completed!.paymentId!,
+            amountCents: completed.paymentAmountCents ?? 0,
+            method: completed.paymentMethod ?? 'pix',
+            status: completed.paymentStatus ?? 'pending',
+            appointmentId: completed.id,
+            clientName: completed.clientName,
+            serviceName: completed.serviceName,
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _cancel() async {
@@ -482,6 +526,11 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
     }
   }
 
+  bool get _canOfferPaymentConfirmation =>
+      widget.canConfirmPayment &&
+      _completedAppointment?.paymentId != null &&
+      _completedAppointment?.paymentStatus == 'pending';
+
   @override
   Widget build(BuildContext context) {
     final appointment = widget.appointment;
@@ -494,6 +543,12 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
               message: _resultMessage!,
               buttonLabel: 'Voltar para a agenda',
               onDone: () => Navigator.of(context).pop(),
+              secondaryButtonLabel: _canOfferPaymentConfirmation
+                  ? 'Confirmar pagamento'
+                  : null,
+              onSecondary: _canOfferPaymentConfirmation
+                  ? _confirmPayment
+                  : null,
             )
           : ListView(
               padding: const EdgeInsets.all(16),
