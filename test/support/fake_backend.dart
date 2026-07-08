@@ -523,6 +523,16 @@ http.Client buildFakeBackend() {
       });
     }
 
+    if (method == 'GET' && path.endsWith('/appointments/salon')) {
+      // Espelha o backend real: a agenda do salao nunca inclui o cliente.
+      return _jsonResponse(
+        200,
+        _appointmentsJson
+            .map((json) => {...json}..remove('client'))
+            .toList(),
+      );
+    }
+
     if (method == 'GET' && path.endsWith('/appointments')) {
       return _jsonResponse(200, _appointmentsJson);
     }

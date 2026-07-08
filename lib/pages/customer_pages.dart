@@ -445,6 +445,18 @@ class BookingPage extends StatelessWidget {
             ),
           ),
         ),
+        AppActionTile(
+          icon: Icons.calendar_month,
+          title: 'Agenda do salão',
+          subtitle: 'Veja os horários já ocupados para se programar.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => SalonSchedulePage(
+                appointmentsRepository: appointmentsRepository,
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
         const AppSectionTitle('Novo agendamento'),
         const AppActionTile(
@@ -1557,6 +1569,116 @@ class _MyAppointmentsPageState extends State<MyAppointmentsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: CalendarDatePicker(
+              initialDate: _selectedDay,
+              firstDate: DateTime.now().subtract(const Duration(days: 365)),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+              onDateChanged: _onDaySelected,
+            ),
+          ),
+          schedule,
+        ],
+      ),
+    );
+  }
+}
+
+/// Agenda do salao inteiro (todos os profissionais, todos os clientes),
+/// somente leitura: mostra so o horario ocupado e o profissional, nunca o
+/// nome de outro cliente (a API ja omite esse dado em `/appointments/salon`).
+/// Ajuda o cliente a decidir entre agendar um horario livre ou entrar na
+/// fila de espera.
+class SalonSchedulePage extends StatefulWidget {
+  const SalonSchedulePage({super.key, required this.appointmentsRepository});
+
+  final AppointmentsRepository appointmentsRepository;
+
+  @override
+  State<SalonSchedulePage> createState() => _SalonSchedulePageState();
+}
+
+class _SalonSchedulePageState extends State<SalonSchedulePage> {
+  DateTime _selectedDay = DateTime.now();
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<AppointmentModel> _appointments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final startOfDay = DateTime(
+        _selectedDay.year,
+        _selectedDay.month,
+        _selectedDay.day,
+      );
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final appointments = await widget.appointmentsRepository.salonSchedule(
+        from: startOfDay,
+        to: endOfDay,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onDaySelected(DateTime day) {
+    setState(() => _selectedDay = day);
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget schedule;
+
+    if (_isLoading) {
+      schedule = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_errorMessage != null) {
+      schedule = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else {
+      schedule = AppDayTimeline(
+        appointments: _appointments,
+        onAppointmentTap: (_) {},
+        showClientNames: false,
+        emptyMessage: 'Nenhum horário ocupado neste dia.',
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Agenda do salão')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Veja os horários já ocupados no salão para se programar antes '
+            'de agendar ou entrar na fila de espera.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
           Card(
             margin: const EdgeInsets.only(bottom: 16),
             child: CalendarDatePicker(

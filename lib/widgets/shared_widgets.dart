@@ -433,6 +433,7 @@ class AppDayTimeline extends StatelessWidget {
     required this.onAppointmentTap,
     this.onWaitlistTap,
     this.emptyMessage = 'Nada agendado para este dia.',
+    this.showClientNames = true,
   });
 
   final List<AppointmentModel> appointments;
@@ -440,6 +441,11 @@ class AppDayTimeline extends StatelessWidget {
   final ValueChanged<AppointmentModel> onAppointmentTap;
   final ValueChanged<WaitlistEntryModel>? onWaitlistTap;
   final String emptyMessage;
+
+  /// Quando `false`, esconde o nome do cliente (e o toque/detalhe do card):
+  /// usado na agenda do salao inteiro vista pelo cliente, que so pode ver
+  /// quais horarios estao ocupados, nunca quem e o outro cliente.
+  final bool showClientNames;
 
   @override
   Widget build(BuildContext context) {
@@ -476,10 +482,16 @@ class AppDayTimeline extends StatelessWidget {
                 leading: const Icon(Icons.event),
                 title: Text(appointment.serviceName ?? 'Serviço'),
                 subtitle: Text(
-                  '${appointment.clientName ?? 'Cliente'} - ${appointment.professionalName ?? 'Profissional'}',
+                  showClientNames
+                      ? '${appointment.clientName ?? 'Cliente'} - ${appointment.professionalName ?? 'Profissional'}'
+                      : appointment.professionalName ?? 'Profissional',
                 ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => onAppointmentTap(appointment),
+                trailing: showClientNames
+                    ? const Icon(Icons.chevron_right)
+                    : null,
+                onTap: showClientNames
+                    ? () => onAppointmentTap(appointment)
+                    : null,
               ),
             ),
           for (final entry in slots[key]!.waitlistEntries)

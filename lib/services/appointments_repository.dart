@@ -24,6 +24,31 @@ class AppointmentsRepository {
         .toList();
   }
 
+  /// Agenda do salao inteiro (`GET /appointments/salon`), sem dado de outro
+  /// cliente: usada pelo cliente para se programar antes de escolher entre
+  /// agendar direto ou entrar na fila de espera. O backend ja omite o
+  /// cliente de cada agendamento, entao `clientName` sempre vem nulo aqui.
+  Future<List<AppointmentModel>> salonSchedule({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final response =
+        await _client.get(
+              '/appointments/salon',
+              query: {
+                'from': ?from?.toIso8601String(),
+                'to': ?to?.toIso8601String(),
+              },
+            )
+            as List<dynamic>;
+
+    return response
+        .map(
+          (json) => AppointmentModel.fromJson(json as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   /// Marca um atendimento como concluido (`POST /appointments/{id}/complete`).
   /// Profissional so consegue concluir os proprios; o backend recusa o resto.
   Future<AppointmentModel> complete(int appointmentId) async {

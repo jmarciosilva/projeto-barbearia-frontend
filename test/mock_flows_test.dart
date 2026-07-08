@@ -159,6 +159,7 @@ void main() {
     await tester.tap(find.text('Agendar'));
     await tester.pumpAndSettle();
 
+    await scrollToText(tester, 'Iniciar agendamento');
     await tester.tap(find.text('Iniciar agendamento'));
     await tester.pumpAndSettle();
     expect(find.text('Escolher serviço'), findsOneWidget);
@@ -468,6 +469,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Fila de espera'), findsWidgets);
+  });
+
+  testWidgets('cliente ve a agenda do salao sem nome de outro cliente', (
+    tester,
+  ) async {
+    await pumpMobileApp(tester);
+
+    await loginAs(tester, email: 'carlos.mendes@clubedosalao.com', password: 'demo12345');
+
+    await tester.tap(find.text('Agendar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Agenda do salão'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corte masculino'), findsOneWidget);
+    expect(find.text('Ana Souza'), findsOneWidget);
+    expect(find.text('Carlos Mendes'), findsNothing);
   });
 
   testWidgets('dono atribui horario da fila de espera pela API', (
