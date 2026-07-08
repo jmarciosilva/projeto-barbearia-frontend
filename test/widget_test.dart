@@ -40,6 +40,11 @@ void main() {
     await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
     expect(find.text('Profissional'), findsWidgets);
+    expect(find.text('Este mês'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+    expect(find.text('R\$ 360,00'), findsOneWidget);
     expect(find.text('Atendimentos de hoje'), findsOneWidget);
     expect(find.text('Corte masculino'), findsOneWidget);
   });

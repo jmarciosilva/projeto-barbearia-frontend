@@ -10,12 +10,19 @@ import 'package:clube_do_salao/widgets/shared_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Atendimentos de hoje do profissional logado (o backend ja filtra pela
-/// propria agenda, nunca mostra a de colegas).
+/// Painel do profissional (parecido com o do proprietario): resumo do mes
+/// (atendimentos, avulso vs assinatura, receita gerada) seguido dos
+/// atendimentos de hoje. O backend ja filtra pela propria agenda, nunca
+/// mostra a de colegas.
 class ProfessionalHomePage extends StatefulWidget {
-  const ProfessionalHomePage({super.key, required this.appointmentsRepository});
+  const ProfessionalHomePage({
+    super.key,
+    required this.appointmentsRepository,
+    required this.professionalsRepository,
+  });
 
   final AppointmentsRepository appointmentsRepository;
+  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<ProfessionalHomePage> createState() => _ProfessionalHomePageState();
@@ -26,6 +33,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
   String? _errorMessage;
   List<AppointmentModel> _appointments = [];
   List<AppScheduleItem> _items = [];
+  ProfessionalFinanceModel? _monthFinance;
 
   @override
   void initState() {
@@ -43,10 +51,12 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
-      final appointments = await widget.appointmentsRepository.index(
-        from: startOfDay,
-        to: endOfDay,
-      );
+      final results = await Future.wait([
+        widget.appointmentsRepository.index(from: startOfDay, to: endOfDay),
+        widget.professionalsRepository.myFinance(),
+      ]);
+      final appointments = results[0] as List<AppointmentModel>;
+      final monthFinance = results[1] as ProfessionalFinanceModel;
 
       if (!mounted) return;
       setState(() {
@@ -64,6 +74,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               ),
             )
             .toList();
+        _monthFinance = monthFinance;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -99,14 +110,52 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
       return AppLoadingError(message: _errorMessage!, onRetry: _load);
     }
 
-    if (_items.isEmpty) {
-      return const Center(child: Text('Nenhum atendimento para hoje.'));
-    }
+    final finance = _monthFinance!;
 
-    return AppScheduleList(
-      title: 'Atendimentos de hoje',
-      items: _items,
-      onItemTap: _openDetail,
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AppSectionTitle('Este mês'),
+        AppMetricGrid(
+          metrics: [
+            AppMetric(
+              'Atendimentos',
+              '${finance.completedCount}',
+              Icons.event_available,
+            ),
+            AppMetric('Avulso', '${finance.avulsoCount}', Icons.content_cut),
+            AppMetric(
+              'Assinatura',
+              '${finance.planoCount}',
+              Icons.card_membership,
+            ),
+            AppMetric(
+              'Receita gerada',
+              formatCents(finance.grossCents),
+              Icons.payments,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const AppSectionTitle('Atendimentos de hoje'),
+        if (_items.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Nenhum atendimento para hoje.'),
+          )
+        else
+          for (final item in _items)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: CircleAvatar(child: Text(item.time.substring(0, 2))),
+                title: Text(item.service),
+                subtitle: Text(item.client),
+                trailing: Text(item.time),
+                onTap: () => _openDetail(item),
+              ),
+            ),
+      ],
     );
   }
 }

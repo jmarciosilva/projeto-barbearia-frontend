@@ -24,7 +24,11 @@ class ProfessionalAdvanceModel {
 class ProfessionalFinanceModel {
   const ProfessionalFinanceModel({
     required this.completedCount,
+    required this.avulsoCount,
+    required this.planoCount,
     required this.grossCents,
+    required this.avulsoRevenueCents,
+    required this.planoRevenueCents,
     required this.commissionPercentage,
     required this.commissionCents,
     required this.advancesCents,
@@ -38,7 +42,11 @@ class ProfessionalFinanceModel {
 
     return ProfessionalFinanceModel(
       completedCount: json['completed_count'] as int,
+      avulsoCount: json['avulso_count'] as int? ?? 0,
+      planoCount: json['plano_count'] as int? ?? 0,
       grossCents: json['gross_cents'] as int,
+      avulsoRevenueCents: json['avulso_revenue_cents'] as int? ?? 0,
+      planoRevenueCents: json['plano_revenue_cents'] as int? ?? 0,
       commissionPercentage: json['commission_percentage'] as int,
       commissionCents: json['commission_cents'] as int,
       advancesCents: json['advances_cents'] as int,
@@ -55,7 +63,11 @@ class ProfessionalFinanceModel {
   }
 
   final int completedCount;
+  final int avulsoCount;
+  final int planoCount;
   final int grossCents;
+  final int avulsoRevenueCents;
+  final int planoRevenueCents;
   final int commissionPercentage;
   final int commissionCents;
   final int advancesCents;
