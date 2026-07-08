@@ -190,6 +190,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                     builder: (_) => NewProfessionalPage(
                       professionalsRepository: widget.professionalsRepository,
                       servicesRepository: widget.servicesRepository,
+                      authSession: widget.authSession,
                     ),
                   ),
                 );
@@ -395,6 +396,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 builder: (_) => CatalogPage(
                   servicesRepository: widget.servicesRepository,
                   professionalsRepository: widget.professionalsRepository,
+                  authSession: widget.authSession,
                 ),
               ),
             );
@@ -3396,10 +3398,12 @@ class CatalogPage extends StatefulWidget {
     super.key,
     required this.servicesRepository,
     required this.professionalsRepository,
+    required this.authSession,
   });
 
   final ServicesRepository servicesRepository;
   final ProfessionalsRepository professionalsRepository;
+  final AuthSession authSession;
 
   @override
   State<CatalogPage> createState() => _CatalogPageState();
@@ -3435,6 +3439,7 @@ class _CatalogPageState extends State<CatalogPage>
           ProfessionalsPage(
             professionalsRepository: widget.professionalsRepository,
             servicesRepository: widget.servicesRepository,
+            authSession: widget.authSession,
           ),
         ],
       ),
@@ -3859,10 +3864,12 @@ class ProfessionalsPage extends StatefulWidget {
     super.key,
     required this.professionalsRepository,
     required this.servicesRepository,
+    required this.authSession,
   });
 
   final ProfessionalsRepository professionalsRepository;
   final ServicesRepository servicesRepository;
+  final AuthSession authSession;
 
   @override
   State<ProfessionalsPage> createState() => _ProfessionalsPageState();
@@ -3908,6 +3915,7 @@ class _ProfessionalsPageState extends State<ProfessionalsPage> {
         builder: (_) => NewProfessionalPage(
           professionalsRepository: widget.professionalsRepository,
           servicesRepository: widget.servicesRepository,
+          authSession: widget.authSession,
         ),
       ),
     );
@@ -3980,10 +3988,12 @@ class NewProfessionalPage extends StatefulWidget {
     super.key,
     required this.professionalsRepository,
     required this.servicesRepository,
+    required this.authSession,
   });
 
   final ProfessionalsRepository professionalsRepository;
   final ServicesRepository servicesRepository;
+  final AuthSession authSession;
 
   @override
   State<NewProfessionalPage> createState() => _NewProfessionalPageState();
@@ -3999,6 +4009,7 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
   final _passwordController = TextEditingController();
   final Set<int> _selectedServiceIds = {};
   List<ProfessionalWorkingHourModel> _workingHours = [];
+  bool _isSelf = false;
 
   bool _isLoadingServices = true;
   String? _servicesError;
@@ -4109,11 +4120,37 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
                   (value == null || value.isEmpty) ? 'Informe o nome' : null,
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'E-mail (opcional)'),
-              keyboardType: TextInputType.emailAddress,
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _isSelf,
+              onChanged: (checked) => setState(() {
+                _isSelf = checked ?? false;
+                if (_isSelf) {
+                  if (_nameController.text.trim().isEmpty) {
+                    _nameController.text = widget.authSession.user?.name ?? '';
+                  }
+                  _emailController.clear();
+                  _passwordController.clear();
+                }
+              }),
+              title: const Text('Este profissional sou eu (dono)'),
+              subtitle: const Text(
+                'Você continua entrando no app com a sua própria conta de '
+                'dono — não é preciso um e-mail nem uma senha separados '
+                'para o seu perfil de profissional.',
+              ),
             ),
+            if (!_isSelf) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail (opcional)',
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ],
             const SizedBox(height: 16),
             TextFormField(
               controller: _phoneController,
@@ -4142,15 +4179,17 @@ class _NewProfessionalPageState extends State<NewProfessionalPage> {
               ),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Senha de acesso ao app (opcional)',
-                hintText: 'Deixe em branco para não liberar login',
+            if (!_isSelf) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Senha de acesso ao app (opcional)',
+                  hintText: 'Deixe em branco para não liberar login',
+                ),
+                obscureText: true,
               ),
-              obscureText: true,
-            ),
+            ],
             const SizedBox(height: 16),
             const AppSectionTitle('Serviços habilitados'),
             Text(

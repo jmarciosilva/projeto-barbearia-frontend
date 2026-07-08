@@ -541,6 +541,7 @@ class _DashboardShellState extends State<DashboardShell> {
           CatalogPage(
             servicesRepository: ServicesRepository(apiClient),
             professionalsRepository: ProfessionalsRepository(apiClient),
+            authSession: widget.authSession,
           ),
         ),
         _ShellPage(
@@ -567,6 +568,7 @@ class _DashboardShellState extends State<DashboardShell> {
           Icons.today,
           ProfessionalHomePage(
             appointmentsRepository: AppointmentsRepository(apiClient),
+            professionalsRepository: ProfessionalsRepository(apiClient),
           ),
         ),
         _ShellPage(
