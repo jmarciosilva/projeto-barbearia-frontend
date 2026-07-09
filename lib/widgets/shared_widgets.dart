@@ -205,60 +205,6 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-/// Item de agenda com dados mockados de um atendimento.
-class AppScheduleItem {
-  const AppScheduleItem(
-    this.time,
-    this.service,
-    this.client, {
-    this.duration = '40 min',
-    this.notes = 'Sem observacoes registradas.',
-  });
-
-  final String time;
-  final String service;
-  final String client;
-  final String duration;
-  final String notes;
-}
-
-/// Lista de atendimentos do dia, usada na agenda de proprietario e profissional.
-///
-/// Quando [onItemTap] e informado, cada item abre o detalhe do atendimento.
-class AppScheduleList extends StatelessWidget {
-  const AppScheduleList({
-    super.key,
-    required this.title,
-    required this.items,
-    this.onItemTap,
-  });
-
-  final String title;
-  final List<AppScheduleItem> items;
-  final ValueChanged<AppScheduleItem>? onItemTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        AppSectionTitle(title),
-        for (final item in items)
-          Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              leading: CircleAvatar(child: Text(item.time.substring(0, 2))),
-              title: Text(item.service),
-              subtitle: Text(item.client),
-              trailing: Text(item.time),
-              onTap: onItemTap == null ? null : () => onItemTap!(item),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class AppPlanTile extends StatelessWidget {
   const AppPlanTile(this.name, this.price, this.limit, {super.key, this.onTap});
 
@@ -520,8 +466,11 @@ class AppDayTimeline extends StatelessWidget {
       slots.putIfAbsent(key, () => _DaySlot(entry.createdAt)).waitlistEntries.add(entry);
     }
 
+    // Decrescente: horario mais tarde do dia primeiro, mais cedo por ultimo —
+    // o que acabou de acontecer/vai acontecer fica mais facil de achar no
+    // topo, sem precisar rolar a lista inteira.
     final sortedKeys = slots.keys.toList()
-      ..sort((a, b) => slots[a]!.time.compareTo(slots[b]!.time));
+      ..sort((a, b) => slots[b]!.time.compareTo(slots[a]!.time));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

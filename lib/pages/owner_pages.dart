@@ -2236,7 +2236,10 @@ class _TodayRevenuePageState extends State<TodayRevenuePage> {
       setState(() {
         _appointments = appointments
             .where((appointment) => appointment.countsTowardExpectedRevenue)
-            .toList();
+            .toList()
+          // Decrescente: horario mais recente primeiro, mesmo padrao usado
+          // no resto do app (AppDayTimeline).
+          ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
         _isLoading = false;
       });
     } on AppException catch (error) {

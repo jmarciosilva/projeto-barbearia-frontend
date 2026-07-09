@@ -1499,7 +1499,10 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 child: ListTile(title: Text('Nenhum uso registrado ainda.')),
               )
             else
-              for (final usage in subscription.usages)
+              for (final usage in subscription.usages.toList()
+                // Decrescente: uso mais recente primeiro, mesmo padrao usado
+                // no resto do app (AppDayTimeline).
+                ..sort((a, b) => b.usedAt.compareTo(a.usedAt)))
                 Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(

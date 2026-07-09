@@ -39,7 +39,6 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
   bool _isLoading = true;
   String? _errorMessage;
   List<AppointmentModel> _appointments = [];
-  List<AppScheduleItem> _items = [];
   ProfessionalFinanceModel? _monthFinance;
 
   @override
@@ -68,19 +67,6 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
       if (!mounted) return;
       setState(() {
         _appointments = appointments;
-        _items = appointments
-            .map(
-              (appointment) => AppScheduleItem(
-                formatTime(appointment.startsAt),
-                appointment.serviceName ?? 'Serviço',
-                appointment.clientName ?? 'Cliente',
-                duration: formatDuration(
-                  appointment.endsAt.difference(appointment.startsAt),
-                ),
-                notes: appointment.notes ?? 'Sem observações registradas.',
-              ),
-            )
-            .toList();
         _monthFinance = monthFinance;
         _isLoading = false;
       });
@@ -93,9 +79,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
     }
   }
 
-  Future<void> _openDetail(AppScheduleItem item) async {
-    final appointment = _appointments[_items.indexOf(item)];
-
+  Future<void> _openDetail(AppointmentModel appointment) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => AppointmentDetailPage(
@@ -180,23 +164,11 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
         ),
         const SizedBox(height: 16),
         const AppSectionTitle('Atendimentos de hoje'),
-        if (_items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('Nenhum atendimento para hoje.'),
-          )
-        else
-          for (final item in _items)
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: CircleAvatar(child: Text(item.time.substring(0, 2))),
-                title: Text(item.service),
-                subtitle: Text(item.client),
-                trailing: Text(item.time),
-                onTap: () => _openDetail(item),
-              ),
-            ),
+        AppDayTimeline(
+          appointments: _appointments,
+          onAppointmentTap: _openDetail,
+          emptyMessage: 'Nenhum atendimento para hoje.',
+        ),
       ],
     );
   }
@@ -224,6 +196,10 @@ class ProfessionalMonthAppointmentsPage extends StatelessWidget {
       0,
       (sum, appointment) => sum + (appointment.servicePriceCents ?? 0),
     );
+    // Decrescente: atendimento mais recente primeiro, mesmo padrao usado no
+    // resto do app (AppDayTimeline).
+    final sortedAppointments = appointments.toList()
+      ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
 
     return AppScaffold(
       appBar: AppBar(title: Text(title)),
@@ -244,7 +220,7 @@ class ProfessionalMonthAppointmentsPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                for (final appointment in appointments)
+                for (final appointment in sortedAppointments)
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     child: ListTile(
