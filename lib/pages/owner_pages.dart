@@ -702,7 +702,6 @@ class AgendaPage extends StatefulWidget {
     required this.clientsRepository,
     required this.servicesRepository,
     required this.tenantRepository,
-    required this.isOwner,
   });
 
   final AppointmentsRepository appointmentsRepository;
@@ -712,11 +711,6 @@ class AgendaPage extends StatefulWidget {
   final ClientsRepository clientsRepository;
   final ServicesRepository servicesRepository;
   final TenantRepository tenantRepository;
-
-  /// So o dono confirma pagamento (`POST /payments/{id}/mark-paid` e
-  /// `role:owner` no backend); a Agenda e compartilhada com o profissional,
-  /// que nunca deve ver o atalho de "Confirmar pagamento".
-  final bool isOwner;
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -787,7 +781,7 @@ class _AgendaPageState extends State<AgendaPage> {
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
           paymentsRepository: widget.paymentsRepository,
-          canConfirmPayment: widget.isOwner,
+          canConfirmPayment: true,
         ),
       ),
     );

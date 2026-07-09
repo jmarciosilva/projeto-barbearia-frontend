@@ -169,6 +169,7 @@ Objetivo: entregar a primeira versao operacional de cobranca manual: o dono conf
 - [x] Area do cliente com pagamentos pendentes e efetuados
 - [x] Area do profissional com servicos executados na semana/mes, comissao prevista e adiantamentos
 - [x] Area do gestor para configurar dia de pagamento e lancar adiantamentos
+- [x] Profissional confirma o meio de pagamento do proprio atendimento avulso logo apos concluir, mesma tela ja usada pelo dono
 - [ ] Notificacao push (FCM): confirmacao de agendamento e lembrete de vencimento (spec 3.2/4.3 — incluida ja no tier Basico, por isso vive nesta fase junto com o resto da automacao)
 
 ### Auditoria da fase
@@ -177,6 +178,7 @@ Objetivo: entregar a primeira versao operacional de cobranca manual: o dono conf
 |---|---|---|---|---|
 | 2026-07-04 | Codex | Em andamento | Escopo corrigido a pedido do usuario: primeira versao usa cobranca manual pelo dono, sem gateway. Tela de confirmacao passou a exigir escolha entre PIX, cartao credito, cartao debito, dinheiro e fiado; quando o dono escolhe fiado, o item continua na lista de pendentes | Falta criar visao dedicada de fiados/contas em aberto e validar em dispositivo real |
 | 2026-07-04 | Codex | Parcial aprovado | Painel do gestor ganhou "Gestao do fiado" com saldo aberto e lancamento parcial de recebimentos, e "Comissoes profissionais" com dia de pagamento, extrato e adiantamentos; cliente ganhou aba "Pagamentos" separando pendentes e efetuados; perfil profissional passou a mostrar atendimentos da semana/mes, comissao, adiantamentos e valor a receber; `flutter analyze` limpo e testes mockados cobrem fiado parcial e comissao | Falta validacao em dispositivo real e refinamento futuro de relatorios financeiros |
+| 2026-07-09 | Claude | Aprovado | Usuario pediu que, ao concluir um atendimento, o profissional tambem fosse direto pra escolha do meio de pagamento, "como foi feito na area do proprietario". Backend passou a aceitar `role:professional` em `POST /payments/{id}/mark-paid`, restrito ao proprio atendimento (ver roadmap do backend). App: `AppointmentDetailPage.canConfirmPayment` (`professional_pages.dart`) passou a `true` tambem no fluxo do profissional (`ProfessionalHomePage._openDetail`, tela "Hoje"); `AgendaPage` (`owner_pages.dart`, compartilhada entre dono e profissional) tinha um campo `isOwner` cuja unica finalidade era decidir esse mesmo `canConfirmPayment` — como agora os dois papeis confirmam, o campo virou morto e foi removido (`main.dart` parou de passar `isOwner:` nos dois pontos de montagem da Agenda), em vez de deixar um parametro sem efeito no codigo. Nenhuma tela nova: reaproveita a mesma `PaymentConfirmationPage` ja usada pelo dono. Teste "profissional conclui atendimento pela API" (que antes checava a ausencia do atalho) virou "profissional conclui atendimento e confirma pagamento pela API", exercitando o fluxo completo de escolha de meio de pagamento igual ao teste equivalente do dono — 54/54 testes passando, `flutter analyze` limpo | Sem validacao ponta a ponta em dispositivo real nesta rodada — usuario prefere validar manualmente |
 
 ## Fase 3 - Onboarding e Autocadastro
 

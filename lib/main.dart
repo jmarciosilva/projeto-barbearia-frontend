@@ -539,7 +539,6 @@ class _DashboardShellState extends State<DashboardShell> {
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
-            isOwner: true,
           ),
         ),
         _ShellPage(
@@ -590,7 +589,6 @@ class _DashboardShellState extends State<DashboardShell> {
             clientsRepository: ClientsRepository(apiClient),
             servicesRepository: ServicesRepository(apiClient),
             tenantRepository: TenantRepository(apiClient),
-            isOwner: false,
           ),
         ),
         _ShellPage(

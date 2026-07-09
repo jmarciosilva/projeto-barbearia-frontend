@@ -223,29 +223,45 @@ void main() {
     },
   );
 
-  testWidgets('profissional conclui atendimento pela API', (tester) async {
-    await pumpMobileApp(tester);
+  testWidgets(
+    'profissional conclui atendimento e confirma pagamento pela API',
+    (tester) async {
+      await pumpMobileApp(tester);
 
-    await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
+      await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
-    await tester.tap(find.text('Corte masculino'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Corte masculino'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Detalhe do atendimento'), findsOneWidget);
+      expect(find.text('Detalhe do atendimento'), findsOneWidget);
 
-    await tester.tap(find.text('Concluir atendimento'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Concluir atendimento'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Atendimento concluído'), findsOneWidget);
-    // Confirmar pagamento e exclusivo do dono (POST /payments/{id}/mark-paid
-    // e role:owner no backend); profissional nunca deve ver esse atalho.
-    expect(find.text('Confirmar pagamento'), findsNothing);
+      expect(find.text('Atendimento concluído'), findsOneWidget);
 
-    await tester.tap(find.text('Voltar para a agenda'));
-    await tester.pumpAndSettle();
+      // Profissional tambem confirma o pagamento do proprio atendimento avulso
+      // logo apos concluir, mesma tela ja usada pelo dono (POST
+      // /payments/{id}/mark-paid passou a aceitar role:professional, restrito
+      // ao proprio atendimento).
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Atendimentos de hoje'), findsOneWidget);
-  });
+      expect(find.widgetWithText(AppBar, 'Confirmar pagamento'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirmar pagamento'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pagamento confirmado'), findsOneWidget);
+
+      await tester.tap(find.text('Concluir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pagamento confirmado'), findsNothing);
+      expect(find.text('Detalhe do atendimento'), findsNothing);
+      expect(find.text('Atendimentos de hoje'), findsOneWidget);
+    },
+  );
 
   testWidgets('cliente percorre o fluxo completo de agendamento pela API', (
     tester,

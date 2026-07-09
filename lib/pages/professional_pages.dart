@@ -102,6 +102,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
           appointment: appointment,
           appointmentsRepository: widget.appointmentsRepository,
           paymentsRepository: widget.paymentsRepository,
+          canConfirmPayment: true,
         ),
       ),
     );
@@ -463,9 +464,10 @@ class AppointmentDetailPage extends StatefulWidget {
   final bool allowComplete;
 
   /// Libera o atalho "Confirmar pagamento" apos concluir um atendimento
-  /// avulso. Exclusivo do dono — `POST /payments/{id}/mark-paid` e restrito
-  /// a `role:owner` no backend, entao profissional/cliente nunca recebem
-  /// `true` aqui (o botao daria 403 se aparecesse pra eles).
+  /// avulso. Dono e profissional podem confirmar (`POST /payments/{id}/mark-paid`
+  /// e `role:owner,professional` no backend, que restringe o profissional ao
+  /// proprio atendimento); cliente nunca recebe `true` aqui (o botao daria
+  /// 403 se aparecesse pra ele).
   final bool canConfirmPayment;
 
   @override
