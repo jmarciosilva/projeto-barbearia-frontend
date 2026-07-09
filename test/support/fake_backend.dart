@@ -259,6 +259,31 @@ http.Client buildFakeBackend() {
       ]);
     }
 
+    if (method == 'GET' && path.endsWith('/dashboard/team-performance')) {
+      return _jsonResponse(200, [
+        {
+          'professional_id': 10,
+          'professional_name': 'Ana Souza',
+          'completed_count': 6,
+          'avulso_count': 4,
+          'plano_count': 2,
+          'gross_cents': 36000,
+          'commission_percentage': 40,
+          'commission_cents': 14400,
+        },
+        {
+          'professional_id': 11,
+          'professional_name': 'Rafael Souza',
+          'completed_count': 2,
+          'avulso_count': 2,
+          'plano_count': 0,
+          'gross_cents': 12000,
+          'commission_percentage': 35,
+          'commission_cents': 4200,
+        },
+      ]);
+    }
+
     if (method == 'GET' &&
         path.endsWith('/me/professional/schedule-overrides')) {
       return _jsonResponse(200, _professionalScheduleOverridesJson);

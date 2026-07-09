@@ -13,6 +13,7 @@ import 'package:clube_do_salao/models/saas_plan_model.dart';
 import 'package:clube_do_salao/models/saas_subscription_model.dart';
 import 'package:clube_do_salao/models/service_model.dart';
 import 'package:clube_do_salao/models/subscription_plan_model.dart';
+import 'package:clube_do_salao/models/team_performance_model.dart';
 import 'package:clube_do_salao/models/tenant_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:clube_do_salao/pages/account_settings_page.dart';
@@ -461,6 +462,19 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 dashboardRepository: widget.dashboardRepository,
                 professionalsRepository: widget.professionalsRepository,
                 servicesRepository: widget.servicesRepository,
+              ),
+            ),
+          ),
+        ),
+        AppActionTile(
+          icon: Icons.leaderboard,
+          title: 'Desempenho da equipe',
+          subtitle: 'Veja atendimentos realizados e receita gerada por profissional.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TeamPerformancePage(
+                dashboardRepository: widget.dashboardRepository,
+                professionalsRepository: widget.professionalsRepository,
               ),
             ),
           ),
@@ -4555,6 +4569,155 @@ class _OccupancyPageState extends State<OccupancyPage> {
 
     return AppScaffold(
       appBar: AppBar(title: const Text('Ocupação da equipe')),
+      body: body,
+    );
+  }
+}
+
+/// Desempenho da equipe no mes corrente (roadmap Fase 4): estatisticas de
+/// atendimentos realizados e receita gerada por profissional, numa unica
+/// lista para o dono comparar a performance de todos sem abrir um por um.
+/// Toque num profissional abre o mesmo extrato detalhado ja usado em
+/// "Comissoes profissionais" (`ProfessionalCommissionDetailPage`).
+class TeamPerformancePage extends StatefulWidget {
+  const TeamPerformancePage({
+    super.key,
+    required this.dashboardRepository,
+    required this.professionalsRepository,
+  });
+
+  final DashboardRepository dashboardRepository;
+  final ProfessionalsRepository professionalsRepository;
+
+  @override
+  State<TeamPerformancePage> createState() => _TeamPerformancePageState();
+}
+
+class _TeamPerformancePageState extends State<TeamPerformancePage> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<TeamPerformanceEntryModel> _performance = [];
+  List<ProfessionalModel> _professionals = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final results = await Future.wait([
+        widget.dashboardRepository.teamPerformance(),
+        widget.professionalsRepository.index(),
+      ]);
+
+      if (!mounted) return;
+      setState(() {
+        _performance = results[0] as List<TeamPerformanceEntryModel>;
+        _professionals = results[1] as List<ProfessionalModel>;
+        _isLoading = false;
+      });
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openDetail(TeamPerformanceEntryModel entry) async {
+    final professional = _professionals.firstWhere(
+      (item) => item.id == entry.professionalId,
+    );
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ProfessionalCommissionDetailPage(
+          professional: professional,
+          professionalsRepository: widget.professionalsRepository,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (_isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_errorMessage != null) {
+      body = AppLoadingError(message: _errorMessage!, onRetry: _load);
+    } else if (_performance.isEmpty) {
+      body = const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Nenhum profissional ativo ainda.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else {
+      body = ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Toque num profissional para ver o extrato completo do mês.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          for (final entry in _performance)
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                onTap: () => _openDetail(entry),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              entry.professionalName,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          Text(
+                            formatCents(entry.grossCents),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const Icon(Icons.chevron_right),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${entry.completedCount} atendimento${entry.completedCount == 1 ? '' : 's'} '
+                        '(${entry.avulsoCount} avulso, ${entry.planoCount} assinatura) - '
+                        'comissão ${formatCents(entry.commissionCents)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Desempenho da equipe')),
       body: body,
     );
   }

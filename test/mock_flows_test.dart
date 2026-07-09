@@ -924,4 +924,28 @@ void main() {
       expect(find.text('Horário de trabalho'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'proprietario ve o desempenho da equipe e abre o extrato de um profissional',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Desempenho da equipe');
+      await tester.tap(find.text('Desempenho da equipe'));
+      await tester.pumpAndSettle();
+
+      // Ordenado por receita gerada: Ana (mais receita) antes de Rafael.
+      expect(find.text('Ana Souza'), findsOneWidget);
+      expect(find.text('Rafael Souza'), findsOneWidget);
+      expect(find.text('R\$ 360,00'), findsOneWidget);
+      expect(find.text('R\$ 120,00'), findsOneWidget);
+
+      await tester.tap(find.text('Ana Souza'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A receber'), findsOneWidget);
+    },
+  );
 }

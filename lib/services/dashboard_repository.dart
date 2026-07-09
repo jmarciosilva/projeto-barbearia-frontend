@@ -1,10 +1,12 @@
 import 'package:clube_do_salao/models/dashboard_summary_model.dart';
 import 'package:clube_do_salao/models/occupancy_model.dart';
 import 'package:clube_do_salao/models/return_risk_model.dart';
+import 'package:clube_do_salao/models/team_performance_model.dart';
 import 'package:clube_do_salao/services/api_client.dart';
 
 /// Painel Inteligente do Proprietario (roadmap Fase 4): resumo do dia,
-/// ocupacao da equipe e inteligencia de retorno de clientes.
+/// ocupacao da equipe, desempenho da equipe e inteligencia de retorno de
+/// clientes.
 class DashboardRepository {
   const DashboardRepository(this._client);
 
@@ -23,6 +25,19 @@ class DashboardRepository {
     return response
         .map(
           (json) => OccupancyProfessionalModel.fromJson(
+            json as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<TeamPerformanceEntryModel>> teamPerformance() async {
+    final response =
+        await _client.get('/dashboard/team-performance') as List<dynamic>;
+
+    return response
+        .map(
+          (json) => TeamPerformanceEntryModel.fromJson(
             json as Map<String, dynamic>,
           ),
         )
