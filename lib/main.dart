@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:clube_do_salao/core/error_reporter.dart';
+import 'package:clube_do_salao/pages/admin_pages.dart';
 import 'package:clube_do_salao/pages/client_onboarding_pages.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
 import 'package:clube_do_salao/pages/help_center_page.dart';
 import 'package:clube_do_salao/pages/owner_pages.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
+import 'package:clube_do_salao/services/admin_repository.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/client_subscriptions_repository.dart';
@@ -38,7 +40,8 @@ const _logoMarkAsset = 'assets/icon/icon_foreground.png';
 enum UserRole {
   owner('Proprietário', Icons.storefront),
   professional('Profissional', Icons.content_cut),
-  customer('Cliente', Icons.person);
+  customer('Cliente', Icons.person),
+  admin('Administrador', Icons.admin_panel_settings);
 
   const UserRole(this.label, this.icon);
 
@@ -56,6 +59,9 @@ enum UserRole {
     UserRole.owner => HelpAudience.owner,
     UserRole.professional => HelpAudience.professional,
     UserRole.customer => HelpAudience.customer,
+    // Administrador da plataforma nao tem roteiro proprio (publico de 2
+    // pessoas nao justifica conteudo novo) — reaproveita o do dono.
+    UserRole.admin => HelpAudience.owner,
   };
 }
 
@@ -653,6 +659,18 @@ class _DashboardShellState extends State<DashboardShell> {
             clientsRepository: ClientsRepository(apiClient),
             authSession: widget.authSession,
           ),
+        ),
+      ],
+      UserRole.admin => [
+        _ShellPage(
+          'Inicio',
+          Icons.dashboard,
+          AdminHomePage(adminRepository: AdminRepository(apiClient)),
+        ),
+        _ShellPage(
+          'Saloes',
+          Icons.storefront,
+          AdminTenantsPage(adminRepository: AdminRepository(apiClient)),
         ),
       ],
     };

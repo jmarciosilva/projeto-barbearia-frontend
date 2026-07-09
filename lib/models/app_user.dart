@@ -18,7 +18,7 @@ class AppUser {
       name: json['name'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
-      tenantId: json['tenant_id'] as int,
+      tenantId: json['tenant_id'] as int?,
       phone: json['phone'] as String?,
       tenantName: tenant?['name'] as String?,
     );
@@ -28,7 +28,11 @@ class AppUser {
   final String name;
   final String email;
   final String role;
-  final int tenantId;
+
+  /// Nulo para administradores da plataforma, que nao pertencem a nenhum
+  /// estabelecimento (diferente de owner/professional/customer, sempre
+  /// vinculados a um tenant).
+  final int? tenantId;
   final String? phone;
   final String? tenantName;
 }

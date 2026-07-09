@@ -10,7 +10,12 @@ import 'package:http/testing.dart';
 /// O "token" retornado no login e literalmente o papel do usuario
 /// (`owner-token`, `professional-token`, `customer-token`), o que permite
 /// ao `GET /me` simulado devolver o usuario certo sem estado adicional.
-http.Client buildFakeBackend() {
+http.Client buildFakeBackend({
+  bool founderTenant = false,
+  bool trialTenant = false,
+}) {
+  final adminTenants = _buildAdminTenantsJson();
+
   return MockClient((request) async {
     final path = request.url.path;
     final method = request.method;
@@ -117,6 +122,10 @@ http.Client buildFakeBackend() {
           'token': 'customer-token',
           'user': _customerJson,
         }),
+        'admin@clubedosalao.com' => _jsonResponse(200, {
+          'token': 'admin-token',
+          'user': _adminJson,
+        }),
         _ => _jsonResponse(422, {
           'message': 'Dados invalidos.',
           'error': 'validation_error',
@@ -159,8 +168,101 @@ http.Client buildFakeBackend() {
       return http.Response('', 204);
     }
 
+    if (method == 'GET' && path.endsWith('/admin/dashboard')) {
+      final founderCount = adminTenants
+          .where((tenant) => tenant['is_founder'] == true)
+          .length;
+      final activeCount = adminTenants
+          .where(
+            (tenant) =>
+                (tenant['saas_subscription'] as Map)['status'] == 'active',
+          )
+          .length;
+      final trialCount = adminTenants
+          .where(
+            (tenant) =>
+                (tenant['saas_subscription'] as Map)['effective_status'] ==
+                'trial',
+          )
+          .length;
+      final expiredCount = adminTenants
+          .where(
+            (tenant) =>
+                (tenant['saas_subscription'] as Map)['effective_status'] ==
+                'trial_expired',
+          )
+          .length;
+      final projectedRevenueCents = adminTenants
+          .where(
+            (tenant) =>
+                (tenant['saas_subscription'] as Map)['status'] == 'active',
+          )
+          .fold<int>(
+            0,
+            (sum, tenant) =>
+                sum +
+                ((tenant['saas_subscription'] as Map)['price_cents'] as int),
+          );
+
+      return _jsonResponse(200, {
+        'total_tenants': adminTenants.length,
+        'active_tenants': activeCount,
+        'trial_tenants': trialCount,
+        'expired_tenants': expiredCount,
+        'founder_tenants': founderCount,
+        'projected_revenue_cents': projectedRevenueCents,
+        'total_users': 12,
+      });
+    }
+
+    if (method == 'GET' && path.endsWith('/admin/tenants')) {
+      return _jsonResponse(200, adminTenants);
+    }
+
+    if (method == 'PATCH' &&
+        RegExp(r'/admin/tenants/\d+/founder$').hasMatch(path)) {
+      final id = int.parse(
+        RegExp(
+          r'/admin/tenants/(\d+)/founder$',
+        ).firstMatch(path)!.group(1)!,
+      );
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final tenant = adminTenants.firstWhere((tenant) => tenant['id'] == id);
+      tenant['is_founder'] = body['is_founder'];
+
+      return _jsonResponse(200, tenant);
+    }
+
+    if (method == 'POST' &&
+        RegExp(r'/admin/tenants/\d+/subscription/extend$').hasMatch(path)) {
+      final id = int.parse(
+        RegExp(
+          r'/admin/tenants/(\d+)/subscription/extend$',
+        ).firstMatch(path)!.group(1)!,
+      );
+      final tenant = adminTenants.firstWhere((tenant) => tenant['id'] == id);
+      final subscription = tenant['saas_subscription'] as Map<String, dynamic>;
+      subscription['status'] = 'active';
+      subscription['effective_status'] = 'active';
+      subscription['plan_name'] = 'Premium (cortesia)';
+      subscription['price_cents'] = 0;
+      subscription['current_period_ends_at'] = '2027-07-09T00:00:00.000000Z';
+
+      return _jsonResponse(200, tenant);
+    }
+
     if (method == 'GET' && path.endsWith('/tenant')) {
-      return _jsonResponse(200, _tenantJson);
+      return _jsonResponse(200, {
+        ..._tenantJson,
+        'is_founder': founderTenant,
+        if (trialTenant)
+          'saas_subscription': {
+            ..._tenantJson['saas_subscription'] as Map<String, dynamic>,
+            'status': 'trial',
+            'effective_status': 'trial',
+            'trial_days_remaining': 5,
+          },
+      });
     }
 
     if (method == 'PATCH' && path.endsWith('/tenant')) {
@@ -722,6 +824,7 @@ Map<String, dynamic>? _userForToken(http.Request request) {
     'Bearer owner-token' => _ownerJson,
     'Bearer professional-token' => _professionalJson,
     'Bearer customer-token' => _customerJson,
+    'Bearer admin-token' => _adminJson,
     _ => null,
   };
 }
@@ -740,6 +843,7 @@ const _tenantJson = {
   'name': 'Clube do Salao Demo',
   'professional_payment_day': 5,
   'invite_code': 'AB3XQ9',
+  'is_founder': false,
   'saas_subscription': {
     'status': 'active',
     'effective_status': 'active',
@@ -814,6 +918,57 @@ const _customerJson = {
   'tenant_id': 1,
   'tenant': {'name': 'Clube do Salao Demo'},
 };
+
+// Administrador da plataforma (roadmap Fase 5) nao pertence a nenhum
+// tenant, entao nao tem `tenant_id`/`tenant` (espelha o backend real).
+const _adminJson = {
+  'id': 99,
+  'name': 'Jose Admin',
+  'email': 'admin@clubedosalao.com',
+  'role': 'admin',
+};
+
+/// Lista mutavel de saloes vista pelo administrador (`/admin/tenants`).
+/// Uma copia nova e criada a cada `buildFakeBackend()`, entao cada teste
+/// comeca do mesmo estado inicial mesmo apos toggles/concessoes.
+List<Map<String, dynamic>> _buildAdminTenantsJson() => [
+  {
+    'id': 1,
+    'name': 'Clube do Salao Demo',
+    'business_type': 'barbershop',
+    'city': 'Sao Paulo',
+    'is_founder': false,
+    'saas_subscription': {
+      'status': 'active',
+      'effective_status': 'active',
+      'trial_days_remaining': null,
+      'plan_name': 'Intermediario',
+      'price_cents': 12999,
+      'plan': _saasPlansJson[1],
+      'limits': {'professionals': 8, 'client_subscriptions': 400, 'units': 1},
+      'usage': {'professionals': 2, 'client_subscriptions': 3, 'units': 1},
+      'current_period_ends_at': '2026-08-05T00:00:00.000000Z',
+    },
+  },
+  {
+    'id': 2,
+    'name': 'Barbearia do Ze',
+    'business_type': 'barbershop',
+    'city': 'Campinas',
+    'is_founder': true,
+    'saas_subscription': {
+      'status': 'trial',
+      'effective_status': 'trial',
+      'trial_days_remaining': 5,
+      'plan_name': 'Trial',
+      'price_cents': 0,
+      'plan': null,
+      'limits': {'professionals': 3, 'client_subscriptions': 100, 'units': 1},
+      'usage': {'professionals': 1, 'client_subscriptions': 10, 'units': 1},
+      'current_period_ends_at': null,
+    },
+  },
+];
 
 const _professionalMeJson = {
   'id': 10,

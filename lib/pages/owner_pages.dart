@@ -164,7 +164,12 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (subscription.isExpired || subscription.isTrial)
+        if (_tenant!.isFounder)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16),
+            child: _FounderBadge(),
+          ),
+        if (!_tenant!.isFounder && (subscription.isExpired || subscription.isTrial))
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: _SaasPlanBanner(
@@ -5582,6 +5587,37 @@ class _AssignWaitlistPageState extends State<AssignWaitlistPage> {
 
 /// Banner exibido no inicio do dono enquanto o trial esta rodando ou ja
 /// venceu, sempre com um caminho direto pra tela de planos.
+/// Selo exibido no inicio do dashboard do dono para saloes marcados como
+/// fundadores pelo administrador da plataforma (roadmap Fase 5). Faz parte
+/// do clube dos fundadores, entao o aviso de vencimento de trial nao faz
+/// mais sentido pra ele e e suprimido em favor deste selo.
+class _FounderBadge extends StatelessWidget {
+  const _FounderBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.workspace_premium,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text('Salão Fundador do Clube do Salão'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SaasPlanBanner extends StatelessWidget {
   const _SaasPlanBanner({required this.subscription, required this.onTap});
 

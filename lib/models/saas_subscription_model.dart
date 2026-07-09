@@ -29,6 +29,7 @@ class SaasSubscriptionModel {
     required this.usage,
     this.trialDaysRemaining,
     this.plan,
+    this.currentPeriodEndsAt,
   });
 
   factory SaasSubscriptionModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +48,9 @@ class SaasSubscriptionModel {
       usage: SaasPlanCounters.fromJson(
         json['usage'] as Map<String, dynamic>? ?? const {},
       ),
+      currentPeriodEndsAt: json['current_period_ends_at'] == null
+          ? null
+          : DateTime.parse(json['current_period_ends_at'] as String),
     );
   }
 
@@ -58,6 +62,10 @@ class SaasSubscriptionModel {
   final SaasPlanModel? plan;
   final SaasPlanCounters limits;
   final SaasPlanCounters usage;
+
+  /// Data de vencimento do periodo atual (assinatura paga ou cortesia
+  /// concedida por um admin). Nulo em trial, que usa `trialDaysRemaining`.
+  final DateTime? currentPeriodEndsAt;
 
   bool get isTrial => status == 'trial';
   bool get isExpired => effectiveStatus == 'trial_expired';

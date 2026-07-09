@@ -13,9 +13,18 @@ const mobileSize = Size(390, 844);
 
 /// Cria uma sessao de autenticacao apontando para o backend falso, pronta
 /// para os testes de widget (sem rede real nem platform channels).
-AuthSession buildTestAuthSession({OnboardingChecklistStorage? checklistStorage}) {
+AuthSession buildTestAuthSession({
+  OnboardingChecklistStorage? checklistStorage,
+  bool founderTenant = false,
+  bool trialTenant = false,
+}) {
   return AuthSession(
-    apiClient: ApiClient(httpClient: buildFakeBackend()),
+    apiClient: ApiClient(
+      httpClient: buildFakeBackend(
+        founderTenant: founderTenant,
+        trialTenant: trialTenant,
+      ),
+    ),
     storage: FakeTokenStorage(),
     checklistStorage: checklistStorage ?? FakeOnboardingChecklistStorage(),
   );
@@ -25,13 +34,17 @@ AuthSession buildTestAuthSession({OnboardingChecklistStorage? checklistStorage})
 Future<AuthSession> pumpMobileApp(
   WidgetTester tester, {
   AuthSession? authSession,
+  bool founderTenant = false,
+  bool trialTenant = false,
 }) async {
   tester.view.physicalSize = mobileSize;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  final session = authSession ?? buildTestAuthSession();
+  final session =
+      authSession ??
+      buildTestAuthSession(founderTenant: founderTenant, trialTenant: trialTenant);
   await tester.pumpWidget(ClubeDoSalaoApp(authSession: session));
   await tester.pumpAndSettle();
 

@@ -32,6 +32,14 @@ String formatDateTime(DateTime dateTime) {
   return '$day/$month/${dateTime.year} ${formatTime(dateTime)}';
 }
 
+/// Formata so a data como "dd/mm/yyyy" a partir de um [DateTime].
+String formatDate(DateTime dateTime) {
+  final day = dateTime.day.toString().padLeft(2, '0');
+  final month = dateTime.month.toString().padLeft(2, '0');
+
+  return '$day/$month/${dateTime.year}';
+}
+
 const _monthNames = [
   'janeiro',
   'fevereiro',

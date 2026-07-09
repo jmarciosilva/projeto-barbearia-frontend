@@ -11,6 +11,7 @@ class TenantModel {
     this.closingTime,
     this.breakStartTime,
     this.breakEndTime,
+    this.isFounder = false,
   });
 
   factory TenantModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +27,7 @@ class TenantModel {
       closingTime: json['closing_time'] as String?,
       breakStartTime: json['break_start_time'] as String?,
       breakEndTime: json['break_end_time'] as String?,
+      isFounder: json['is_founder'] as bool? ?? false,
     );
   }
 
@@ -33,6 +35,11 @@ class TenantModel {
   final String name;
   final SaasSubscriptionModel saasSubscription;
   final int professionalPaymentDay;
+
+  /// Selo "Salao Fundador" (roadmap Fase 5), decidido manualmente pelo
+  /// administrador da plataforma — suprime o aviso de trial vencendo, que
+  /// nao faz sentido pra quem esta no clube dos fundadores.
+  final bool isFounder;
 
   /// Codigo que o dono compartilha (link/QR) para o cliente se autocadastrar
   /// ja vinculado a este tenant. Ver `POST /auth/register-client`.
