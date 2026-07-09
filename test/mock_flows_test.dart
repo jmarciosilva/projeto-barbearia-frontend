@@ -754,6 +754,9 @@ void main() {
       expect(find.widgetWithText(AppBar, 'Atendimentos do mês'), findsOneWidget);
       expect(find.text('6 atendimentos'), findsOneWidget);
       expect(find.text('Carlos Mendes'), findsWidgets);
+      // Mesma sinalizacao visual de concluido usada no resto do app
+      // (AppDayTimeline), pra manter a identidade visual entre as telas.
+      expect(find.byIcon(Icons.check_circle), findsWidgets);
 
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
@@ -787,6 +790,29 @@ void main() {
 
       expect(find.widgetWithText(AppBar, 'Receita gerada no mês'), findsOneWidget);
       expect(find.text('R\$ 360,00'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Comissão do Mês'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Comissão do mês'), findsOneWidget);
+      // 6 atendimentos de R$ 60,00 a 40% de comissao = R$ 24,00 cada, R$ 144,00 no total.
+      expect(find.text('R\$ 144,00'), findsWidgets);
+      expect(find.text('Carlos Mendes'), findsWidgets);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('A receber'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Adiantamentos'), findsOneWidget);
+      expect(
+        find.text('Adiantamento - 04/07/2026 10:00'),
+        findsOneWidget,
+      );
     },
   );
 

@@ -111,12 +111,17 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
         .where((appointment) => appointment.hasSubscription)
         .toList();
 
-    void openMonthDetail(String title, List<ProfessionalFinanceAppointmentModel> appointments) {
+    void openMonthDetail(
+      String title,
+      List<ProfessionalFinanceAppointmentModel> appointments, {
+      int? commissionPercentage,
+    }) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProfessionalMonthAppointmentsPage(
             title: title,
             appointments: appointments,
+            commissionPercentage: commissionPercentage,
           ),
         ),
       );
@@ -160,6 +165,27 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               onTap: () =>
                   openMonthDetail('Receita gerada no mês', finance.appointments),
             ),
+            AppMetric(
+              'Comissão do Mês',
+              formatCents(finance.commissionCents),
+              Icons.percent,
+              onTap: () => openMonthDetail(
+                'Comissão do mês',
+                finance.appointments,
+                commissionPercentage: finance.commissionPercentage,
+              ),
+            ),
+            AppMetric(
+              'A receber',
+              formatCents(finance.netCents),
+              Icons.wallet,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ProfessionalAdvancesPage(advances: finance.advances),
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -175,31 +201,48 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
 }
 
 /// Detalhe por tras dos cards "Atendimentos"/"Avulso"/"Assinatura"/"Receita
-/// gerada" do painel do profissional (mesmo padrao ja usado no dashboard do
-/// dono para "Prevista hoje"/"Avulsa do mês"), pra o profissional confiar no
-/// numero em vez de so ver um total sem explicacao. Reaproveita a lista de
-/// atendimentos que ja vem em `GET /me/professional/finance`, sem chamada
-/// nova a API.
+/// gerada"/"Comissão do Mês" do painel do profissional (mesmo padrao ja
+/// usado no dashboard do dono para "Prevista hoje"/"Avulsa do mês"), pra o
+/// profissional confiar no numero em vez de so ver um total sem explicacao.
+/// Reaproveita a lista de atendimentos que ja vem em
+/// `GET /me/professional/finance`, sem chamada nova a API. Cada card usa a
+/// mesma sinalizacao visual de atendimento concluido (icone/cor verde) do
+/// resto do app (`AppDayTimeline`) — todo item aqui e sempre concluido, por
+/// isso nao varia por status.
 class ProfessionalMonthAppointmentsPage extends StatelessWidget {
   const ProfessionalMonthAppointmentsPage({
     super.key,
     required this.title,
     required this.appointments,
+    this.commissionPercentage,
   });
 
   final String title;
   final List<ProfessionalFinanceAppointmentModel> appointments;
 
+  /// Quando informado, cada linha (e o total) mostram o valor de comissao
+  /// (preco do servico x percentual) em vez do preco cheio — usado pelo
+  /// card "Comissão do Mês".
+  final int? commissionPercentage;
+
+  int _valueCents(ProfessionalFinanceAppointmentModel appointment) {
+    final price = appointment.servicePriceCents ?? 0;
+    final percentage = commissionPercentage;
+
+    return percentage == null ? price : (price * percentage / 100).round();
+  }
+
   @override
   Widget build(BuildContext context) {
     final totalCents = appointments.fold<int>(
       0,
-      (sum, appointment) => sum + (appointment.servicePriceCents ?? 0),
+      (sum, appointment) => sum + _valueCents(appointment),
     );
     // Decrescente: atendimento mais recente primeiro, mesmo padrao usado no
     // resto do app (AppDayTimeline).
     final sortedAppointments = appointments.toList()
       ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
+    final colorScheme = Theme.of(context).colorScheme;
 
     return AppScaffold(
       appBar: AppBar(title: Text(title)),
@@ -223,11 +266,13 @@ class ProfessionalMonthAppointmentsPage extends StatelessWidget {
                 for (final appointment in sortedAppointments)
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),
+                    color: colorScheme.primaryContainer.withValues(
+                      alpha: 0.45,
+                    ),
                     child: ListTile(
                       leading: Icon(
-                        appointment.hasSubscription
-                            ? Icons.card_membership
-                            : Icons.content_cut,
+                        Icons.check_circle,
+                        color: colorScheme.primary,
                       ),
                       title: Text(appointment.clientName ?? 'Cliente'),
                       subtitle: Text(
@@ -235,13 +280,69 @@ class ProfessionalMonthAppointmentsPage extends StatelessWidget {
                         '${_formatDate(appointment.startsAt)} ${formatTime(appointment.startsAt)} - '
                         '${appointment.hasSubscription ? 'Assinatura' : 'Avulso'}',
                       ),
-                      trailing: Text(
-                        formatCents(appointment.servicePriceCents ?? 0),
-                      ),
+                      trailing: Text(formatCents(_valueCents(appointment))),
                     ),
                   ),
               ],
             ),
+    );
+  }
+}
+
+/// Lista de adiantamentos em ordem decrescente, reaproveitada entre o
+/// "Extrato de adiantamentos" do proprio perfil (`ProfessionalProfilePage`)
+/// e a tela "Adiantamentos" aberta pelo card "A receber" no painel "Hoje".
+class ProfessionalAdvancesList extends StatelessWidget {
+  const ProfessionalAdvancesList({super.key, required this.advances});
+
+  final List<ProfessionalAdvanceModel> advances;
+
+  @override
+  Widget build(BuildContext context) {
+    if (advances.isEmpty) {
+      return const Card(
+        child: ListTile(title: Text('Nenhum adiantamento no mês.')),
+      );
+    }
+
+    // Decrescente: adiantamento mais recente primeiro, mesmo padrao usado
+    // no resto do app (AppDayTimeline).
+    final sorted = advances.toList()
+      ..sort((a, b) => b.paidAt.compareTo(a.paidAt));
+
+    return Column(
+      children: [
+        for (final advance in sorted)
+          Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              leading: const Icon(Icons.payments_outlined),
+              title: Text(formatCents(advance.amountCents)),
+              subtitle: Text(
+                '${advance.notes ?? 'Adiantamento'} - ${formatDateTime(advance.paidAt)}',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Extrato de adiantamentos por tras do card "A receber" do painel "Hoje"
+/// do profissional.
+class ProfessionalAdvancesPage extends StatelessWidget {
+  const ProfessionalAdvancesPage({super.key, required this.advances});
+
+  final List<ProfessionalAdvanceModel> advances;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Adiantamentos')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [ProfessionalAdvancesList(advances: advances)],
+      ),
     );
   }
 }
@@ -354,25 +455,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
       footer: [
         const SizedBox(height: 16),
         const AppSectionTitle('Extrato de adiantamentos'),
-        if (monthFinance.advances.isEmpty)
-          const Card(
-            child: ListTile(title: Text('Nenhum adiantamento no mês.')),
-          )
-        else
-          // Decrescente: adiantamento mais recente primeiro, mesmo padrao
-          // usado no resto do app (AppDayTimeline).
-          for (final advance in monthFinance.advances.toList()
-            ..sort((a, b) => b.paidAt.compareTo(a.paidAt)))
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: ListTile(
-                leading: const Icon(Icons.payments_outlined),
-                title: Text(formatCents(advance.amountCents)),
-                subtitle: Text(
-                  '${advance.notes ?? 'Adiantamento'} - ${formatDateTime(advance.paidAt)}',
-                ),
-              ),
-            ),
+        ProfessionalAdvancesList(advances: monthFinance.advances),
         const SizedBox(height: 16),
         AppActionTile(
           icon: Icons.edit,
