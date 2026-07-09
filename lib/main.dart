@@ -599,6 +599,7 @@ class _DashboardShellState extends State<DashboardShell> {
           ProfessionalProfilePage(
             professionalsRepository: ProfessionalsRepository(apiClient),
             appointmentsRepository: AppointmentsRepository(apiClient),
+            authSession: widget.authSession,
           ),
         ),
       ],

@@ -5,8 +5,10 @@ import 'package:clube_do_salao/models/payment_model.dart';
 import 'package:clube_do_salao/models/professional_finance_model.dart';
 import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/professional_schedule_override_model.dart';
+import 'package:clube_do_salao/pages/account_settings_page.dart';
 import 'package:clube_do_salao/pages/payment_confirmation_page.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
+import 'package:clube_do_salao/services/auth_session.dart';
 import 'package:clube_do_salao/services/payments_repository.dart';
 import 'package:clube_do_salao/services/professionals_repository.dart';
 import 'package:clube_do_salao/widgets/shared_widgets.dart';
@@ -171,10 +173,12 @@ class ProfessionalProfilePage extends StatefulWidget {
     super.key,
     required this.professionalsRepository,
     required this.appointmentsRepository,
+    required this.authSession,
   });
 
   final ProfessionalsRepository professionalsRepository;
   final AppointmentsRepository appointmentsRepository;
+  final AuthSession authSession;
 
   @override
   State<ProfessionalProfilePage> createState() =>
@@ -290,7 +294,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         AppActionTile(
           icon: Icons.edit,
           title: 'Editar perfil',
-          subtitle: 'Atualize especialidade e dados de contato.',
+          subtitle: 'Atualize nome, especialidade e dados de contato.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -317,6 +321,16 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
             );
             _load();
           },
+        ),
+        AppActionTile(
+          icon: Icons.lock_outline,
+          title: 'Meus dados de acesso',
+          subtitle: 'Altere seu e-mail e/ou senha de login.',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+            ),
+          ),
         ),
       ],
     );
@@ -665,6 +679,12 @@ class EditProfessionalProfilePage extends StatefulWidget {
 class _EditProfessionalProfilePageState
     extends State<EditProfessionalProfilePage> {
   final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(
+    text: widget.professional.name,
+  );
+  late final _emailController = TextEditingController(
+    text: widget.professional.email ?? '',
+  );
   late final _specialtyController = TextEditingController(
     text: widget.professional.specialty ?? '',
   );
@@ -677,6 +697,8 @@ class _EditProfessionalProfilePageState
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
     _specialtyController.dispose();
     _phoneController.dispose();
     super.dispose();
@@ -692,6 +714,10 @@ class _EditProfessionalProfilePageState
 
     try {
       await widget.professionalsRepository.updateMe(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
         specialty: _specialtyController.text.trim(),
         phone: _phoneController.text.trim().isEmpty
             ? null
@@ -721,6 +747,21 @@ class _EditProfessionalProfilePageState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nome'),
+              validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Informe o nome' : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'E-mail de contato',
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _specialtyController,
               decoration: const InputDecoration(labelText: 'Especialidade'),

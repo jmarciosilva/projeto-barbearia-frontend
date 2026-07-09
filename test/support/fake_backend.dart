@@ -306,6 +306,8 @@ http.Client buildFakeBackend() {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       return _jsonResponse(200, {
         ..._professionalMeJson,
+        if (body['name'] != null) 'name': body['name'],
+        if (body['email'] != null) 'email': body['email'],
         if (body['specialty'] != null) 'specialty': body['specialty'],
         if (body['phone'] != null) 'phone': body['phone'],
       });
