@@ -236,6 +236,7 @@ http.Client buildFakeBackend() {
         'expected_revenue_today_cents': 24000,
         'recurring_revenue_month_cents': 18400,
         'walkin_revenue_month_cents': 7350,
+        'open_debt_cents': 14990,
       });
     }
 
@@ -1000,7 +1001,7 @@ final _paymentsJson = [
   {
     'id': 1,
     'amount_cents': 19990,
-    'method': 'pix',
+    'method': 'fiado',
     'status': 'pending',
     'due_on': '2026-07-10',
     'subscription': {

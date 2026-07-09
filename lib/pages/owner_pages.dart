@@ -368,6 +368,21 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 _load();
               },
             ),
+            AppMetric(
+              'Fiado em aberto',
+              formatCents(_summary!.openDebtCents),
+              Icons.receipt_long,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => DebtManagementPage(
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -2436,8 +2451,14 @@ class _DebtManagementPageState extends State<DebtManagementPage> {
 
       if (!mounted) return;
       setState(() {
+        // So o que o dono de fato marcou como "Fiado" na confirmacao — um
+        // avulso comum ainda aguardando a primeira confirmacao tambem fica
+        // com status=pending, mas nao e devedor de fiado.
         _pending = payments
-            .where((payment) => payment.status == 'pending')
+            .where(
+              (payment) =>
+                  payment.status == 'pending' && payment.method == 'fiado',
+            )
             .toList();
         _isLoading = false;
       });

@@ -107,6 +107,24 @@ void main() {
     expect(find.text('Recebimento lancado.'), findsOneWidget);
   });
 
+  testWidgets(
+    'dono ve o card de fiado em aberto no dashboard e abre a lista de devedores',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Fiado em aberto');
+      expect(find.text('R\$ 149,90'), findsOneWidget);
+
+      await tester.tap(find.text('Fiado em aberto'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Gestão do fiado'), findsOneWidget);
+      expect(find.text('Joao Ribeiro'), findsOneWidget);
+    },
+  );
+
   testWidgets('proprietario consulta comissao e adiantamento profissional', (
     tester,
   ) async {

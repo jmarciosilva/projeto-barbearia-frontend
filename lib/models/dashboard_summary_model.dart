@@ -8,6 +8,7 @@ class DashboardSummaryModel {
     required this.expectedRevenueTodayCents,
     required this.recurringRevenueMonthCents,
     required this.walkinRevenueMonthCents,
+    required this.openDebtCents,
   });
 
   factory DashboardSummaryModel.fromJson(Map<String, dynamic> json) {
@@ -21,6 +22,7 @@ class DashboardSummaryModel {
       recurringRevenueMonthCents:
           json['recurring_revenue_month_cents'] as int,
       walkinRevenueMonthCents: json['walkin_revenue_month_cents'] as int,
+      openDebtCents: json['open_debt_cents'] as int,
     );
   }
 
@@ -32,4 +34,5 @@ class DashboardSummaryModel {
   final int expectedRevenueTodayCents;
   final int recurringRevenueMonthCents;
   final int walkinRevenueMonthCents;
+  final int openDebtCents;
 }
