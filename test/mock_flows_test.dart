@@ -1039,6 +1039,83 @@ void main() {
     },
   );
 
+  testWidgets(
+    'proprietario edita valor e forma de pagamento de um lancamento confirmado',
+    (tester) async {
+      // Usabilidade pedida pelo usuario: dona do Salao da Joyce lancou o
+      // pagamento da assinatura da Fernanda duas vezes por engano (debito e
+      // credito) — precisa poder corrigir o lancamento errado direto na
+      // tela de receita do mes.
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Fernanda do Bairro'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Editar lançamento'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, '80,00');
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Cartão crédito'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lançamento atualizado.'), findsOneWidget);
+      expect(find.text('R\$ 80,00'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'proprietario exclui um lancamento duplicado de pagamento',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Fernanda do Bairro'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Excluir lançamento'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Excluir lançamento?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Excluir'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lançamento excluído.'), findsOneWidget);
+      expect(find.text('Fernanda do Bairro'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'recebimento parcial de fiado na receita do mes continua somente leitura',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Pedro Devedor'));
+      await tester.pumpAndSettle();
+
+      // Sem onTap: continua na mesma tela, nao abre nenhum editor.
+      expect(find.widgetWithText(AppBar, 'Receita do mês'), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Editar lançamento'), findsNothing);
+    },
+  );
+
   testWidgets('profissional registra ajuste de horario de um dia', (
     tester,
   ) async {

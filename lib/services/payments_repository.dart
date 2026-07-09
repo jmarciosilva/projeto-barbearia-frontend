@@ -78,4 +78,32 @@ class PaymentsRepository {
         .map((json) => PaymentModel.fromJson(json as Map<String, dynamic>))
         .toList();
   }
+
+  /// Corrige um lancamento ja confirmado (valor/metodo/observacao digitados
+  /// errado, ex: dono lancou o mesmo pagamento duas vezes). NAO enfileiravel
+  /// offline de proposito — e uma correcao de registro financeiro, nao deve
+  /// ficar reenviando sozinha depois sem o dono ver o resultado na hora
+  /// (mesmo padrao ja usado por `deleteScheduleOverride`).
+  Future<PaymentModel> update({
+    required int id,
+    int? amountCents,
+    String? method,
+    String? notes,
+  }) async {
+    final response =
+        await _client.patch(
+              '/payments/$id',
+              body: {
+                'amount_cents': ?amountCents,
+                'method': ?method,
+                'notes': ?notes,
+              },
+            )
+            as Map<String, dynamic>;
+
+    return PaymentModel.fromJson(response);
+  }
+
+  /// Remove um lancamento errado. Ver `update` sobre nao ser enfileiravel.
+  Future<void> delete(int id) => _client.delete('/payments/$id');
 }

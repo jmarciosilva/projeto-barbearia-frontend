@@ -25,6 +25,7 @@ http.Client buildFakeBackend({
   FakeConnectivityToggle? offlineToggle,
 }) {
   final adminTenants = _buildAdminTenantsJson();
+  final payments = _buildPaymentsJson();
 
   return MockClient((request) async {
     if (offlineToggle?.offline ?? false) {
@@ -770,11 +771,11 @@ http.Client buildFakeBackend({
     }
 
     if (method == 'GET' && path.endsWith('/me/payments')) {
-      return _jsonResponse(200, _paymentsJson);
+      return _jsonResponse(200, payments);
     }
 
     if (method == 'GET' && path.endsWith('/payments')) {
-      return _jsonResponse(200, _paymentsJson);
+      return _jsonResponse(200, payments);
     }
 
     if (method == 'POST' && path.endsWith('/payments')) {
@@ -798,7 +799,7 @@ http.Client buildFakeBackend({
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       final selectedMethod = body['method'] as String;
       return _jsonResponse(200, {
-        ..._paymentsJson.first,
+        ...payments.first,
         'method': selectedMethod,
         'status': selectedMethod == 'fiado' ? 'pending' : 'paid',
       });
@@ -809,11 +810,11 @@ http.Client buildFakeBackend({
         path.endsWith('/receipts')) {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
       return _jsonResponse(200, {
-        ..._paymentsJson.first,
+        ...payments.first,
         'method': body['method'],
         'status': 'pending',
         'receipts': [
-          ...(_paymentsJson.first['receipts'] as List<dynamic>),
+          ...(payments.first['receipts'] as List<dynamic>),
           {
             'id': 2,
             'amount_cents': body['amount_cents'],
@@ -822,6 +823,38 @@ http.Client buildFakeBackend({
           },
         ],
       });
+    }
+
+    if (method == 'PATCH' && RegExp(r'/payments/\d+$').hasMatch(path)) {
+      final id = int.parse(
+        RegExp(r'/payments/(\d+)$').firstMatch(path)!.group(1)!,
+      );
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final index = payments.indexWhere((payment) => payment['id'] == id);
+      if (index == -1) {
+        return _jsonResponse(404, {
+          'message': 'Registro nao encontrado.',
+          'error': 'not_found',
+        });
+      }
+
+      payments[index] = {
+        ...payments[index],
+        if (body['amount_cents'] != null) 'amount_cents': body['amount_cents'],
+        if (body['method'] != null) 'method': body['method'],
+        if (body['notes'] != null) 'notes': body['notes'],
+      };
+
+      return _jsonResponse(200, payments[index]);
+    }
+
+    if (method == 'DELETE' && RegExp(r'/payments/\d+$').hasMatch(path)) {
+      final id = int.parse(
+        RegExp(r'/payments/(\d+)$').firstMatch(path)!.group(1)!,
+      );
+      payments.removeWhere((payment) => payment['id'] == id);
+
+      return http.Response('', 204);
     }
 
     return _jsonResponse(404, {
@@ -1251,7 +1284,11 @@ final _waitlistEntriesJson = [
   },
 ];
 
-final _paymentsJson = [
+/// Nova lista a cada chamada — os testes de editar/excluir lancamento
+/// precisam de estado mutavel de verdade (edicao/exclusao refletindo numa
+/// releitura via `GET /payments` dentro do mesmo teste), mesmo padrao ja
+/// usado por `_buildAdminTenantsJson()`.
+List<Map<String, dynamic>> _buildPaymentsJson() => [
   {
     'id': 1,
     'amount_cents': 19990,

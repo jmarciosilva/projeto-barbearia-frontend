@@ -2461,18 +2461,30 @@ class _TodayRevenuePageState extends State<TodayRevenuePage> {
 /// fiado inteiro e quitado.
 class _RevenueEntry {
   const _RevenueEntry({
+    required this.paymentId,
     required this.clientName,
     required this.description,
     required this.amountCents,
+    required this.method,
     required this.date,
     required this.icon,
+    required this.isEditable,
   });
 
+  final int paymentId;
   final String clientName;
   final String description;
   final int amountCents;
+  final String method;
   final DateTime date;
   final IconData icon;
+
+  /// So o pagamento confirmado numa tacada so (sem nenhum recibo) e
+  /// editavel/excluivel por aqui nesta rodada — um recebimento parcial de
+  /// fiado levanta perguntas novas (o pagamento pai deveria voltar pra
+  /// pendente? os outros recibos do mesmo fiado continuam validos?) que nao
+  /// fazem parte do problema que motivou esta tela.
+  final bool isEditable;
 }
 
 /// Extrato por tras do card "Receita do mês" (Painel Inteligente): mesma
@@ -2533,11 +2545,14 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
           if (isThisMonth(paidAt)) {
             entries.add(
               _RevenueEntry(
+                paymentId: payment.id,
                 clientName: payment.clientName ?? 'Cliente',
                 description: '$origin - ${payment.methodLabel}',
                 amountCents: payment.amountCents,
+                method: payment.method,
                 date: paidAt!,
                 icon: icon,
+                isEditable: true,
               ),
             );
           }
@@ -2548,12 +2563,15 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
           if (isThisMonth(receivedAt)) {
             entries.add(
               _RevenueEntry(
+                paymentId: payment.id,
                 clientName: payment.clientName ?? 'Cliente',
                 description:
                     '$origin - recebimento (${receipt.methodLabel})',
                 amountCents: receipt.amountCents,
+                method: receipt.method,
                 date: receivedAt!,
                 icon: icon,
+                isEditable: false,
               ),
             );
           }
@@ -2574,6 +2592,22 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _openEntry(_RevenueEntry entry) async {
+    if (!entry.isEditable) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditPaymentEntryPage(
+          paymentsRepository: widget.paymentsRepository,
+          paymentId: entry.paymentId,
+          amountCents: entry.amountCents,
+          method: entry.method,
+        ),
+      ),
+    );
+    _load();
   }
 
   @override
@@ -2615,6 +2649,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
                 title: Text(entry.clientName),
                 subtitle: Text(entry.description),
                 trailing: Text(formatCents(entry.amountCents)),
+                onTap: entry.isEditable ? () => _openEntry(entry) : null,
               ),
             ),
         ],
@@ -2624,6 +2659,213 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
     return AppScaffold(
       appBar: AppBar(title: const Text('Receita do mês')),
       body: body,
+    );
+  }
+}
+
+/// Corrige ou remove um lancamento confirmado (ex: dono lancou o mesmo
+/// pagamento duas vezes por engano). So alcancavel a partir de "Receita do
+/// mês" pra lancamentos "pagos numa tacada so" (ver `_RevenueEntry.isEditable`).
+class EditPaymentEntryPage extends StatefulWidget {
+  const EditPaymentEntryPage({
+    super.key,
+    required this.paymentsRepository,
+    required this.paymentId,
+    required this.amountCents,
+    required this.method,
+  });
+
+  final PaymentsRepository paymentsRepository;
+  final int paymentId;
+  final int amountCents;
+  final String method;
+
+  @override
+  State<EditPaymentEntryPage> createState() => _EditPaymentEntryPageState();
+}
+
+class _EditPaymentEntryPageState extends State<EditPaymentEntryPage> {
+  late final _amountController = TextEditingController(
+    text: (widget.amountCents / 100).toStringAsFixed(2).replaceAll('.', ','),
+  );
+  final _notesController = TextEditingController();
+  late String _selectedMethod = widget.method;
+  bool _isSaving = false;
+  bool _isDeleting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.paymentsRepository.update(
+        id: widget.paymentId,
+        amountCents: parsePriceToCents(_amountController.text),
+        method: _selectedMethod,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lançamento atualizado.')));
+      Navigator.of(context).pop(true);
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isSaving = false;
+      });
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Excluir lançamento?'),
+        content: const Text(
+          'Essa ação não pode ser desfeita. Use isso pra corrigir um lançamento duplicado ou registrado por engano.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isDeleting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.paymentsRepository.delete(widget.paymentId);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lançamento excluído.')));
+      Navigator.of(context).pop(true);
+    } on AppException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.userMessage;
+        _isDeleting = false;
+      });
+    }
+  }
+
+  static const _editableMethods = {
+    'pix': 'PIX',
+    'credit_card': 'Cartão crédito',
+    'debit_card': 'Cartão débito',
+    'cash': 'Dinheiro',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final isBusy = _isSaving || _isDeleting;
+
+    return AppScaffold(
+      appBar: AppBar(title: const Text('Editar lançamento')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          TextFormField(
+            controller: _amountController,
+            decoration: const InputDecoration(labelText: 'Valor'),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 16),
+          const AppSectionTitle('Forma de pagamento'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entry in _editableMethods.entries)
+                ChoiceChip(
+                  label: Text(entry.value),
+                  selected: _selectedMethod == entry.key,
+                  onSelected: isBusy
+                      ? null
+                      : (_) => setState(() => _selectedMethod = entry.key),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Observação (opcional)',
+            ),
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorMessage!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: isBusy ? null : _save,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+            ),
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Salvar'),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: isBusy ? null : _confirmDelete,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              foregroundColor: Theme.of(context).colorScheme.error,
+              side: BorderSide(color: Theme.of(context).colorScheme.error),
+            ),
+            child: _isDeleting
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  )
+                : const Text('Excluir lançamento'),
+          ),
+        ],
+      ),
     );
   }
 }
