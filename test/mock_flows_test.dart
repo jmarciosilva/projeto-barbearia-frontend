@@ -978,17 +978,28 @@ void main() {
       // Card fica junto dos outros cards de "Hoje", nao mais em "Proximas
       // acoes" — visivel sem rolar a tela.
       expect(find.text('Desempenho da equipe'), findsOneWidget);
-      // Media da equipe: (192+100)/(240+200) = 66%.
-      expect(find.text('66%'), findsOneWidget);
+      // Total de atendimentos da equipe no mes: Ana (6) + Rafael (2) = 8.
+      expect(find.text('8'), findsOneWidget);
 
       await tester.tap(find.text('Desempenho da equipe'));
       await tester.pumpAndSettle();
 
-      // Ordenado por ocupacao (decrescente): Ana (80%) antes de Rafael (50%).
+      // Ordenado por receita gerada (decrescente): Ana (melhor, 100%) antes
+      // de Rafael (12000/36000 = 33%). Sem depender de horario de trabalho
+      // configurado (bug real: salao sem esse cadastro ficava sem dado
+      // nenhum quando a barra usava ocupacao).
       expect(find.text('Ana Souza'), findsOneWidget);
       expect(find.text('Rafael Souza'), findsOneWidget);
-      expect(find.text('80%'), findsOneWidget);
-      expect(find.text('50%'), findsOneWidget);
+      expect(find.text('100%'), findsOneWidget);
+      expect(find.text('33%'), findsOneWidget);
+      expect(
+        find.text('6 atendimentos - R\$ 360,00 - a receber R\$ 114,00'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('2 atendimentos - R\$ 120,00 - a receber R\$ 42,00'),
+        findsOneWidget,
+      );
     },
   );
 }

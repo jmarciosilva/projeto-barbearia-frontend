@@ -76,7 +76,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
   bool _isLoading = true;
   String? _errorMessage;
   DashboardSummaryModel? _summary;
-  int _teamOccupancyPercentage = 0;
+  int _teamCompletedCount = 0;
   SaasSubscriptionModel? _saasSubscription;
   TenantModel? _tenant;
   int _professionalsCount = 0;
@@ -112,7 +112,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
     try {
       final summary = await widget.dashboardRepository.summary();
-      final occupancy = await widget.dashboardRepository.occupancy();
+      final teamPerformance = await widget.dashboardRepository.teamPerformance();
       final tenant = await widget.tenantRepository.show();
       final professionals = await widget.professionalsRepository.index();
       final services = await widget.servicesRepository.index();
@@ -127,7 +127,10 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
       if (!mounted) return;
       setState(() {
         _summary = summary;
-        _teamOccupancyPercentage = _averageOccupancy(occupancy);
+        _teamCompletedCount = teamPerformance.fold<int>(
+          0,
+          (sum, entry) => sum + entry.completedCount,
+        );
         _saasSubscription = tenant.saasSubscription;
         _tenant = tenant;
         _professionalsCount = professionals.length;
@@ -322,7 +325,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             ),
             AppMetric(
               'Desempenho da equipe',
-              '$_teamOccupancyPercentage%',
+              '$_teamCompletedCount',
               Icons.leaderboard,
               onTap: () async {
                 await Navigator.of(context).push(
@@ -4450,43 +4453,8 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
   }
 }
 
-/// Percentual medio de ocupacao da equipe inteira (semana corrente), a
-/// partir da mesma agregacao por profissional/dia usada em "Ocupação da
-/// equipe" — usado no card "Desempenho da equipe" do dashboard.
-int _averageOccupancy(List<OccupancyProfessionalModel> occupancy) {
-  var totalAvailable = 0;
-  var totalOccupied = 0;
-  for (final professional in occupancy) {
-    for (final day in professional.days) {
-      totalAvailable += day.availableMinutes;
-      totalOccupied += day.occupiedMinutes;
-    }
-  }
-
-  return totalAvailable > 0
-      ? ((totalOccupied / totalAvailable) * 100).round().clamp(0, 100)
-      : 0;
-}
-
-/// Percentual de ocupacao de um unico profissional (semana corrente),
-/// somando os dias configurados em vez de detalhar dia a dia.
-int _professionalOccupancy(OccupancyProfessionalModel professional) {
-  final totalAvailable = professional.days.fold<int>(
-    0,
-    (sum, day) => sum + day.availableMinutes,
-  );
-  final totalOccupied = professional.days.fold<int>(
-    0,
-    (sum, day) => sum + day.occupiedMinutes,
-  );
-
-  return totalAvailable > 0
-      ? ((totalOccupied / totalAvailable) * 100).round().clamp(0, 100)
-      : 0;
-}
-
-/// Verde/amarelo/vermelho conforme o percentual de ocupacao, reaproveitado
-/// pela barra da tela de ocupacao e pelo card "Desempenho da equipe".
+/// Verde/amarelo/vermelho conforme o percentual, reaproveitado pela barra
+/// da tela de ocupacao e pelas barras de "Desempenho da equipe".
 Color _percentageColor(BuildContext context, int percentage) {
   if (percentage >= 80) return Colors.green;
   if (percentage >= 40) return Colors.amber.shade800;
@@ -4698,9 +4666,11 @@ class _OccupancyPageState extends State<OccupancyPage> {
 
 /// Desempenho da equipe (roadmap Fase 4): percentual de ocupacao da agenda
 /// de cada profissional (semana corrente), numa barra por profissional,
-/// ordenado do mais ocupado para o menos ocupado — mesmo calculo ja usado
-/// em "Ocupação da equipe", so que resumido a um numero por profissional em
-/// vez do detalhe dia a dia.
+/// ordenado do profissional que mais gerou receita no mes para o que menos
+/// gerou — cada barra e relativa ao melhor profissional (100%), pra dar
+/// visibilidade imediata de atendimentos/receita sem exigir nenhum cadastro
+/// extra (diferente de ocupacao, que depende de horario de trabalho
+/// configurado e pode ficar vazia mesmo com atendimentos reais).
 class TeamPerformancePage extends StatefulWidget {
   const TeamPerformancePage({super.key, required this.dashboardRepository});
 
@@ -4713,7 +4683,7 @@ class TeamPerformancePage extends StatefulWidget {
 class _TeamPerformancePageState extends State<TeamPerformancePage> {
   bool _isLoading = true;
   String? _errorMessage;
-  List<OccupancyProfessionalModel> _occupancy = [];
+  List<TeamPerformanceEntryModel> _performance = [];
 
   @override
   void initState() {
@@ -4728,11 +4698,11 @@ class _TeamPerformancePageState extends State<TeamPerformancePage> {
     });
 
     try {
-      final occupancy = await widget.dashboardRepository.occupancy();
+      final performance = await widget.dashboardRepository.teamPerformance();
 
       if (!mounted) return;
       setState(() {
-        _occupancy = occupancy;
+        _performance = performance;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -4752,65 +4722,77 @@ class _TeamPerformancePageState extends State<TeamPerformancePage> {
       body = const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
-    } else if (_occupancy.isEmpty) {
+    } else if (_performance.isEmpty) {
       body = const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'Nenhum profissional com horário de trabalho configurado ainda.',
+            'Nenhum profissional ativo ainda.',
             textAlign: TextAlign.center,
           ),
         ),
       );
     } else {
-      final ranked = _occupancy.toList()
-        ..sort(
-          (a, b) =>
-              _professionalOccupancy(b).compareTo(_professionalOccupancy(a)),
-        );
+      // Ja vem ordenado por receita gerada (decrescente) da API; o topo da
+      // lista e o melhor profissional, usado como referencia de 100%.
+      final topGrossCents = _performance.first.grossCents;
 
       body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          for (final professional in ranked)
+          for (final entry in _performance)
             Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    professional.professionalName,
+                    entry.professionalName,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: _professionalOccupancy(professional) / 100,
-                            minHeight: 14,
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHighest,
-                            color: _percentageColor(
-                              context,
-                              _professionalOccupancy(professional),
+                  Builder(
+                    builder: (context) {
+                      final percentage = topGrossCents > 0
+                          ? ((entry.grossCents / topGrossCents) * 100)
+                                .round()
+                                .clamp(0, 100)
+                          : 0;
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: percentage / 100,
+                                minHeight: 14,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                color: _percentageColor(context, percentage),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 44,
-                        child: Text(
-                          '${_professionalOccupancy(professional)}%',
-                          textAlign: TextAlign.right,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 44,
+                            child: Text(
+                              '$percentage%',
+                              textAlign: TextAlign.right,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${entry.completedCount} atendimento${entry.completedCount == 1 ? '' : 's'} - '
+                    '${formatCents(entry.grossCents)} - '
+                    'a receber ${formatCents(entry.netCents)}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
