@@ -1018,6 +1018,27 @@ void main() {
     },
   );
 
+  testWidgets(
+    'pagamento de assinatura confirmado neste mes entra na receita do mes',
+    (tester) async {
+      // Bug real reportado pelo usuario: pagamento da assinatura de
+      // "Fernanda do Bairro" (Corte de Cabelo Feminino) nao aparecia na
+      // receita do mes, so pagamento avulso entrava — a receita do mes deve
+      // contar todo pagamento confirmado no mes, avulso ou de assinatura.
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fernanda do Bairro'), findsOneWidget);
+      expect(find.textContaining('Plano Feminino'), findsOneWidget);
+      expect(find.text('R\$ 99,90'), findsWidgets);
+    },
+  );
+
   testWidgets('profissional registra ajuste de horario de um dia', (
     tester,
   ) async {

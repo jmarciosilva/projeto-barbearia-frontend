@@ -1306,4 +1306,21 @@ final _paymentsJson = [
       },
     ],
   },
+  // Pagamento de assinatura confirmado neste mes (data calculada em tempo
+  // de execucao) — cobre o bug real onde pagamento com client_subscription_id
+  // nao entrava na receita do mes, so o avulso.
+  {
+    'id': 4,
+    'amount_cents': 9990,
+    'method': 'pix',
+    'status': 'paid',
+    'due_on': null,
+    'paid_at': DateTime.now().toIso8601String(),
+    'client_subscription_id': 501,
+    'subscription': {
+      'client': {'name': 'Fernanda do Bairro'},
+      'plan': {'name': 'Plano Feminino'},
+    },
+    'receipts': <dynamic>[],
+  },
 ];

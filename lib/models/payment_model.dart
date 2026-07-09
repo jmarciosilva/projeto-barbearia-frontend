@@ -11,12 +11,14 @@ class PaymentModel {
     this.notes,
     this.clientName,
     this.serviceName,
+    this.planName,
     this.receipts = const [],
   });
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
     final subscription = json['subscription'] as Map<String, dynamic>?;
     final subscriptionClient = subscription?['client'] as Map<String, dynamic>?;
+    final subscriptionPlan = subscription?['plan'] as Map<String, dynamic>?;
     final directClient = json['client'] as Map<String, dynamic>?;
     final appointment = json['appointment'] as Map<String, dynamic>?;
     final service = appointment?['service'] as Map<String, dynamic>?;
@@ -36,6 +38,7 @@ class PaymentModel {
           directClient?['name'] as String? ??
           subscriptionClient?['name'] as String?,
       serviceName: service?['name'] as String?,
+      planName: subscriptionPlan?['name'] as String?,
       receipts: receiptsJson
           .map(
             (receipt) =>
@@ -56,6 +59,7 @@ class PaymentModel {
   final String? notes;
   final String? clientName;
   final String? serviceName;
+  final String? planName;
   final List<PaymentReceiptModel> receipts;
 
   /// Pagamento avulso (agendamento sem plano) nao tem `client_subscription_id`.

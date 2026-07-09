@@ -2454,29 +2454,34 @@ class _TodayRevenuePageState extends State<TodayRevenuePage> {
   }
 }
 
-/// Uma linha de receita avulsa do mes: um pagamento confirmado na hora (sem
-/// nenhum recibo, ex: `markPaid`) ou um recebimento parcial de um fiado (ver
-/// `PaymentController::receive` no backend) — cada um contado no mes em que
-/// o dinheiro de fato entrou, nao so quando o fiado inteiro e quitado.
+/// Uma linha de receita do mes: um pagamento confirmado na hora (sem nenhum
+/// recibo, ex: `markPaid`), avulso ou de assinatura, ou um recebimento
+/// parcial de um fiado (ver `PaymentController::receive` no backend) — cada
+/// um contado no mes em que o dinheiro de fato entrou, nao so quando o
+/// fiado inteiro e quitado.
 class _RevenueEntry {
   const _RevenueEntry({
     required this.clientName,
     required this.description,
     required this.amountCents,
     required this.date,
+    required this.icon,
   });
 
   final String clientName;
   final String description;
   final int amountCents;
   final DateTime date;
+  final IconData icon;
 }
 
 /// Extrato por tras do card "Receita do mês" (Painel Inteligente): mesma
-/// soma de `walkin_revenue_month_cents` no backend — pagamentos avulsos
-/// confirmados na hora dentro do mes corrente, mais qualquer recebimento
-/// parcial de fiado recebido dentro do mes (mesmo que o fiado ainda nao
-/// esteja quitado por completo).
+/// soma de `walkin_revenue_month_cents` no backend — todo pagamento de fato
+/// confirmado dentro do mes corrente, avulso ou de assinatura, mais
+/// qualquer recebimento parcial de fiado recebido dentro do mes (mesmo que
+/// o fiado ainda nao esteja quitado por completo). Diferente de "Recorrente
+/// do mês", que e uma projecao pelo preco do plano das assinaturas ativas,
+/// nao pelo que de fato foi pago.
 class WalkinRevenueMonthPage extends StatefulWidget {
   const WalkinRevenueMonthPage({super.key, required this.paymentsRepository});
 
@@ -2514,7 +2519,9 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
       final entries = <_RevenueEntry>[];
 
       for (final payment in payments) {
-        if (!payment.isAvulso) continue;
+        final icon = payment.isAvulso ? Icons.content_cut : Icons.autorenew;
+        final origin =
+            payment.serviceName ?? payment.planName ?? 'Pagamento';
 
         // Confirmado na hora, sem recibo: entra pelo valor cheio no mes do
         // paid_at. Se tiver recibo, ja e contado abaixo — senao contaria
@@ -2527,10 +2534,10 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
             entries.add(
               _RevenueEntry(
                 clientName: payment.clientName ?? 'Cliente',
-                description:
-                    '${payment.serviceName ?? 'Avulso'} - ${payment.methodLabel}',
+                description: '$origin - ${payment.methodLabel}',
                 amountCents: payment.amountCents,
                 date: paidAt!,
+                icon: icon,
               ),
             );
           }
@@ -2543,9 +2550,10 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
               _RevenueEntry(
                 clientName: payment.clientName ?? 'Cliente',
                 description:
-                    '${payment.serviceName ?? 'Avulso'} - recebimento (${receipt.methodLabel})',
+                    '$origin - recebimento (${receipt.methodLabel})',
                 amountCents: receipt.amountCents,
                 date: receivedAt!,
+                icon: icon,
               ),
             );
           }
@@ -2603,7 +2611,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
             Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
-                leading: const Icon(Icons.content_cut),
+                leading: Icon(entry.icon),
                 title: Text(entry.clientName),
                 subtitle: Text(entry.description),
                 trailing: Text(formatCents(entry.amountCents)),
