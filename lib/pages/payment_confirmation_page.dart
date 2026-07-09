@@ -57,6 +57,16 @@ class _PaymentConfirmationPageState extends State<PaymentConfirmationPage> {
         );
         Navigator.of(context).pop(false);
       }
+    } on QueuedForSyncException catch (queued) {
+      // Sem conexao: nao ha resposta do servidor pra saber se ficou pago ou
+      // fiado, so que a confirmacao foi salva localmente — pula o painel de
+      // sucesso (que dependeria dessa distincao) e usa a mensagem neutra.
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
+      Navigator.of(context).pop(false);
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {

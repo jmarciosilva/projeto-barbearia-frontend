@@ -7,6 +7,7 @@ import 'package:clube_do_salao/pages/client_onboarding_pages.dart';
 import 'package:clube_do_salao/pages/customer_pages.dart';
 import 'package:clube_do_salao/pages/help_center_page.dart';
 import 'package:clube_do_salao/pages/owner_pages.dart';
+import 'package:clube_do_salao/pages/pending_sync_page.dart';
 import 'package:clube_do_salao/pages/professional_pages.dart';
 import 'package:clube_do_salao/services/admin_repository.dart';
 import 'package:clube_do_salao/services/appointments_repository.dart';
@@ -494,6 +495,30 @@ class _DashboardShellState extends State<DashboardShell> {
           ],
         ),
         actions: [
+          ListenableBuilder(
+            listenable: widget.authSession.mutationQueue,
+            builder: (context, _) {
+              final queue = widget.authSession.mutationQueue;
+              final icon = queue.isOnline
+                  ? Icons.cloud_done_outlined
+                  : Icons.cloud_off_outlined;
+
+              return IconButton(
+                tooltip: 'Sincronização',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => PendingSyncPage(mutationQueue: queue),
+                  ),
+                ),
+                icon: queue.pendingCount > 0
+                    ? Badge(
+                        label: Text('${queue.pendingCount}'),
+                        child: Icon(icon),
+                      )
+                    : Icon(icon),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Ajuda',
             onPressed: () => Navigator.of(context).push(

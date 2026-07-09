@@ -1,7 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+/// Liga/desliga a simulacao de "sem conexao" de `buildFakeBackend` durante
+/// um teste (mutavel, pra dar pra simular a conexao caindo/voltando no meio
+/// de um fluxo — ex: logar online, depois ficar offline pra testar a fila
+/// de sincronizacao, depois voltar online pra testar o flush automatico).
+class FakeConnectivityToggle {
+  bool offline = false;
+}
 
 /// Simula as respostas do backend Laravel (`backend/docs/api.md`) o
 /// suficiente para exercitar login e os fluxos dos 3 perfis em testes de
@@ -13,10 +22,15 @@ import 'package:http/testing.dart';
 http.Client buildFakeBackend({
   bool founderTenant = false,
   bool trialTenant = false,
+  FakeConnectivityToggle? offlineToggle,
 }) {
   final adminTenants = _buildAdminTenantsJson();
 
   return MockClient((request) async {
+    if (offlineToggle?.offline ?? false) {
+      throw const SocketException('Sem conexao (simulado em teste).');
+    }
+
     final path = request.url.path;
     final method = request.method;
 

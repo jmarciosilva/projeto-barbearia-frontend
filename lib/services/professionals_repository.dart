@@ -28,6 +28,7 @@ class ProfessionalsRepository {
 
   /// Autoedicao do proprio perfil (`PATCH /me/professional`). Nao aceita
   /// comissao nem ativacao — isso continua exclusivo do proprietario.
+  /// Enfileiravel offline (roadmap): nao disputa um horario de agenda.
   Future<ProfessionalModel> updateMe({
     String? name,
     String? email,
@@ -35,7 +36,7 @@ class ProfessionalsRepository {
     String? specialty,
   }) async {
     final response =
-        await _client.patch(
+        await _client.patchQueueable(
               '/me/professional',
               body: {
                 'name': ?name,
@@ -43,6 +44,7 @@ class ProfessionalsRepository {
                 'phone': ?phone,
                 'specialty': ?specialty,
               },
+              description: 'Meu perfil — atualização',
             )
             as Map<String, dynamic>;
 
@@ -137,15 +139,18 @@ class ProfessionalsRepository {
     return ProfessionalFinanceModel.fromJson(response);
   }
 
+  /// Enfileiravel offline (roadmap): registra um adiantamento ja pago fora
+  /// do app (dinheiro/pix na hora), nao disputa um horario de agenda.
   Future<ProfessionalAdvanceModel> createAdvance({
     required int professionalId,
     required int amountCents,
     String? notes,
   }) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/professionals/$professionalId/advances',
               body: {'amount_cents': amountCents, 'notes': ?notes},
+              description: 'Adiantamento — lançamento',
             )
             as Map<String, dynamic>;
 

@@ -22,6 +22,9 @@ class ClientsRepository {
     return ClientModel.fromJson(response);
   }
 
+  /// Enfileiravel offline (roadmap): nao disputa um horario de agenda, so
+  /// cadastra um registro — pior caso de sincronizar depois e um duplicado
+  /// recuperavel manualmente, nunca uma quebra de confianca.
   Future<ClientModel> create({
     required String name,
     required String phone,
@@ -31,7 +34,7 @@ class ClientsRepository {
     String? password,
   }) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/clients',
               body: {
                 'name': name,
@@ -41,6 +44,7 @@ class ClientsRepository {
                 'notes': ?notes,
                 'password': ?password,
               },
+              description: "Cliente '$name' — cadastro",
             )
             as Map<String, dynamic>;
 
@@ -49,11 +53,13 @@ class ClientsRepository {
 
   /// Autoedicao do proprio perfil (`PATCH /me/client`). Nao mexe em e-mail/
   /// senha de login — isso continua exclusivo de `PATCH /me/credentials`.
+  /// Enfileiravel offline (ver `create`).
   Future<ClientModel> updateMe({String? name, String? phone, String? email}) async {
     final response =
-        await _client.patch(
+        await _client.patchQueueable(
               '/me/client',
               body: {'name': ?name, 'phone': ?phone, 'email': ?email},
+              description: 'Meus dados — atualização',
             )
             as Map<String, dynamic>;
 
@@ -61,6 +67,7 @@ class ClientsRepository {
   }
 
   /// Edicao de um cliente pelo proprietario (`PATCH /clients/{id}`).
+  /// Enfileiravel offline (ver `create`).
   Future<ClientModel> update({
     required int id,
     String? name,
@@ -69,7 +76,7 @@ class ClientsRepository {
     String? status,
   }) async {
     final response =
-        await _client.patch(
+        await _client.patchQueueable(
               '/clients/$id',
               body: {
                 'name': ?name,
@@ -77,6 +84,9 @@ class ClientsRepository {
                 'notes': ?notes,
                 'status': ?status,
               },
+              description: name != null
+                  ? "Cliente '$name' — edição"
+                  : 'Cliente — edição',
             )
             as Map<String, dynamic>;
 

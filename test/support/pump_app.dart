@@ -1,32 +1,51 @@
 import 'package:clube_do_salao/main.dart';
 import 'package:clube_do_salao/services/api_client.dart';
 import 'package:clube_do_salao/services/auth_session.dart';
+import 'package:clube_do_salao/services/offline/connectivity_monitor.dart';
+import 'package:clube_do_salao/services/offline/mutation_queue_storage.dart';
+import 'package:clube_do_salao/services/offline/response_cache.dart';
 import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_backend.dart';
+import 'fake_connectivity_monitor.dart';
+import 'fake_mutation_queue_storage.dart';
 import 'fake_onboarding_checklist_storage.dart';
+import 'fake_response_cache.dart';
 import 'fake_token_storage.dart';
 
 const mobileSize = Size(390, 844);
 
 /// Cria uma sessao de autenticacao apontando para o backend falso, pronta
 /// para os testes de widget (sem rede real nem platform channels).
+///
+/// `mutationQueueStorage`/`responseCache`/`connectivityMonitor` sempre
+/// recebem um fake em memoria por padrao — nunca deixar cair no `sqflite`/
+/// `connectivity_plus` reais aqui, que dependem de platform channel
+/// indisponivel no sandbox de teste de widget.
 AuthSession buildTestAuthSession({
   OnboardingChecklistStorage? checklistStorage,
   bool founderTenant = false,
   bool trialTenant = false,
+  FakeConnectivityToggle? offlineToggle,
+  MutationQueueStorage? mutationQueueStorage,
+  ResponseCache? responseCache,
+  ConnectivityMonitor? connectivityMonitor,
 }) {
   return AuthSession(
     apiClient: ApiClient(
       httpClient: buildFakeBackend(
         founderTenant: founderTenant,
         trialTenant: trialTenant,
+        offlineToggle: offlineToggle,
       ),
     ),
     storage: FakeTokenStorage(),
     checklistStorage: checklistStorage ?? FakeOnboardingChecklistStorage(),
+    mutationQueueStorage: mutationQueueStorage ?? FakeMutationQueueStorage(),
+    responseCache: responseCache ?? FakeResponseCache(),
+    connectivityMonitor: connectivityMonitor ?? FakeConnectivityMonitor(),
   );
 }
 
@@ -36,6 +55,7 @@ Future<AuthSession> pumpMobileApp(
   AuthSession? authSession,
   bool founderTenant = false,
   bool trialTenant = false,
+  FakeConnectivityToggle? offlineToggle,
 }) async {
   tester.view.physicalSize = mobileSize;
   tester.view.devicePixelRatio = 1;
@@ -44,7 +64,11 @@ Future<AuthSession> pumpMobileApp(
 
   final session =
       authSession ??
-      buildTestAuthSession(founderTenant: founderTenant, trialTenant: trialTenant);
+      buildTestAuthSession(
+        founderTenant: founderTenant,
+        trialTenant: trialTenant,
+        offlineToggle: offlineToggle,
+      );
   await tester.pumpWidget(ClubeDoSalaoApp(authSession: session));
   await tester.pumpAndSettle();
 

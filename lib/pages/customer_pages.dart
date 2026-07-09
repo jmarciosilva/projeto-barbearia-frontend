@@ -496,6 +496,12 @@ class _EditClientProfilePageState extends State<EditClientProfilePage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Dados atualizados.')));
       Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
+      Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {

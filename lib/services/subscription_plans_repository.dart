@@ -17,6 +17,8 @@ class SubscriptionPlansRepository {
         .toList();
   }
 
+  /// Enfileiravel offline (roadmap): cadastro de plano, nao disputa um
+  /// horario de agenda.
   Future<SubscriptionPlanModel> create({
     required String name,
     required int priceCents,
@@ -28,7 +30,7 @@ class SubscriptionPlansRepository {
     List<int> professionalIds = const [],
   }) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/subscription-plans',
               body: {
                 'name': name,
@@ -42,6 +44,7 @@ class SubscriptionPlansRepository {
                     .toList(),
                 'professional_ids': professionalIds,
               },
+              description: "Plano '$name' — cadastro",
             )
             as Map<String, dynamic>;
 
@@ -49,7 +52,8 @@ class SubscriptionPlansRepository {
   }
 
   /// Edicao de um plano pelo proprietario (`PATCH /subscription-plans/{id}`),
-  /// incluindo servicos e profissionais habilitados.
+  /// incluindo servicos e profissionais habilitados. Enfileiravel offline
+  /// (ver `create`).
   Future<SubscriptionPlanModel> update({
     required int id,
     String? name,
@@ -60,7 +64,7 @@ class SubscriptionPlansRepository {
     List<int>? professionalIds,
   }) async {
     final response =
-        await _client.patch(
+        await _client.patchQueueable(
               '/subscription-plans/$id',
               body: {
                 'name': ?name,
@@ -70,6 +74,9 @@ class SubscriptionPlansRepository {
                 'services': ?serviceIds?.map((serviceId) => {'id': serviceId}).toList(),
                 'professional_ids': ?professionalIds,
               },
+              description: name != null
+                  ? "Plano '$name' — edição"
+                  : 'Plano — edição',
             )
             as Map<String, dynamic>;
 

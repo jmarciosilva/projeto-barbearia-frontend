@@ -38,26 +38,33 @@ class PaymentsRepository {
     return PaymentModel.fromJson(response);
   }
 
+  /// Confirma a forma de pagamento usada na maquininha do salao (roadmap:
+  /// enfileiravel offline — so registra o que ja foi cobrado fisicamente,
+  /// nao processa nenhuma cobranca de verdade).
   Future<PaymentModel> markPaid(int paymentId, {required String method}) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/payments/$paymentId/mark-paid',
               body: {'method': method},
+              description: 'Pagamento — confirmação',
             )
             as Map<String, dynamic>;
 
     return PaymentModel.fromJson(response);
   }
 
+  /// Recebimento parcial de um pagamento em aberto (ex: fiado). Enfileiravel
+  /// offline (ver `markPaid`).
   Future<PaymentModel> receive(
     int paymentId, {
     required int amountCents,
     required String method,
   }) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/payments/$paymentId/receipts',
               body: {'amount_cents': amountCents, 'method': method},
+              description: 'Pagamento — recebimento',
             )
             as Map<String, dynamic>;
 

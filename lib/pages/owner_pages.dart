@@ -1428,6 +1428,12 @@ class _NewClientPageState extends State<NewClientPage> {
         SnackBar(content: Text('Cliente ${_nameController.text} cadastrado.')),
       );
       Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
+      Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1622,6 +1628,12 @@ class _NewPlanPageState extends State<NewPlanPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Plano ${_nameController.text} criado.')),
       );
+      Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
@@ -1858,6 +1870,12 @@ class _EditPlanPageState extends State<EditPlanPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Plano atualizado.')));
+      Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
@@ -2715,6 +2733,17 @@ class _DebtDetailPageState extends State<DebtDetailPage> {
           ),
         ),
       );
+    } on QueuedForSyncException catch (queued) {
+      // Sem conexao: nao ha resposta do servidor pra saber se o fiado ficou
+      // quitado, so que o recebimento foi registrado localmente.
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _amountController.clear();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -3080,6 +3109,11 @@ class _ProfessionalCommissionDetailPageState
         notes: result.notes,
       );
       await _load();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
     } on AppException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -3334,6 +3368,12 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Cliente atualizado.')));
+      Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
@@ -3684,6 +3724,12 @@ class _NewServicePageState extends State<NewServicePage> {
         SnackBar(content: Text('Serviço ${_nameController.text} cadastrado.')),
       );
       Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
+      Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -3834,6 +3880,12 @@ class _EditServicePageState extends State<EditServicePage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Serviço atualizado.')));
+      Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;

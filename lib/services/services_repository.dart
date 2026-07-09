@@ -14,6 +14,8 @@ class ServicesRepository {
         .toList();
   }
 
+  /// Enfileiravel offline (roadmap): cadastro de catalogo, nao disputa um
+  /// horario de agenda.
   Future<ServiceModel> create({
     required String name,
     required int durationMinutes,
@@ -21,7 +23,7 @@ class ServicesRepository {
     String? description,
   }) async {
     final response =
-        await _client.post(
+        await _client.postQueueable(
               '/services',
               body: {
                 'name': name,
@@ -29,6 +31,7 @@ class ServicesRepository {
                 'price_cents': ?priceCents,
                 'description': ?description,
               },
+              description: "Serviço '$name' — cadastro",
             )
             as Map<String, dynamic>;
 
@@ -36,6 +39,7 @@ class ServicesRepository {
   }
 
   /// Edicao de um servico pelo proprietario (`PATCH /services/{id}`).
+  /// Enfileiravel offline (ver `create`).
   Future<ServiceModel> update({
     required int id,
     String? name,
@@ -45,7 +49,7 @@ class ServicesRepository {
     bool? isActive,
   }) async {
     final response =
-        await _client.patch(
+        await _client.patchQueueable(
               '/services/$id',
               body: {
                 'name': ?name,
@@ -54,6 +58,9 @@ class ServicesRepository {
                 'description': ?description,
                 'is_active': ?isActive,
               },
+              description: name != null
+                  ? "Serviço '$name' — edição"
+                  : 'Serviço — edição',
             )
             as Map<String, dynamic>;
 

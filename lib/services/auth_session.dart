@@ -1,6 +1,16 @@
+import 'dart:async';
+
 import 'package:clube_do_salao/core/app_exception.dart';
 import 'package:clube_do_salao/models/app_user.dart';
 import 'package:clube_do_salao/services/api_client.dart';
+import 'package:clube_do_salao/services/offline/connectivity_monitor.dart';
+import 'package:clube_do_salao/services/offline/connectivity_plus_monitor.dart';
+import 'package:clube_do_salao/services/offline/mutation_queue.dart';
+import 'package:clube_do_salao/services/offline/mutation_queue_storage.dart';
+import 'package:clube_do_salao/services/offline/noop_offline_support.dart';
+import 'package:clube_do_salao/services/offline/response_cache.dart';
+import 'package:clube_do_salao/services/offline/sqflite_mutation_queue_storage.dart';
+import 'package:clube_do_salao/services/offline/sqflite_response_cache.dart';
 import 'package:clube_do_salao/services/onboarding_checklist_storage.dart';
 import 'package:clube_do_salao/services/token_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -15,13 +25,39 @@ class AuthSession extends ChangeNotifier {
     ApiClient? apiClient,
     TokenStorage? storage,
     OnboardingChecklistStorage? checklistStorage,
+    MutationQueueStorage? mutationQueueStorage,
+    ResponseCache? responseCache,
+    ConnectivityMonitor? connectivityMonitor,
   }) : apiClient = apiClient ?? ApiClient(),
        _storage = storage ?? const SecureTokenStorage(),
        checklistStorage =
-           checklistStorage ?? const SecureOnboardingChecklistStorage();
+           checklistStorage ?? const SecureOnboardingChecklistStorage() {
+    _responseCache =
+        responseCache ?? (kIsWeb ? const NoopResponseCache() : const SqfliteResponseCache());
+    mutationQueue = MutationQueue(
+      apiClient: this.apiClient,
+      storage:
+          mutationQueueStorage ??
+          (kIsWeb
+              ? const NoopMutationQueueStorage()
+              : const SqfliteMutationQueueStorage()),
+      connectivityMonitor:
+          connectivityMonitor ??
+          (kIsWeb ? const NoopConnectivityMonitor() : ConnectivityPlusMonitor()),
+    );
+    this.apiClient.attachQueueSink(mutationQueue);
+    this.apiClient.attachResponseCache(_responseCache);
+    unawaited(mutationQueue.init());
+  }
 
   final ApiClient apiClient;
   final TokenStorage _storage;
+  late final ResponseCache _responseCache;
+
+  /// Fila de sincronizacao offline (mutacoes que falharam por falta de
+  /// conexao, reenviadas automaticamente quando a internet voltar). Ver
+  /// `lib/services/offline/mutation_queue.dart`.
+  late final MutationQueue mutationQueue;
 
   /// Injetavel pelo mesmo motivo do `TokenStorage`: `flutter_secure_storage`
   /// usa platform channels indisponiveis em testes de widget.
@@ -50,6 +86,7 @@ class AuthSession extends ChangeNotifier {
       final response = await apiClient.get('/me') as Map<String, dynamic>;
       user = AppUser.fromJson(response);
       status = AuthStatus.authenticated;
+      unawaited(mutationQueue.flush());
     } catch (_) {
       // Token salvo mas invalido/expirado: descarta e volta para o login.
       await _storage.delete();
@@ -226,6 +263,7 @@ class AuthSession extends ChangeNotifier {
 
     user = AppUser.fromJson(response['user'] as Map<String, dynamic>);
     status = AuthStatus.authenticated;
+    unawaited(mutationQueue.flush());
   }
 
   bool _isLoggingOut = false;
@@ -245,9 +283,18 @@ class AuthSession extends ChangeNotifier {
 
     await _storage.delete();
     apiClient.updateToken(null);
+    // Evita que o proximo login no mesmo aparelho (outro salao/usuario)
+    // herde dados em cache da sessao anterior.
+    await _responseCache.clear();
     user = null;
     justRegisteredAsCustomer = false;
     status = AuthStatus.unauthenticated;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    mutationQueue.dispose();
+    super.dispose();
   }
 }

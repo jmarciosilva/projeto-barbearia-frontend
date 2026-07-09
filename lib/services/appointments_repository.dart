@@ -51,9 +51,14 @@ class AppointmentsRepository {
 
   /// Marca um atendimento como concluido (`POST /appointments/{id}/complete`).
   /// Profissional so consegue concluir os proprios; o backend recusa o resto.
+  /// Enfileiravel offline (roadmap): so registra o que ja aconteceu
+  /// fisicamente, nao reserva nenhum horario novo.
   Future<AppointmentModel> complete(int appointmentId) async {
     final response =
-        await _client.post('/appointments/$appointmentId/complete')
+        await _client.postQueueable(
+              '/appointments/$appointmentId/complete',
+              description: 'Atendimento — conclusão',
+            )
             as Map<String, dynamic>;
 
     return AppointmentModel.fromJson(response);

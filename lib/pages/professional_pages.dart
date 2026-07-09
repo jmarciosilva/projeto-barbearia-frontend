@@ -567,6 +567,17 @@ class _AppointmentDetailPageState extends State<AppointmentDetailPage> {
         _completedAppointment = completed;
         _isSaving = false;
       });
+    } on QueuedForSyncException catch (queued) {
+      // Sem conexao: ainda nao existe um atendimento/pagamento real do
+      // servidor pra oferecer "Confirmar pagamento" em seguida — so volta
+      // com a confirmacao neutra, o dono confirma o pagamento depois que
+      // sincronizar.
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
+      Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -895,6 +906,12 @@ class _EditProfessionalProfilePageState
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Perfil atualizado.')));
+      Navigator.of(context).pop();
+    } on QueuedForSyncException catch (queued) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(queued.userMessage)));
       Navigator.of(context).pop();
     } on AppException catch (error) {
       if (!mounted) return;

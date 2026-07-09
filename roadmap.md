@@ -311,7 +311,42 @@ Objetivo: dar ao dono uma visao de 5 segundos do negocio (spec secao 4.5, mas co
 | 2026-07-09 | Claude | Aprovado | Usuario testou a linha anterior contra um salao real (Salao da Livia, `livia@gmail.com`) e reportou o card "Desempenho da equipe" vazio, apesar da profissional Maluqueia ja ter atendimentos concluidos. Investigado direto na API real antes de codar (nao só nos testes): `GET /dashboard/occupancy` retornava `days: []` pros 3 profissionais do salao (`GET /professionals` confirmou `working_hours: []` pra todos) — ocupacao depende de horario de trabalho cadastrado, um passo de configuracao que esse salao nunca fez, entao a barra ficava vazia mesmo com atendimento real (confirmado via `GET /dashboard/team-performance`: Maluqueia tinha 2 atendimentos/R$70,00 no mes, dado que a tela de ocupacao simplesmente nao usa). Perguntado ao usuario, que confirmou trocar a base do card de ocupacao pra receita/atendimentos (opcao ja cogitada na pergunta anterior, mas preterida por ocupacao). `TeamPerformancePage` reescrita de novo: volta a usar `dashboardRepository.teamPerformance()`, com cada barra relativa ao melhor profissional do mes (`entry.grossCents / topGrossCents`, melhor = 100%) em vez de ocupacao — `_averageOccupancy`/`_professionalOccupancy` (funcoes de topo criadas na rodada anterior) ficaram sem uso e foram removidas, `_percentageColor` continua compartilhada com a tela de ocupacao. Cada barra ganhou uma legenda embaixo ("N atendimentos - R$ X - a receber R$ Y"), unindo os dois pedidos originais do usuario (estatisticas de atendimentos + performance) numa tela só. `OwnerHomePage._load()` voltou a buscar `teamPerformance()` (nao mais `occupancy()`) pro card, que agora mostra o total de atendimentos da equipe no mes em vez de percentual. De quebra, usuario tambem reportou que o campo de senha da tela de login nunca teve o botao de mostrar/ocultar (padrao ja usado em `AccountSettingsPage`/`RegisterOwnerPage`/etc.) — corrigido com o mesmo `IconButton`+`_obscurePassword` ja usado nos outros formularios. Teste do card reescrito de novo pra refletir receita em vez de ocupacao; golden do login e do dashboard do dono atualizados — 57/57 testes passando, `flutter analyze` limpo. Validado contra a API real do Salao da Livia via `curl` autenticado: `GET /dashboard/team-performance` devolveu os dados reais da Maluqueia (2 atendimentos, R$70,00, adiantamento de R$18,00 ja refletido no `net_cents`) | Nenhuma pendencia conhecida |
 | 2026-07-09 | Claude | Aprovado | Usuario pediu 2 cards novos em "Este mês" no painel do profissional: "Comissão do Mês" (lista os atendimentos do mes com nome do cliente, data/hora de finalizacao e o valor de comissao de cada um, ordem decrescente) e "A receber" (lista o extrato de adiantamentos, "pode ser o mesmo componente usado na tela de perfil"). Tambem pediu que o card "Atendimentos" (ja existente) passasse a usar "a mesma visualizacao dos demais atendimentos... marcados os atendimentos ja realizados", como padrao de identidade visual. Nenhuma mudanca de backend: `GET /me/professional/finance` ja devolvia `commission_percentage`/`advances` usados aqui. App: `ProfessionalMonthAppointmentsPage` ganhou `commissionPercentage` opcional — quando informado, cada linha e o total mostram `preco x percentual` (arredondado por linha) em vez do preco cheio, usado pelo card novo "Comissão do Mês" (mesma tela ja usada por Atendimentos/Avulso/Assinatura/Receita gerada, sem duplicar UI); todo card da lista passou a usar o mesmo icone/cor verde de "concluido" (`Icons.check_circle` + `primaryContainer`) do `_AppointmentCard` de `AppDayTimeline`, no lugar do icone de avulso/assinatura (a distincao continua no subtitulo em texto) — ja que todo item aqui e sempre um atendimento concluido, a cor nao varia por card. Extraido `ProfessionalAdvancesList` (widget reaproveitado) do "Extrato de adiantamentos" que ja existia em `ProfessionalProfilePage`, eliminando a duplicacao que teria surgido com a tela nova; nova `ProfessionalAdvancesPage` (`AppScaffold` + `ProfessionalAdvancesList`) e o destino do card "A receber". `AppMetricGrid` do painel "Hoje" passou de 4 pra 6 cards. Teste "profissional abre o detalhe dos cards..." estendido cobrindo os 2 cards novos (valor de comissao por atendimento batendo com R$144,00 = 6x R$24,00, e o extrato de adiantamentos com data/hora) e o icone `Icons.check_circle` presente na lista — 57/57 testes passando, `flutter analyze` limpo; golden do profissional atualizado pelos 2 cards novos | Sem validacao ponta a ponta em dispositivo real nesta rodada — usuario prefere validar manualmente |
 
-## Fase 5 - Fidelidade e Avaliacoes
+## Fase 5 - Confiabilidade Offline
+
+Status: `Em auditoria`
+
+Objetivo: reduzir o impacto de internet instavel, comum em varias regioes do Brasil, para o piloto dos 12 saloes fundadores. Sem gateway de pagamento ainda (cobranca sempre manual via maquininha do proprio salao), o app so registra o que ja aconteceu fisicamente — isso torna seguro enfileirar e sincronizar depois um subconjunto de mutacoes, desde que elas nao disputem um recurso escasso/exclusivo (um horario especifico da agenda).
+
+### Escopo previsto
+
+- [x] Cache local de leitura (`GET`) com fallback transparente quando a rede falha, sem mudar o contrato publico de `ApiClient.get()`
+- [x] Fila de mutacoes offline (`sqflite`) para: cadastro/edicao de cliente, edicao de perfil (profissional/cliente), lancamento de adiantamento, cadastro/edicao de catalogo e planos, conclusao de atendimento, confirmacao de forma de pagamento
+- [x] Reenvio automatico da fila quando a conexao volta (`connectivity_plus` como gatilho, nunca como fonte de verdade), quando o app volta ao primeiro plano, e por um timer periodico de seguranca
+- [x] Indicador de status (online/offline + contagem pendente) na barra superior, visivel pros 4 papeis, com tela de sincronizacao pendente (descartar item com falha permanente)
+- [x] Exclusao deliberada: criacao de agendamento e atribuicao de horario da fila de espera continuam exigindo conexao — reservam um horario especifico da agenda, sem boa resolucao automatica de conflito
+
+### Criterios de aceite
+
+- [x] Uma mutacao em escopo, sem conexao, mostra uma mensagem neutra (nao um erro vermelho) e fica registrada na fila local
+- [x] A fila reenvia sozinha assim que a conexao volta, sem exigir nenhuma acao do usuario
+- [x] Uma rejeicao real do servidor (ex: validacao) nunca fica presa reenviando para sempre — marca o item como falho e segue para os outros
+- [x] Criar agendamento ou atribuir horario da fila de espera continuam falhando normalmente sem conexao, exatamente como antes desta fase
+
+### Decisoes
+
+| Data | Decisao | Motivo |
+|---|---|---|
+| 2026-07-09 | Sem reconciliacao de ID provisorio para criacoes offline (cliente/servico/plano/adiantamento so aparecem na lista apos sincronizar) | Evita que toda tela de lista do app precise entender "registro provisorio" — troca aceitavel para um piloto de 12 saloes, desde que o indicador + tela de pendencias subam juntos, nao depois |
+| 2026-07-09 | Sem isolamento por tenant na fila (um item enfileirado nao verifica se o dispositivo trocou de conta antes de sincronizar) | Risco aceito nesta v1: dispositivo reaproveitado entre saloes diferentes e improvavel no piloto (cada dono/profissional usa o proprio celular); a limpeza de cache no logout ja cobre o caso mais comum de vazamento de dado entre contas no mesmo aparelho |
+| 2026-07-09 | Confirmacao de pagamento offline nao distingue pago/fiado na hora (so quando sincronizar) | Sem resposta do servidor, essa distincao nao existe ainda localmente — mensagem neutra em vez do painel de sucesso normal, que dependeria dela |
+
+### Auditoria da fase
+
+| Data | Responsavel | Resultado | Evidencias | Pendencias |
+|---|---|---|---|---|
+| 2026-07-09 | Claude | Aprovado | Usuario perguntou sobre offline-first com SQLite pensando na publicacao na Play Store; apos discussao (internet ruim em varias regioes, sem gateway de pagamento ainda, cobranca sempre manual) o escopo foi calibrado pra excluir tudo que disputa um horario de agenda — planejado em modo de planejamento antes de codificar. `ApiClient` ganhou cache de leitura (`ResponseCache`, fallback transparente em `get()`) e `postQueueable`/`patchQueueable` (variantes de `post`/`patch` usadas so pelos 6 metodos em escopo — nunca por `AppointmentsRepository.create` nem `WaitlistRepository.assign`): numa falha de rede (`statusCode == null`, unico sinal existente que distingue "sem conexao" de "erro do servidor"), enfileira localmente e lanca `QueuedForSyncException` (nova subclasse de `AppException`) em vez de propagar o erro; numa rejeicao real do servidor, comportamento identico a hoje. Novo `MutationQueue` (`lib/services/offline/`, `sqflite` + `connectivity_plus`) orquestra o reenvio FIFO — para o lote inteiro numa falha de rede no meio (nada mais vai funcionar), marca so 1 item como falho numa rejeicao de validacao e continua os outros. `AuthSession` ganhou `mutationQueue` (ligado a `ApiClient` via um setter mutavel, mesmo padrao ja usado por `updateToken`, evitando dependencia circular) e limpa o cache no `logout()`. Novo indicador na `AppBar` do `DashboardShell` (nuvem online/offline + contagem, `Badge` nativo do Material) e nova `PendingSyncPage` (descartar item com falha permanente). Os 12 pontos de chamada dos 6 metodos em escopo ganharam `on QueuedForSyncException catch` (checado antes do `on AppException catch` generico) mostrando uma mensagem neutra em vez de erro — 2 telas (`payment_confirmation_page.dart`, conclusao de atendimento em `professional_pages.dart`) tiveram tratamento especial porque normalmente decidem a UI de sucesso a partir da resposta do servidor, que nao existe no caminho enfileirado. Todo armazenamento local novo segue o padrao ja estabelecido (interface abstrata + implementacao real + fake em memoria pra teste, mesmo usado por `TokenStorage`); `test/support/pump_app.dart` passou a injetar os 3 fakes por padrao, evitando `MissingPluginException` no sandbox de teste de widget. 12 testes novos em `test/offline/` (cache de leitura; fila offline/reconexao/FIFO/falha de rede vs. validacao; fluxo completo de cadastro de cliente offline pela UI; regressao confirmando que os 2 metodos excluidos nunca entram na fila) — 74/74 testes de widget passando, `flutter analyze` limpo | Sem validacao ponta a ponta em dispositivo real (modo aviao) nesta rodada — usuario prefere validar manualmente |
+
+## Fase 6 - Fidelidade e Avaliacoes
 
 Status: `Nao iniciado`
 
@@ -322,7 +357,7 @@ Status: `Nao iniciado`
 - [ ] Nivel do cliente
 - [ ] Beneficios por nivel
 
-## Fase 6 - CRM Avancado e Estoque
+## Fase 7 - CRM Avancado e Estoque
 
 Status: `Nao iniciado`
 
@@ -333,7 +368,7 @@ Status: `Nao iniciado`
 - [ ] Historico ampliado
 - [ ] Produtos e estoque para proprietario
 
-## Fase 7 - Marketing Automation
+## Fase 8 - Marketing Automation
 
 Status: `Nao iniciado`
 
@@ -344,7 +379,7 @@ Status: `Nao iniciado`
 - [ ] Indicacao de amigos
 - [ ] Recuperacao de inativos
 
-## Fase 8 - Business Intelligence
+## Fase 9 - Business Intelligence
 
 Status: `Nao iniciado`
 
@@ -354,7 +389,7 @@ Status: `Nao iniciado`
 - [ ] Ranking de profissionais
 - [ ] Cards executivos para proprietario
 
-## Fase 9 - Inteligencia Artificial
+## Fase 10 - Inteligencia Artificial
 
 Status: `Nao iniciado`
 
@@ -379,3 +414,4 @@ Status: `Nao iniciado`
 | 2026-07-05 | Inserir a Fase 3 "Onboarding e Autocadastro", a pedido do usuario apos revisao de usabilidade | Hoje o cliente so entra no sistema se o dono cadastrar manualmente (`POST /clients`), e o onboarding do dono e um formulario unico sem nenhum guia — isso nao atende a expectativa de cliente se autocadastrar via convite/link/QR ou de forma avulsa escolhendo o salao, nem a premissa de produto de onboarding guiado para dono leigo em tecnologia (secao 1 da especificacao) | Fases antigas 3-7 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 4-8 |
 | 2026-07-07 | Inserir a Fase 4 "Painel Inteligente do Proprietario", a pedido do usuario | Nenhuma fase cobria uma visao rapida do dia a dia nem ferramentas de gestao proativa (ocupacao da equipe, reconquista de clientes); o card existente "MRR previsto" tambem contradizia a premissa de nomenclatura simples para dono leigo em tecnologia (secao 1) | Fases antigas 4-8 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 5-9 |
 | 2026-07-09 | Adicionar administracao da plataforma (fundadores + cortesia de assinatura + painel) ao escopo da Fase 1, em vez de criar uma fase nova | E uma extensao operacional do controle de acesso por plano (mesmo tema da Fase 1: quem pode fazer o que, e por quanto tempo), nao um modulo de produto novo para o dono/cliente/profissional como as fases 3/4 foram | Nenhuma renumeracao de fase; escopo/criterios/auditoria da Fase 1 ganharam itens novos |
+| 2026-07-09 | Inserir a Fase 5 "Confiabilidade Offline", a pedido do usuario pensando na publicacao na Play Store | Fila de sincronizacao offline e cache de leitura sao infraestrutura transversal (nao um modulo de dominio como fidelidade/CRM/marketing), mas grande e distinta o bastante da Fase 4 pra merecer fase propria, diferente da administracao da plataforma que coube dentro da Fase 1 | Fases antigas 5-9 (Fidelidade, CRM, Marketing, BI, IA) foram renumeradas para 6-10 |
