@@ -111,4 +111,13 @@ class PaymentReceiptModel {
   final String method;
   final String receivedAt;
   final String? notes;
+
+  String get methodLabel => switch (method) {
+    'pix' => 'PIX',
+    'credit_card' => 'Cartao credito',
+    'debit_card' => 'Cartao debito',
+    'cash' => 'Dinheiro',
+    'fiado' => 'Fiado',
+    _ => 'Outro',
+  };
 }

@@ -84,9 +84,9 @@ void main() {
     await tester.tap(find.text('Confirmar pagamento manual'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Joao Ribeiro'), findsOneWidget);
+    expect(find.text('Maria Avulsa'), findsOneWidget);
 
-    await tester.tap(find.text('Joao Ribeiro'));
+    await tester.tap(find.text('Maria Avulsa'));
     await tester.pumpAndSettle();
 
     expect(find.text('PIX'), findsWidgets);
@@ -116,7 +116,7 @@ void main() {
     await tester.tap(find.text('Confirmar pagamento manual'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Joao Ribeiro'));
+    await tester.tap(find.text('Maria Avulsa'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Fiado'));
@@ -126,7 +126,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Pagamento registrado como fiado.'), findsOneWidget);
-    expect(find.text('Joao Ribeiro'), findsOneWidget);
+    expect(find.text('Maria Avulsa'), findsOneWidget);
   });
 
   testWidgets('proprietario lanca recebimento parcial de fiado', (
@@ -985,12 +985,36 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pumpAndSettle();
 
-      await scrollToText(tester, 'Avulsa do mês');
-      await tester.tap(find.text('Avulsa do mês'));
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Receita avulsa do mês'), findsOneWidget);
-      expect(find.text('Nenhuma receita avulsa confirmada este mês.'), findsOneWidget);
+      expect(find.text('Receita do mês'), findsWidgets);
+      // Unico dado de receita avulsa no mes corrente vem do recebimento
+      // parcial de fiado da fixture `Pedro Devedor` (ver mais abaixo).
+      expect(find.text('Pedro Devedor'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'recebimento parcial de fiado neste mes entra na receita do mes sem esperar quitar',
+    (tester) async {
+      // Bug real reportado pelo usuario: um recebimento parcial de fiado
+      // reduzia corretamente o fiado em aberto, mas o valor recebido nao
+      // aparecia em nenhum lugar na receita do mes ate o fiado ser quitado
+      // por completo. Fixture `_debtorWithRecentReceiptJson` tem um recibo
+      // datado de hoje pra exercitar exatamente esse caso.
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await scrollToText(tester, 'Receita do mês');
+      await tester.tap(find.text('Receita do mês'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pedro Devedor'), findsOneWidget);
+      expect(find.textContaining('recebimento'), findsOneWidget);
+      expect(find.text('R\$ 30,00'), findsWidgets);
     },
   );
 

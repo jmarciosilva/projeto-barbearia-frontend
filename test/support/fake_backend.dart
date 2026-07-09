@@ -1261,12 +1261,48 @@ final _paymentsJson = [
     'subscription': {
       'client': {'name': 'Joao Ribeiro'},
     },
+    // Data bem no passado de proposito: mantido fora do mes corrente pra nao
+    // aparecer em extratos de receita "deste mes" so por coincidencia com a
+    // data real de quando o teste roda (o app calcula "mes atual" com
+    // DateTime.now()).
     'receipts': [
       {
         'id': 1,
         'amount_cents': 5000,
         'method': 'pix',
-        'received_at': '2026-07-04T10:00:00.000000Z',
+        'received_at': '2020-01-04T10:00:00.000000Z',
+      },
+    ],
+  },
+  // Avulso comum ainda aguardando a primeira confirmacao (method default,
+  // nao fiado) — distinto do fiado acima, que ja saiu de "Pagamentos
+  // pendentes" e so aparece em "Gestao do fiado".
+  {
+    'id': 2,
+    'amount_cents': 6000,
+    'method': 'pix',
+    'status': 'pending',
+    'due_on': null,
+    'client': {'name': 'Maria Avulsa'},
+    'receipts': <dynamic>[],
+  },
+  // Fiado com um recebimento parcial recebido "hoje" (data calculada em
+  // tempo de execucao, sempre dentro do mes corrente) — cobre o bug real
+  // onde um recebimento parcial nao entrava na receita do mes ate o fiado
+  // ser quitado por completo.
+  {
+    'id': 3,
+    'amount_cents': 8000,
+    'method': 'fiado',
+    'status': 'pending',
+    'due_on': null,
+    'client': {'name': 'Pedro Devedor'},
+    'receipts': [
+      {
+        'id': 2,
+        'amount_cents': 3000,
+        'method': 'pix',
+        'received_at': DateTime.now().toIso8601String(),
       },
     ],
   },

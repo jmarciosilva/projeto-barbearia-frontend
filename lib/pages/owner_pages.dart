@@ -381,7 +381,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               },
             ),
             AppMetric(
-              'Avulsa do mês',
+              'Receita do mês',
               formatCents(_summary!.walkinRevenueMonthCents),
               Icons.point_of_sale,
               onTap: () async {
@@ -2043,8 +2043,16 @@ class _PendingPaymentsPageState extends State<PendingPaymentsPage> {
 
       if (!mounted) return;
       setState(() {
+        // Pagamento ja marcado como "Fiado" pelo dono sai daqui e passa a
+        // viver so em "Gestao do fiado" (mesmo filtro/comentario de
+        // DebtManagementPage._load()) — senao ficava duplicado nas duas
+        // telas, e aqui mostrando o valor cheio em vez do saldo restante
+        // apos um recebimento parcial.
         _pending = payments
-            .where((payment) => payment.status == 'pending')
+            .where(
+              (payment) =>
+                  payment.status == 'pending' && payment.method != 'fiado',
+            )
             .toList();
         _isLoading = false;
       });
@@ -2446,8 +2454,29 @@ class _TodayRevenuePageState extends State<TodayRevenuePage> {
   }
 }
 
-/// Extrato por tras do card "Avulsa do mês" (Painel Inteligente): pagamentos
-/// avulsos ja confirmados como pagos dentro do mes corrente.
+/// Uma linha de receita avulsa do mes: um pagamento confirmado na hora (sem
+/// nenhum recibo, ex: `markPaid`) ou um recebimento parcial de um fiado (ver
+/// `PaymentController::receive` no backend) — cada um contado no mes em que
+/// o dinheiro de fato entrou, nao so quando o fiado inteiro e quitado.
+class _RevenueEntry {
+  const _RevenueEntry({
+    required this.clientName,
+    required this.description,
+    required this.amountCents,
+    required this.date,
+  });
+
+  final String clientName;
+  final String description;
+  final int amountCents;
+  final DateTime date;
+}
+
+/// Extrato por tras do card "Receita do mês" (Painel Inteligente): mesma
+/// soma de `walkin_revenue_month_cents` no backend — pagamentos avulsos
+/// confirmados na hora dentro do mes corrente, mais qualquer recebimento
+/// parcial de fiado recebido dentro do mes (mesmo que o fiado ainda nao
+/// esteja quitado por completo).
 class WalkinRevenueMonthPage extends StatefulWidget {
   const WalkinRevenueMonthPage({super.key, required this.paymentsRepository});
 
@@ -2461,7 +2490,7 @@ class WalkinRevenueMonthPage extends StatefulWidget {
 class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
   bool _isLoading = true;
   String? _errorMessage;
-  List<PaymentModel> _payments = [];
+  List<_RevenueEntry> _entries = [];
 
   @override
   void initState() {
@@ -2479,17 +2508,55 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
       final payments = await widget.paymentsRepository.index();
       final now = DateTime.now();
 
-      if (!mounted) return;
-      setState(() {
-        _payments = payments.where((payment) {
-          if (payment.status != 'paid' || !payment.isAvulso) return false;
+      bool isThisMonth(DateTime? date) =>
+          date != null && date.year == now.year && date.month == now.month;
+
+      final entries = <_RevenueEntry>[];
+
+      for (final payment in payments) {
+        if (!payment.isAvulso) continue;
+
+        // Confirmado na hora, sem recibo: entra pelo valor cheio no mes do
+        // paid_at. Se tiver recibo, ja e contado abaixo — senao contaria
+        // duas vezes o fiado que terminou de ser quitado por recibos.
+        if (payment.status == 'paid' && payment.receipts.isEmpty) {
           final paidAt = payment.paidAt == null
               ? null
               : DateTime.tryParse(payment.paidAt!);
-          return paidAt != null &&
-              paidAt.year == now.year &&
-              paidAt.month == now.month;
-        }).toList();
+          if (isThisMonth(paidAt)) {
+            entries.add(
+              _RevenueEntry(
+                clientName: payment.clientName ?? 'Cliente',
+                description:
+                    '${payment.serviceName ?? 'Avulso'} - ${payment.methodLabel}',
+                amountCents: payment.amountCents,
+                date: paidAt!,
+              ),
+            );
+          }
+        }
+
+        for (final receipt in payment.receipts) {
+          final receivedAt = DateTime.tryParse(receipt.receivedAt);
+          if (isThisMonth(receivedAt)) {
+            entries.add(
+              _RevenueEntry(
+                clientName: payment.clientName ?? 'Cliente',
+                description:
+                    '${payment.serviceName ?? 'Avulso'} - recebimento (${receipt.methodLabel})',
+                amountCents: receipt.amountCents,
+                date: receivedAt!,
+              ),
+            );
+          }
+        }
+      }
+
+      entries.sort((a, b) => b.date.compareTo(a.date));
+
+      if (!mounted) return;
+      setState(() {
+        _entries = entries;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -2509,14 +2576,14 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
       body = const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
-    } else if (_payments.isEmpty) {
+    } else if (_entries.isEmpty) {
       body = const Center(
-        child: Text('Nenhuma receita avulsa confirmada este mês.'),
+        child: Text('Nenhuma receita confirmada este mês.'),
       );
     } else {
-      final totalCents = _payments.fold<int>(
+      final totalCents = _entries.fold<int>(
         0,
-        (sum, payment) => sum + payment.amountCents,
+        (sum, entry) => sum + entry.amountCents,
       );
 
       body = ListView(
@@ -2525,23 +2592,21 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
           Card(
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
-              title: const Text('Total avulso no mês'),
+              title: const Text('Total no mês'),
               trailing: Text(
                 formatCents(totalCents),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
           ),
-          for (final payment in _payments)
+          for (final entry in _entries)
             Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.content_cut),
-                title: Text(payment.clientName ?? 'Cliente'),
-                subtitle: Text(
-                  '${payment.serviceName ?? 'Avulso'} - ${payment.methodLabel}',
-                ),
-                trailing: Text(formatCents(payment.amountCents)),
+                title: Text(entry.clientName),
+                subtitle: Text(entry.description),
+                trailing: Text(formatCents(entry.amountCents)),
               ),
             ),
         ],
@@ -2549,7 +2614,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
     }
 
     return AppScaffold(
-      appBar: AppBar(title: const Text('Receita avulsa do mês')),
+      appBar: AppBar(title: const Text('Receita do mês')),
       body: body,
     );
   }
