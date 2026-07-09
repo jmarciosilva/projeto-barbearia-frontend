@@ -21,6 +21,41 @@ class ProfessionalAdvanceModel {
   final String? notes;
 }
 
+/// Um atendimento concluido dentro do periodo do extrato (`appointments` em
+/// `GET /me/professional/finance`), usado para detalhar os cards de
+/// "Atendimentos"/"Avulso"/"Assinatura"/"Receita gerada" no painel do
+/// profissional sem precisar de outra chamada a API.
+class ProfessionalFinanceAppointmentModel {
+  const ProfessionalFinanceAppointmentModel({
+    required this.startsAt,
+    required this.hasSubscription,
+    this.serviceName,
+    this.clientName,
+    this.servicePriceCents,
+  });
+
+  factory ProfessionalFinanceAppointmentModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final service = json['service'] as Map<String, dynamic>?;
+    final client = json['client'] as Map<String, dynamic>?;
+
+    return ProfessionalFinanceAppointmentModel(
+      startsAt: DateTime.parse(json['starts_at'] as String),
+      hasSubscription: json['client_subscription_id'] != null,
+      serviceName: service?['name'] as String?,
+      clientName: client?['name'] as String?,
+      servicePriceCents: service?['price_cents'] as int?,
+    );
+  }
+
+  final DateTime startsAt;
+  final bool hasSubscription;
+  final String? serviceName;
+  final String? clientName;
+  final int? servicePriceCents;
+}
+
 class ProfessionalFinanceModel {
   const ProfessionalFinanceModel({
     required this.completedCount,
@@ -35,10 +70,12 @@ class ProfessionalFinanceModel {
     required this.netCents,
     required this.paymentDay,
     required this.advances,
+    required this.appointments,
   });
 
   factory ProfessionalFinanceModel.fromJson(Map<String, dynamic> json) {
     final advancesJson = json['advances'] as List<dynamic>? ?? const [];
+    final appointmentsJson = json['appointments'] as List<dynamic>? ?? const [];
 
     return ProfessionalFinanceModel(
       completedCount: json['completed_count'] as int,
@@ -59,6 +96,13 @@ class ProfessionalFinanceModel {
             ),
           )
           .toList(),
+      appointments: appointmentsJson
+          .map(
+            (appointment) => ProfessionalFinanceAppointmentModel.fromJson(
+              appointment as Map<String, dynamic>,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -74,4 +118,5 @@ class ProfessionalFinanceModel {
   final int netCents;
   final int paymentDay;
   final List<ProfessionalAdvanceModel> advances;
+  final List<ProfessionalFinanceAppointmentModel> appointments;
 }

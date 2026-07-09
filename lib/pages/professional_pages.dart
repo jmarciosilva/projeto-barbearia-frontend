@@ -119,6 +119,23 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
     }
 
     final finance = _monthFinance!;
+    final avulsoAppointments = finance.appointments
+        .where((appointment) => !appointment.hasSubscription)
+        .toList();
+    final planoAppointments = finance.appointments
+        .where((appointment) => appointment.hasSubscription)
+        .toList();
+
+    void openMonthDetail(String title, List<ProfessionalFinanceAppointmentModel> appointments) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ProfessionalMonthAppointmentsPage(
+            title: title,
+            appointments: appointments,
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -130,17 +147,33 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               'Atendimentos',
               '${finance.completedCount}',
               Icons.event_available,
+              onTap: () =>
+                  openMonthDetail('Atendimentos do mês', finance.appointments),
             ),
-            AppMetric('Avulso', '${finance.avulsoCount}', Icons.content_cut),
+            AppMetric(
+              'Avulso',
+              '${finance.avulsoCount}',
+              Icons.content_cut,
+              onTap: () => openMonthDetail(
+                'Atendimentos avulsos do mês',
+                avulsoAppointments,
+              ),
+            ),
             AppMetric(
               'Assinatura',
               '${finance.planoCount}',
               Icons.card_membership,
+              onTap: () => openMonthDetail(
+                'Atendimentos por assinatura do mês',
+                planoAppointments,
+              ),
             ),
             AppMetric(
               'Receita gerada',
               formatCents(finance.grossCents),
               Icons.payments,
+              onTap: () =>
+                  openMonthDetail('Receita gerada no mês', finance.appointments),
             ),
           ],
         ),
@@ -164,6 +197,74 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               ),
             ),
       ],
+    );
+  }
+}
+
+/// Detalhe por tras dos cards "Atendimentos"/"Avulso"/"Assinatura"/"Receita
+/// gerada" do painel do profissional (mesmo padrao ja usado no dashboard do
+/// dono para "Prevista hoje"/"Avulsa do mês"), pra o profissional confiar no
+/// numero em vez de so ver um total sem explicacao. Reaproveita a lista de
+/// atendimentos que ja vem em `GET /me/professional/finance`, sem chamada
+/// nova a API.
+class ProfessionalMonthAppointmentsPage extends StatelessWidget {
+  const ProfessionalMonthAppointmentsPage({
+    super.key,
+    required this.title,
+    required this.appointments,
+  });
+
+  final String title;
+  final List<ProfessionalFinanceAppointmentModel> appointments;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalCents = appointments.fold<int>(
+      0,
+      (sum, appointment) => sum + (appointment.servicePriceCents ?? 0),
+    );
+
+    return AppScaffold(
+      appBar: AppBar(title: Text(title)),
+      body: appointments.isEmpty
+          ? const Center(child: Text('Nenhum atendimento neste período.'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    title: Text(
+                      '${appointments.length} atendimento${appointments.length == 1 ? '' : 's'}',
+                    ),
+                    trailing: Text(
+                      formatCents(totalCents),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+                for (final appointment in appointments)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      leading: Icon(
+                        appointment.hasSubscription
+                            ? Icons.card_membership
+                            : Icons.content_cut,
+                      ),
+                      title: Text(appointment.clientName ?? 'Cliente'),
+                      subtitle: Text(
+                        '${appointment.serviceName ?? 'Serviço'} - '
+                        '${_formatDate(appointment.startsAt)} ${formatTime(appointment.startsAt)} - '
+                        '${appointment.hasSubscription ? 'Assinatura' : 'Avulso'}',
+                      ),
+                      trailing: Text(
+                        formatCents(appointment.servicePriceCents ?? 0),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }

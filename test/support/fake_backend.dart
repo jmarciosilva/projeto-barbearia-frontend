@@ -816,7 +816,44 @@ const _professionalFinanceJson = {
   'commission_cents': 14400,
   'advances_cents': 3000,
   'net_cents': 11400,
-  'appointments': <dynamic>[],
+  'appointments': [
+    {
+      'starts_at': '2026-07-01T09:00:00.000000Z',
+      'client_subscription_id': null,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 1, 'name': 'Carlos Mendes'},
+    },
+    {
+      'starts_at': '2026-07-02T10:00:00.000000Z',
+      'client_subscription_id': null,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 2, 'name': 'Maria Avulsa'},
+    },
+    {
+      'starts_at': '2026-07-03T11:00:00.000000Z',
+      'client_subscription_id': null,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 3, 'name': 'Joao Ribeiro'},
+    },
+    {
+      'starts_at': '2026-07-04T14:00:00.000000Z',
+      'client_subscription_id': null,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 4, 'name': 'Ana Cliente'},
+    },
+    {
+      'starts_at': '2026-07-05T09:00:00.000000Z',
+      'client_subscription_id': 501,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 1, 'name': 'Carlos Mendes'},
+    },
+    {
+      'starts_at': '2026-07-06T09:00:00.000000Z',
+      'client_subscription_id': 502,
+      'service': {'id': 1, 'name': 'Corte masculino', 'price_cents': 6000},
+      'client': {'id': 2, 'name': 'Maria Avulsa'},
+    },
+  ],
   'advances': [
     {
       'id': 1,

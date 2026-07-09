@@ -682,6 +682,55 @@ void main() {
     expect(find.text('Confirme sua senha atual para alterar o e-mail e/ou a senha de acesso ao app.'), findsOneWidget);
   });
 
+  testWidgets(
+    'profissional abre o detalhe dos cards de atendimentos do mes',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Atendimentos'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Atendimentos do mês'), findsOneWidget);
+      expect(find.text('6 atendimentos'), findsOneWidget);
+      expect(find.text('Carlos Mendes'), findsWidgets);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Avulso'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(AppBar, 'Atendimentos avulsos do mês'),
+        findsOneWidget,
+      );
+      expect(find.text('4 atendimentos'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Assinatura'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(AppBar, 'Atendimentos por assinatura do mês'),
+        findsOneWidget,
+      );
+      expect(find.text('2 atendimentos'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Receita gerada'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Receita gerada no mês'), findsOneWidget);
+      expect(find.text('R\$ 360,00'), findsOneWidget);
+    },
+  );
+
   testWidgets('dono atribui horario da fila de espera pela API', (
     tester,
   ) async {
