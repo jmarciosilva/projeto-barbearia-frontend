@@ -256,6 +256,20 @@ http.Client buildFakeBackend() {
             },
           ],
         },
+        {
+          'professional_id': 11,
+          'professional_name': 'Rafael Souza',
+          'days': [
+            {
+              'weekday': 1,
+              'date': '2026-07-06',
+              'has_override': false,
+              'available_minutes': 200,
+              'occupied_minutes': 100,
+              'percentage': 50,
+            },
+          ],
+        },
       ]);
     }
 
@@ -270,6 +284,8 @@ http.Client buildFakeBackend() {
           'gross_cents': 36000,
           'commission_percentage': 40,
           'commission_cents': 14400,
+          'advances_cents': 3000,
+          'net_cents': 11400,
         },
         {
           'professional_id': 11,
@@ -280,6 +296,8 @@ http.Client buildFakeBackend() {
           'gross_cents': 12000,
           'commission_percentage': 35,
           'commission_cents': 4200,
+          'advances_cents': 0,
+          'net_cents': 4200,
         },
       ]);
     }

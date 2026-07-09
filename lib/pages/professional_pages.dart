@@ -359,13 +359,18 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
             child: ListTile(title: Text('Nenhum adiantamento no mês.')),
           )
         else
-          for (final advance in monthFinance.advances)
+          // Decrescente: adiantamento mais recente primeiro, mesmo padrao
+          // usado no resto do app (AppDayTimeline).
+          for (final advance in monthFinance.advances.toList()
+            ..sort((a, b) => b.paidAt.compareTo(a.paidAt)))
             Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 leading: const Icon(Icons.payments_outlined),
                 title: Text(formatCents(advance.amountCents)),
-                subtitle: Text(advance.notes ?? 'Adiantamento'),
+                subtitle: Text(
+                  '${advance.notes ?? 'Adiantamento'} - ${formatDateTime(advance.paidAt)}',
+                ),
               ),
             ),
         const SizedBox(height: 16),

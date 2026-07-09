@@ -76,6 +76,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
   bool _isLoading = true;
   String? _errorMessage;
   DashboardSummaryModel? _summary;
+  int _teamOccupancyPercentage = 0;
   SaasSubscriptionModel? _saasSubscription;
   TenantModel? _tenant;
   int _professionalsCount = 0;
@@ -111,6 +112,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
     try {
       final summary = await widget.dashboardRepository.summary();
+      final occupancy = await widget.dashboardRepository.occupancy();
       final tenant = await widget.tenantRepository.show();
       final professionals = await widget.professionalsRepository.index();
       final services = await widget.servicesRepository.index();
@@ -125,6 +127,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
       if (!mounted) return;
       setState(() {
         _summary = summary;
+        _teamOccupancyPercentage = _averageOccupancy(occupancy);
         _saasSubscription = tenant.saasSubscription;
         _tenant = tenant;
         _professionalsCount = professionals.length;
@@ -317,6 +320,21 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 _load();
               },
             ),
+            AppMetric(
+              'Desempenho da equipe',
+              '$_teamOccupancyPercentage%',
+              Icons.leaderboard,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TeamPerformancePage(
+                      dashboardRepository: widget.dashboardRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -467,19 +485,6 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ),
         ),
         AppActionTile(
-          icon: Icons.leaderboard,
-          title: 'Desempenho da equipe',
-          subtitle: 'Veja atendimentos realizados e receita gerada por profissional.',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => TeamPerformancePage(
-                dashboardRepository: widget.dashboardRepository,
-                professionalsRepository: widget.professionalsRepository,
-              ),
-            ),
-          ),
-        ),
-        AppActionTile(
           icon: Icons.favorite_border,
           title: 'Clientes para reconquistar',
           subtitle:
@@ -572,6 +577,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 builder: (_) => ProfessionalCommissionsPage(
                   professionalsRepository: widget.professionalsRepository,
                   tenantRepository: widget.tenantRepository,
+                  dashboardRepository: widget.dashboardRepository,
                 ),
               ),
             );
@@ -2726,10 +2732,12 @@ class ProfessionalCommissionsPage extends StatefulWidget {
     super.key,
     required this.professionalsRepository,
     required this.tenantRepository,
+    required this.dashboardRepository,
   });
 
   final ProfessionalsRepository professionalsRepository;
   final TenantRepository tenantRepository;
+  final DashboardRepository dashboardRepository;
 
   @override
   State<ProfessionalCommissionsPage> createState() =>
@@ -2741,6 +2749,7 @@ class _ProfessionalCommissionsPageState
   bool _isLoading = true;
   String? _errorMessage;
   List<ProfessionalModel> _professionals = [];
+  Map<int, TeamPerformanceEntryModel> _performanceByProfessional = {};
   int _paymentDay = 5;
 
   @override
@@ -2758,9 +2767,13 @@ class _ProfessionalCommissionsPageState
     try {
       final professionals = await widget.professionalsRepository.index();
       final tenant = await widget.tenantRepository.show();
+      final performance = await widget.dashboardRepository.teamPerformance();
 
       if (!mounted) return;
       setState(() {
+        _performanceByProfessional = {
+          for (final entry in performance) entry.professionalId: entry,
+        };
         _professionals = professionals;
         _paymentDay = tenant.professionalPaymentDay;
         _isLoading = false;
@@ -2775,30 +2788,10 @@ class _ProfessionalCommissionsPageState
   }
 
   Future<void> _changePaymentDay() async {
-    final controller = TextEditingController(text: '$_paymentDay');
     final day = await showDialog<int>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dia de pagamento'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Dia do mes'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(int.tryParse(controller.text)),
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
+      builder: (_) => _ChangePaymentDayDialog(initialDay: _paymentDay),
     );
-    controller.dispose();
 
     if (day == null) return;
 
@@ -2843,7 +2836,8 @@ class _ProfessionalCommissionsPageState
                 leading: const Icon(Icons.badge),
                 title: Text(professional.name),
                 subtitle: Text(
-                  'Comissão ${professional.commissionPercentage ?? 0}%',
+                  'Comissão ${professional.commissionPercentage ?? 0}% - '
+                  'A receber ${formatCents(_performanceByProfessional[professional.id]?.netCents ?? 0)}',
                 ),
                 onTap: () async {
                   await Navigator.of(context).push(
@@ -2865,6 +2859,56 @@ class _ProfessionalCommissionsPageState
     return AppScaffold(
       appBar: AppBar(title: const Text('Comissoes')),
       body: body,
+    );
+  }
+}
+
+/// Dialogo do campo unico "Dia de pagamento", como widget proprio (nao
+/// inline) para que o `TextEditingController` seja criado e descartado pelo
+/// ciclo de vida do proprio dialogo (`initState`/`dispose`). Descartar o
+/// controller manualmente logo apos `await showDialog(...)` retornar e
+/// inseguro: a rota do dialogo ainda esta sendo removida da arvore (animacao
+/// de saida), entao o `TextField` pode tentar reconstruir com o controller
+/// ja descartado e derrubar a tela ("Nao foi possivel carregar esta tela").
+class _ChangePaymentDayDialog extends StatefulWidget {
+  const _ChangePaymentDayDialog({required this.initialDay});
+
+  final int initialDay;
+
+  @override
+  State<_ChangePaymentDayDialog> createState() =>
+      _ChangePaymentDayDialogState();
+}
+
+class _ChangePaymentDayDialogState extends State<_ChangePaymentDayDialog> {
+  late final _controller = TextEditingController(text: '${widget.initialDay}');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Dia de pagamento'),
+      content: TextField(
+        controller: _controller,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(labelText: 'Dia do mes'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(context).pop(int.tryParse(_controller.text)),
+          child: const Text('Salvar'),
+        ),
+      ],
     );
   }
 }
@@ -2922,51 +2966,18 @@ class _ProfessionalCommissionDetailPageState
   }
 
   Future<void> _addAdvance() async {
-    final amountController = TextEditingController();
-    final notesController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<_AddAdvanceResult>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Lançar adiantamento'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Valor'),
-            ),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(labelText: 'Observacao'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
+      builder: (_) => const _AddAdvanceDialog(),
     );
 
-    final amount = parsePriceToCents(amountController.text);
-    final notes = notesController.text.trim();
-    amountController.dispose();
-    notesController.dispose();
-
-    if (confirmed != true || amount <= 0) return;
+    if (result == null || result.amountCents <= 0) return;
 
     try {
       await widget.professionalsRepository.createAdvance(
         professionalId: widget.professional.id,
-        amountCents: amount,
-        notes: notes.isEmpty ? null : notes,
+        amountCents: result.amountCents,
+        notes: result.notes,
       );
       await _load();
     } on AppException catch (error) {
@@ -3024,13 +3035,18 @@ class _ProfessionalCommissionDetailPageState
           if (finance.advances.isEmpty)
             const Card(child: ListTile(title: Text('Nenhum adiantamento.')))
           else
-            for (final advance in finance.advances)
+            // Decrescente: adiantamento mais recente primeiro, mesmo padrao
+            // usado no resto do app (AppDayTimeline).
+            for (final advance in finance.advances.toList()
+              ..sort((a, b) => b.paidAt.compareTo(a.paidAt)))
               Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
                   leading: const Icon(Icons.payments_outlined),
                   title: Text(formatCents(advance.amountCents)),
-                  subtitle: Text(advance.notes ?? 'Adiantamento'),
+                  subtitle: Text(
+                    '${advance.notes ?? 'Adiantamento'} - ${formatDateTime(advance.paidAt)}',
+                  ),
                 ),
               ),
         ],
@@ -3040,6 +3056,75 @@ class _ProfessionalCommissionDetailPageState
     return AppScaffold(
       appBar: AppBar(title: Text(widget.professional.name)),
       body: body,
+    );
+  }
+}
+
+/// Resultado do dialogo "Lançar adiantamento" (`_AddAdvanceDialog`).
+class _AddAdvanceResult {
+  const _AddAdvanceResult(this.amountCents, this.notes);
+
+  final int amountCents;
+  final String? notes;
+}
+
+/// Dialogo de "Lançar adiantamento", como widget proprio (nao inline) pelo
+/// mesmo motivo do `_ChangePaymentDayDialog`: os `TextEditingController`s
+/// precisam ser criados e descartados pelo ciclo de vida do proprio
+/// dialogo, nao manualmente logo apos `await showDialog(...)` retornar —
+/// bug real reportado pelo usuario ("Nao foi possivel carregar esta tela"
+/// apos salvar, embora o adiantamento fosse persistido corretamente).
+class _AddAdvanceDialog extends StatefulWidget {
+  const _AddAdvanceDialog();
+
+  @override
+  State<_AddAdvanceDialog> createState() => _AddAdvanceDialogState();
+}
+
+class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
+  final _amountController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final amount = parsePriceToCents(_amountController.text);
+    final notes = _notesController.text.trim();
+    Navigator.of(
+      context,
+    ).pop(_AddAdvanceResult(amount, notes.isEmpty ? null : notes));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Lançar adiantamento'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _amountController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Valor'),
+          ),
+          TextField(
+            controller: _notesController,
+            decoration: const InputDecoration(labelText: 'Observacao'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Salvar')),
+      ],
     );
   }
 }
@@ -4365,6 +4450,49 @@ class _EditProfessionalPageState extends State<EditProfessionalPage> {
   }
 }
 
+/// Percentual medio de ocupacao da equipe inteira (semana corrente), a
+/// partir da mesma agregacao por profissional/dia usada em "Ocupação da
+/// equipe" — usado no card "Desempenho da equipe" do dashboard.
+int _averageOccupancy(List<OccupancyProfessionalModel> occupancy) {
+  var totalAvailable = 0;
+  var totalOccupied = 0;
+  for (final professional in occupancy) {
+    for (final day in professional.days) {
+      totalAvailable += day.availableMinutes;
+      totalOccupied += day.occupiedMinutes;
+    }
+  }
+
+  return totalAvailable > 0
+      ? ((totalOccupied / totalAvailable) * 100).round().clamp(0, 100)
+      : 0;
+}
+
+/// Percentual de ocupacao de um unico profissional (semana corrente),
+/// somando os dias configurados em vez de detalhar dia a dia.
+int _professionalOccupancy(OccupancyProfessionalModel professional) {
+  final totalAvailable = professional.days.fold<int>(
+    0,
+    (sum, day) => sum + day.availableMinutes,
+  );
+  final totalOccupied = professional.days.fold<int>(
+    0,
+    (sum, day) => sum + day.occupiedMinutes,
+  );
+
+  return totalAvailable > 0
+      ? ((totalOccupied / totalAvailable) * 100).round().clamp(0, 100)
+      : 0;
+}
+
+/// Verde/amarelo/vermelho conforme o percentual de ocupacao, reaproveitado
+/// pela barra da tela de ocupacao e pelo card "Desempenho da equipe".
+Color _percentageColor(BuildContext context, int percentage) {
+  if (percentage >= 80) return Colors.green;
+  if (percentage >= 40) return Colors.amber.shade800;
+  return Theme.of(context).colorScheme.error;
+}
+
 /// Indice de ocupacao da equipe (roadmap Fase 4): para cada profissional
 /// ativo, quanto do horario de trabalho cadastrado (semana corrente) esta
 /// ocupado por agendamentos, dia a dia. Ajuda o dono a distribuir melhor
@@ -4422,12 +4550,6 @@ class _OccupancyPageState extends State<OccupancyPage> {
         _isLoading = false;
       });
     }
-  }
-
-  Color _percentageColor(BuildContext context, int percentage) {
-    if (percentage >= 80) return Colors.green;
-    if (percentage >= 40) return Colors.amber.shade800;
-    return Theme.of(context).colorScheme.error;
   }
 
   /// Toque no card leva o dono a editar o horario de trabalho recorrente
@@ -4574,20 +4696,15 @@ class _OccupancyPageState extends State<OccupancyPage> {
   }
 }
 
-/// Desempenho da equipe no mes corrente (roadmap Fase 4): estatisticas de
-/// atendimentos realizados e receita gerada por profissional, numa unica
-/// lista para o dono comparar a performance de todos sem abrir um por um.
-/// Toque num profissional abre o mesmo extrato detalhado ja usado em
-/// "Comissoes profissionais" (`ProfessionalCommissionDetailPage`).
+/// Desempenho da equipe (roadmap Fase 4): percentual de ocupacao da agenda
+/// de cada profissional (semana corrente), numa barra por profissional,
+/// ordenado do mais ocupado para o menos ocupado — mesmo calculo ja usado
+/// em "Ocupação da equipe", so que resumido a um numero por profissional em
+/// vez do detalhe dia a dia.
 class TeamPerformancePage extends StatefulWidget {
-  const TeamPerformancePage({
-    super.key,
-    required this.dashboardRepository,
-    required this.professionalsRepository,
-  });
+  const TeamPerformancePage({super.key, required this.dashboardRepository});
 
   final DashboardRepository dashboardRepository;
-  final ProfessionalsRepository professionalsRepository;
 
   @override
   State<TeamPerformancePage> createState() => _TeamPerformancePageState();
@@ -4596,8 +4713,7 @@ class TeamPerformancePage extends StatefulWidget {
 class _TeamPerformancePageState extends State<TeamPerformancePage> {
   bool _isLoading = true;
   String? _errorMessage;
-  List<TeamPerformanceEntryModel> _performance = [];
-  List<ProfessionalModel> _professionals = [];
+  List<OccupancyProfessionalModel> _occupancy = [];
 
   @override
   void initState() {
@@ -4612,15 +4728,11 @@ class _TeamPerformancePageState extends State<TeamPerformancePage> {
     });
 
     try {
-      final results = await Future.wait([
-        widget.dashboardRepository.teamPerformance(),
-        widget.professionalsRepository.index(),
-      ]);
+      final occupancy = await widget.dashboardRepository.occupancy();
 
       if (!mounted) return;
       setState(() {
-        _performance = results[0] as List<TeamPerformanceEntryModel>;
-        _professionals = results[1] as List<ProfessionalModel>;
+        _occupancy = occupancy;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -4632,22 +4744,6 @@ class _TeamPerformancePageState extends State<TeamPerformancePage> {
     }
   }
 
-  Future<void> _openDetail(TeamPerformanceEntryModel entry) async {
-    final professional = _professionals.firstWhere(
-      (item) => item.id == entry.professionalId,
-    );
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ProfessionalCommissionDetailPage(
-          professional: professional,
-          professionalsRepository: widget.professionalsRepository,
-        ),
-      ),
-    );
-    _load();
-  }
-
   @override
   Widget build(BuildContext context) {
     Widget body;
@@ -4656,60 +4752,67 @@ class _TeamPerformancePageState extends State<TeamPerformancePage> {
       body = const Center(child: CircularProgressIndicator());
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
-    } else if (_performance.isEmpty) {
+    } else if (_occupancy.isEmpty) {
       body = const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'Nenhum profissional ativo ainda.',
+            'Nenhum profissional com horário de trabalho configurado ainda.',
             textAlign: TextAlign.center,
           ),
         ),
       );
     } else {
+      final ranked = _occupancy.toList()
+        ..sort(
+          (a, b) =>
+              _professionalOccupancy(b).compareTo(_professionalOccupancy(a)),
+        );
+
       body = ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'Toque num profissional para ver o extrato completo do mês.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          for (final entry in _performance)
-            Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
-                onTap: () => _openDetail(entry),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          for (final professional in ranked)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    professional.professionalName,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              entry.professionalName,
-                              style: Theme.of(context).textTheme.titleMedium,
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: _professionalOccupancy(professional) / 100,
+                            minHeight: 14,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            color: _percentageColor(
+                              context,
+                              _professionalOccupancy(professional),
                             ),
                           ),
-                          Text(
-                            formatCents(entry.grossCents),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const Icon(Icons.chevron_right),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${entry.completedCount} atendimento${entry.completedCount == 1 ? '' : 's'} '
-                        '(${entry.avulsoCount} avulso, ${entry.planoCount} assinatura) - '
-                        'comissão ${formatCents(entry.commissionCents)}',
-                        style: Theme.of(context).textTheme.bodySmall,
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 44,
+                        child: Text(
+                          '${_professionalOccupancy(professional)}%',
+                          textAlign: TextAlign.right,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
             ),
         ],

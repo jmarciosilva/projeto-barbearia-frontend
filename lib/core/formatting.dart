@@ -24,6 +24,14 @@ String formatTime(DateTime dateTime) {
   return '$hour:$minute';
 }
 
+/// Formata data e hora como "dd/mm/yyyy HH:mm" a partir de um [DateTime].
+String formatDateTime(DateTime dateTime) {
+  final day = dateTime.day.toString().padLeft(2, '0');
+  final month = dateTime.month.toString().padLeft(2, '0');
+
+  return '$day/$month/${dateTime.year} ${formatTime(dateTime)}';
+}
+
 /// Formata uma duracao como "40 min" ou "1h 30min".
 String formatDuration(Duration duration) {
   final hours = duration.inHours;

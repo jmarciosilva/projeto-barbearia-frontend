@@ -138,12 +138,55 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dia 5'), findsOneWidget);
+    // Lista ja mostra o valor a receber de cada profissional, sem precisar
+    // abrir um por um.
+    expect(
+      find.text('Comissão 40% - A receber R\$ 114,00'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Comissão 35% - A receber R\$ 42,00'),
+      findsOneWidget,
+    );
+
+    // Mesmo bug de controller descartado durante a animacao de saida do
+    // dialogo tambem existia aqui (dialogo de campo unico).
+    await tester.tap(find.text('Dia 5'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '10');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Nao foi possivel carregar esta tela. Tente novamente em instantes.'),
+      findsNothing,
+    );
+    expect(find.text('Dia 10'), findsOneWidget);
+
     await tester.tap(find.text('Ana Souza'));
     await tester.pumpAndSettle();
 
     expect(find.text('A receber'), findsOneWidget);
     expect(find.text('R\$ 114,00'), findsOneWidget);
-    expect(find.text('Adiantamento'), findsOneWidget);
+    expect(find.text('Adiantamento - 04/07/2026 10:00'), findsOneWidget);
+
+    // Bug real reportado pelo usuario: salvar um adiantamento derrubava a
+    // tela ("Nao foi possivel carregar esta tela") porque os controllers do
+    // dialogo eram descartados antes da animacao de saida terminar.
+    await tester.tap(find.text('Lançar adiantamento'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '50,00');
+    await tester.enterText(find.byType(TextField).at(1), 'Teste');
+    await tester.tap(find.widgetWithText(FilledButton, 'Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Nao foi possivel carregar esta tela. Tente novamente em instantes.'),
+      findsNothing,
+    );
+    expect(find.text('A receber'), findsOneWidget);
   });
 
   testWidgets(
@@ -926,26 +969,26 @@ void main() {
   );
 
   testWidgets(
-    'proprietario ve o desempenho da equipe e abre o extrato de um profissional',
+    'proprietario ve o desempenho da equipe no card ao lado de cancelamentos',
     (tester) async {
       await pumpMobileApp(tester);
 
       await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-      await scrollToText(tester, 'Desempenho da equipe');
+      // Card fica junto dos outros cards de "Hoje", nao mais em "Proximas
+      // acoes" — visivel sem rolar a tela.
+      expect(find.text('Desempenho da equipe'), findsOneWidget);
+      // Media da equipe: (192+100)/(240+200) = 66%.
+      expect(find.text('66%'), findsOneWidget);
+
       await tester.tap(find.text('Desempenho da equipe'));
       await tester.pumpAndSettle();
 
-      // Ordenado por receita gerada: Ana (mais receita) antes de Rafael.
+      // Ordenado por ocupacao (decrescente): Ana (80%) antes de Rafael (50%).
       expect(find.text('Ana Souza'), findsOneWidget);
       expect(find.text('Rafael Souza'), findsOneWidget);
-      expect(find.text('R\$ 360,00'), findsOneWidget);
-      expect(find.text('R\$ 120,00'), findsOneWidget);
-
-      await tester.tap(find.text('Ana Souza'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('A receber'), findsOneWidget);
+      expect(find.text('80%'), findsOneWidget);
+      expect(find.text('50%'), findsOneWidget);
     },
   );
 }

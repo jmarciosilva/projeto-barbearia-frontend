@@ -10,14 +10,14 @@ class ProfessionalAdvanceModel {
     return ProfessionalAdvanceModel(
       id: json['id'] as int,
       amountCents: json['amount_cents'] as int,
-      paidAt: json['paid_at'] as String,
+      paidAt: DateTime.parse(json['paid_at'] as String),
       notes: json['notes'] as String?,
     );
   }
 
   final int id;
   final int amountCents;
-  final String paidAt;
+  final DateTime paidAt;
   final String? notes;
 }
 

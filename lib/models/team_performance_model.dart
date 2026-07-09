@@ -11,6 +11,8 @@ class TeamPerformanceEntryModel {
     required this.grossCents,
     required this.commissionPercentage,
     required this.commissionCents,
+    required this.advancesCents,
+    required this.netCents,
   });
 
   factory TeamPerformanceEntryModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,8 @@ class TeamPerformanceEntryModel {
       grossCents: json['gross_cents'] as int,
       commissionPercentage: json['commission_percentage'] as int,
       commissionCents: json['commission_cents'] as int,
+      advancesCents: json['advances_cents'] as int? ?? 0,
+      netCents: json['net_cents'] as int? ?? (json['commission_cents'] as int),
     );
   }
 
@@ -34,4 +38,6 @@ class TeamPerformanceEntryModel {
   final int grossCents;
   final int commissionPercentage;
   final int commissionCents;
+  final int advancesCents;
+  final int netCents;
 }
