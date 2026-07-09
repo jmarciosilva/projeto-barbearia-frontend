@@ -576,6 +576,8 @@ class _DashboardShellState extends State<DashboardShell> {
           ClientsPage(
             clientsRepository: ClientsRepository(apiClient),
             paymentsRepository: PaymentsRepository(apiClient),
+            tenantRepository: TenantRepository(apiClient),
+            checklistStorage: widget.authSession.checklistStorage,
           ),
         ),
       ],

@@ -231,30 +231,73 @@ class AppPlanTile extends StatelessWidget {
 /// Tile de cliente na lista do proprietario.
 ///
 /// Quando [onTap] e informado, abre o detalhe mockado do cliente.
+/// Tile de cliente na listagem do dono. Alem de nome/plano/pagamento, mostra
+/// contato (telefone/e-mail) e "Cliente desde" quando informados — dados
+/// pensados pra futuras campanhas de marketing (roadmap Fase 7), nao so
+/// operacao do dia a dia.
 class AppClientTile extends StatelessWidget {
   const AppClientTile(
     this.name,
     this.plan,
     this.payment, {
     super.key,
+    this.contact,
+    this.since,
     this.onTap,
   });
 
   final String name;
   final String plan;
   final String payment;
+  final String? contact;
+  final String? since;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: const Icon(Icons.person),
-        title: Text(name),
-        subtitle: Text(plan),
-        trailing: Text(payment),
+      child: InkWell(
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.person),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  if (onTap != null) const Icon(Icons.chevron_right),
+                ],
+              ),
+              if (contact != null && contact!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(contact!, style: Theme.of(context).textTheme.bodySmall),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                '$plan - $payment',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (since != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  since!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

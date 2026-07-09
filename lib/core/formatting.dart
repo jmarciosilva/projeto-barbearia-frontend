@@ -32,6 +32,27 @@ String formatDateTime(DateTime dateTime) {
   return '$day/$month/${dateTime.year} ${formatTime(dateTime)}';
 }
 
+const _monthNames = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+];
+
+/// Formata mes e ano por extenso, ex: "julho de 2026" — usado em "Cliente
+/// desde" para leitura rapida sem exigir interpretar uma data numerica.
+String formatMonthYear(DateTime dateTime) {
+  return '${_monthNames[dateTime.month - 1]} de ${dateTime.year}';
+}
+
 /// Formata uma duracao como "40 min" ou "1h 30min".
 String formatDuration(Duration duration) {
   final hours = duration.inHours;

@@ -456,23 +456,6 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ),
         ),
         AppActionTile(
-          icon: Icons.qr_code,
-          title: 'Convidar clientes',
-          subtitle: 'Compartilhe o link/QR para o cliente se cadastrar sozinho.',
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => InviteCodePage(
-                  tenantRepository: widget.tenantRepository,
-                  checklistStorage: widget.checklistStorage,
-                  initialTenant: _tenant!,
-                ),
-              ),
-            );
-            _load();
-          },
-        ),
-        AppActionTile(
           icon: Icons.bar_chart,
           title: 'Ocupação da equipe',
           subtitle: 'Veja o quanto da agenda de cada profissional está ocupada.',
@@ -512,7 +495,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         AppActionTile(
           icon: Icons.person_add,
           title: 'Cadastrar cliente',
-          subtitle: 'Inclua telefone, observações e histórico inicial.',
+          subtitle: 'Nome, telefone, e-mail e senha de acesso.',
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -1194,10 +1177,14 @@ class ClientsPage extends StatefulWidget {
     super.key,
     required this.clientsRepository,
     required this.paymentsRepository,
+    required this.tenantRepository,
+    required this.checklistStorage,
   });
 
   final ClientsRepository clientsRepository;
   final PaymentsRepository paymentsRepository;
+  final TenantRepository tenantRepository;
+  final OnboardingChecklistStorage checklistStorage;
 
   @override
   State<ClientsPage> createState() => _ClientsPageState();
@@ -1207,6 +1194,7 @@ class _ClientsPageState extends State<ClientsPage> {
   bool _isLoading = true;
   String? _errorMessage;
   List<ClientModel> _clients = [];
+  TenantModel? _tenant;
 
   @override
   void initState() {
@@ -1221,11 +1209,15 @@ class _ClientsPageState extends State<ClientsPage> {
     });
 
     try {
-      final clients = await widget.clientsRepository.index();
+      final results = await Future.wait([
+        widget.clientsRepository.index(),
+        widget.tenantRepository.show(),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _clients = clients;
+        _clients = results[0] as List<ClientModel>;
+        _tenant = results[1] as TenantModel;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -1245,6 +1237,64 @@ class _ClientsPageState extends State<ClientsPage> {
       ),
     );
     _load();
+  }
+
+  Future<void> _openInvite() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => InviteCodePage(
+          tenantRepository: widget.tenantRepository,
+          checklistStorage: widget.checklistStorage,
+          initialTenant: _tenant!,
+        ),
+      ),
+    );
+    _load();
+  }
+
+  /// Unifica os dois jeitos de trazer um cliente novo pro salao numa unica
+  /// acao (antes eram dois pontos de entrada separados: FAB aqui e a tile
+  /// "Convidar clientes" escondida em "Próximas ações"): o dono cadastra
+  /// diretamente (com senha de acesso, se quiser) ou compartilha o convite
+  /// pra o proprio cliente se cadastrar sozinho.
+  Future<void> _addClient() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: AppSectionTitle('Adicionar cliente'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_add),
+              title: const Text('Cadastrar cliente'),
+              subtitle: const Text(
+                'Você preenche nome, telefone, e-mail e senha de acesso na hora.',
+              ),
+              onTap: () => Navigator.of(context).pop('register'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code),
+              title: const Text('Convidar por link ou QR code'),
+              subtitle: const Text(
+                'O cliente se cadastra sozinho pelo convite do salão.',
+              ),
+              onTap: () => Navigator.of(context).pop('invite'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (choice == 'register') {
+      await _openNewClient();
+    } else if (choice == 'invite') {
+      await _openInvite();
+    }
   }
 
   Future<void> _openClient(ClientModel client) async {
@@ -1282,6 +1332,14 @@ class _ClientsPageState extends State<ClientsPage> {
                   ? 'Sem plano'
                   : 'Plano ${client.activeSubscription!.plan?.name ?? '-'}',
               client.activeSubscription?.paymentStatusLabel ?? '-',
+              contact: [
+                client.phone,
+                if (client.email != null && client.email!.isNotEmpty)
+                  client.email!,
+              ].join(' - '),
+              since: client.createdAt == null
+                  ? null
+                  : 'Cliente desde ${formatMonthYear(client.createdAt!)}',
               onTap: () => _openClient(client),
             ),
         ],
@@ -1295,9 +1353,9 @@ class _ClientsPageState extends State<ClientsPage> {
           right: 16,
           bottom: 16,
           child: FloatingActionButton(
-            onPressed: _openNewClient,
-            tooltip: 'Cadastrar cliente',
-            child: const Icon(Icons.add),
+            onPressed: _addClient,
+            tooltip: 'Adicionar cliente',
+            child: const Icon(Icons.person_add),
           ),
         ),
       ],
@@ -1319,8 +1377,11 @@ class _NewClientPageState extends State<NewClientPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _notesController = TextEditingController();
 
+  bool _obscurePassword = true;
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -1328,6 +1389,8 @@ class _NewClientPageState extends State<NewClientPage> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -1344,6 +1407,12 @@ class _NewClientPageState extends State<NewClientPage> {
       await widget.clientsRepository.create(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
+        password: _passwordController.text.isEmpty
+            ? null
+            : _passwordController.text,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -1393,6 +1462,29 @@ class _NewClientPageState extends State<NewClientPage> {
               validator: (value) => (value == null || value.isEmpty)
                   ? 'Informe o telefone'
                   : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(labelText: 'E-mail (opcional)'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _passwordController,
+              decoration: InputDecoration(
+                labelText: 'Senha de acesso ao app (opcional)',
+                hintText: 'Deixe em branco para não liberar login',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword,
+                  ),
+                ),
+              ),
+              obscureText: _obscurePassword,
             ),
             const SizedBox(height: 16),
             TextFormField(

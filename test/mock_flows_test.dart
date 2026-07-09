@@ -27,6 +27,51 @@ void main() {
     expect(find.text('Próximas ações'), findsOneWidget);
   });
 
+  testWidgets(
+    'proprietario cadastra ou convida cliente pela aba Clientes',
+    (tester) async {
+      await pumpMobileApp(tester);
+
+      await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
+
+      await tester.tap(find.text('Clientes'));
+      await tester.pumpAndSettle();
+
+      // Lista mostra contato e "cliente desde", pensado pra campanhas de
+      // marketing futuras (roadmap Fase 7), nao so nome/plano.
+      expect(
+        find.text('11988881234 - carlos.mendes@clubedosalao.com'),
+        findsOneWidget,
+      );
+      expect(find.text('Cliente desde maio de 2026'), findsOneWidget);
+
+      // Cadastro e convite foram unificados num unico ponto de entrada.
+      await tester.tap(find.byTooltip('Adicionar cliente'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adicionar cliente'), findsOneWidget);
+      expect(find.text('Cadastrar cliente'), findsOneWidget);
+      expect(find.text('Convidar por link ou QR code'), findsOneWidget);
+
+      await tester.tap(find.text('Cadastrar cliente'));
+      await tester.pumpAndSettle();
+
+      // Dono ja cadastra com e-mail e senha de acesso, sem depender do
+      // cliente se autocadastrar depois.
+      await tester.enterText(find.byType(TextFormField).at(0), 'Nova Cliente');
+      await tester.enterText(find.byType(TextFormField).at(1), '11999990000');
+      await tester.enterText(
+        find.byType(TextFormField).at(2),
+        'nova.cliente@example.com',
+      );
+      await tester.enterText(find.byType(TextFormField).at(3), 'senhaforte1');
+      await tester.tap(find.text('Salvar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cliente Nova Cliente cadastrado.'), findsOneWidget);
+    },
+  );
+
   testWidgets('proprietario confirma um pagamento pendente pela API', (
     tester,
   ) async {

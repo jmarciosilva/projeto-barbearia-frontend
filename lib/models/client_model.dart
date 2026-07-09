@@ -10,6 +10,7 @@ class ClientModel {
     this.status = 'active',
     this.notes,
     this.userId,
+    this.createdAt,
     this.subscriptions = const [],
   });
 
@@ -25,6 +26,9 @@ class ClientModel {
       status: json['status'] as String? ?? 'active',
       notes: json['notes'] as String?,
       userId: json['user_id'] as int?,
+      createdAt: json['created_at'] == null
+          ? null
+          : DateTime.parse(json['created_at'] as String),
       subscriptions: subscriptionsJson
           .map((item) => ClientSubscriptionModel.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -39,6 +43,7 @@ class ClientModel {
   final String status;
   final String? notes;
   final int? userId;
+  final DateTime? createdAt;
   final List<ClientSubscriptionModel> subscriptions;
 
   /// Assinatura mais recente do cliente, usada nas listas e no detalhe.

@@ -172,8 +172,16 @@ void main() {
 
     await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-    await scrollToText(tester, 'Convidar clientes');
-    await tester.tap(find.text('Convidar clientes'));
+    // Convidar cliente foi unificado com o cadastro direto, agora reachavel
+    // pelo botao "Adicionar cliente" na aba Clientes (nao mais uma tile
+    // separada em "Proximas acoes").
+    await tester.tap(find.text('Clientes'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Adicionar cliente'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Convidar por link ou QR code'));
     await tester.pumpAndSettle();
 
     expect(find.text('Código: AB3XQ9'), findsOneWidget);

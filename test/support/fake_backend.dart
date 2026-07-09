@@ -383,6 +383,7 @@ http.Client buildFakeBackend() {
         'email': body['email'],
         'notes': body['notes'],
         'status': 'active',
+        'created_at': '2026-07-09T09:00:00.000000Z',
         'subscriptions': <dynamic>[],
       });
     }
@@ -964,9 +965,10 @@ final _clientsJson = [
     'id': 1,
     'name': 'Carlos Mendes',
     'phone': '11988881234',
-    'email': null,
+    'email': 'carlos.mendes@clubedosalao.com',
     'notes': null,
     'status': 'active',
+    'created_at': '2026-05-12T10:00:00.000000Z',
     'subscriptions': [
       {
         'id': 1,
@@ -985,6 +987,7 @@ final _clientsJson = [
     'email': null,
     'notes': null,
     'status': 'active',
+    'created_at': '2026-07-01T08:00:00.000000Z',
     'subscriptions': <dynamic>[],
   },
 ];

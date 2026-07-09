@@ -28,6 +28,7 @@ class ClientsRepository {
     String? email,
     String? birthDate,
     String? notes,
+    String? password,
   }) async {
     final response =
         await _client.post(
@@ -38,6 +39,7 @@ class ClientsRepository {
                 'email': ?email,
                 'birth_date': ?birthDate,
                 'notes': ?notes,
+                'password': ?password,
               },
             )
             as Map<String, dynamic>;
