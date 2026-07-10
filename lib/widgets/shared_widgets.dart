@@ -33,7 +33,11 @@ class AppScaffold extends StatelessWidget {
 /// Estado de erro padrao para telas que buscam dados da API, com botao para
 /// tentar novamente. Reaproveitado por todas as telas com chamada de rede.
 class AppLoadingError extends StatelessWidget {
-  const AppLoadingError({super.key, required this.message, required this.onRetry});
+  const AppLoadingError({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   final String message;
   final VoidCallback onRetry;
@@ -95,6 +99,7 @@ class AppActionTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
+    this.accentColor,
   });
 
   final IconData icon;
@@ -102,21 +107,46 @@ class AppActionTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
 
+  /// Cor do selo circular do icone. Quando omitida, usa `colorScheme.primary`
+  /// (comportamento original). Listas longas de acoes podem variar essa cor
+  /// por item (ver [appAccentColors]) para facilitar a leitura visual.
+  final Color? accentColor;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final accent = accentColor ?? colorScheme.primary;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      // Fundo bem mais claro que o selo do icone (0.08 vs 0.12), na mesma
+      // cor: o card passa a "conversar" com o icone em vez de ficar sempre
+      // no neutro claro do tema, e o selo continua se destacando por cima
+      // por ser mais saturado que o fundo ao redor.
+      color: accent.withValues(alpha: 0.08),
       child: ListTile(
         leading: CircleAvatar(
           radius: 20,
-          backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
-          foregroundColor: colorScheme.primary,
+          backgroundColor: accent.withValues(alpha: 0.12),
+          foregroundColor: accent,
           child: Icon(icon),
         ),
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(subtitle),
+        // Titulo mais escuro/forte que o subtitulo, mesmo padrao ja usado
+        // no card de alerta (`AppAlertMetric`) — da destaque a opcao em vez
+        // de titulo e subtitulo pesarem igual na leitura.
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
@@ -124,13 +154,43 @@ class AppActionTile extends StatelessWidget {
   }
 }
 
+/// 6 cores de acento pra alternar o selo do [AppActionTile] em listas longas
+/// de acoes: `colors[index]`. As 3 primeiras sao as cores da marca
+/// (`ColorScheme`); as 3 seguintes (azul, lilas, dourado) continuam a mesma
+/// paleta vibrante/pastel pra cobrir listas com mais de 3 itens sem repetir
+/// cor nem cair no neutro claro do tema (pedido explicito do usuario ao ver
+/// os cards do fluxo de novo agendamento todos identicos).
+List<Color> appAccentColors(BuildContext context) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return [
+    colorScheme.primary,
+    colorScheme.secondary,
+    colorScheme.tertiary,
+    const Color(0xFF3DA5D9),
+    const Color(0xFF9B72CF),
+    heroGoldAccent,
+  ];
+}
+
 class AppMetric {
-  const AppMetric(this.label, this.value, this.icon, {this.onTap});
+  const AppMetric(
+    this.label,
+    this.value,
+    this.icon, {
+    this.onTap,
+    this.accentColor,
+  });
 
   final String label;
   final String value;
   final IconData icon;
   final VoidCallback? onTap;
+
+  /// Cor propria do card (icone, seta e fundo levemente tingido). Quando
+  /// omitida, mantem o neutro claro padrao do tema — usado so quando faz
+  /// sentido cada card do grid ter uma identidade visual distinta (ex: os 4
+  /// cards de "Hoje" do dono), nao em todo `AppMetricGrid` do app.
+  final Color? accentColor;
 }
 
 class AppMetricGrid extends StatelessWidget {
@@ -159,8 +219,14 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = metric.accentColor;
+
     return Card(
       clipBehavior: Clip.antiAlias,
+      // Sem `accentColor`, mantem o neutro claro padrao do tema (color:
+      // null cai no CardThemeData global); com ele, um tingimento leve da
+      // propria cor em vez do neutro.
+      color: accent?.withValues(alpha: 0.16),
       child: InkWell(
         onTap: metric.onTap,
         child: Padding(
@@ -172,11 +238,11 @@ class _MetricCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(metric.icon, color: Theme.of(context).colorScheme.primary),
+                  Icon(metric.icon, color: accent ?? Theme.of(context).colorScheme.primary),
                   if (metric.onTap != null)
                     Icon(
                       Icons.chevron_right,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: accent ?? Theme.of(context).colorScheme.primary,
                     ),
                 ],
               ),
@@ -199,6 +265,15 @@ class _MetricCard extends StatelessWidget {
 /// identidade propria desse "bloco heroi", nao um papel reaproveitavel do
 /// tema em outro lugar.
 const _heroBackground = Color(0xFF180F2B);
+
+/// Dourado usado no rotulo/brilho do [AppHeroMetric] e em cards que
+/// precisam do mesmo acento visual (ex: card "Pendentes" do dono).
+/// Deliberadamente separado de `colorScheme.tertiary` (o laranja da marca,
+/// usado no selo do [AppActionTile]): esse laranja sobre o roxo bem escuro
+/// do card criava uma mancha acastanhada/suja no canto (feedback real do
+/// usuario apos ver em dispositivo); esse tom mais quente e menos saturado
+/// resolve sem mexer no laranja que ja funciona bem nos selos claros.
+const heroGoldAccent = Color(0xFFE3A857);
 
 /// Card de destaque: um por tela, reservado pro numero mais importante do
 /// momento (ex: "Receita do mês" pro dono, "A receber" pro profissional).
@@ -226,8 +301,6 @@ class AppHeroMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Card(
       clipBehavior: Clip.antiAlias,
       margin: const EdgeInsets.only(bottom: 10),
@@ -247,8 +320,8 @@ class AppHeroMetric extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      colorScheme.tertiary.withValues(alpha: 0.35),
-                      colorScheme.tertiary.withValues(alpha: 0),
+                      heroGoldAccent.withValues(alpha: 0.35),
+                      heroGoldAccent.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -265,8 +338,8 @@ class AppHeroMetric extends StatelessWidget {
                     // "Receita do mês"), e varios testes/telas dependem do
                     // texto exato pra localizar/tocar o card.
                     label,
-                    style: TextStyle(
-                      color: colorScheme.tertiary,
+                    style: const TextStyle(
+                      color: heroGoldAccent,
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                       letterSpacing: 0.4,
@@ -384,20 +457,43 @@ class AppAlertMetric extends StatelessWidget {
 }
 
 class AppPlanTile extends StatelessWidget {
-  const AppPlanTile(this.name, this.price, this.limit, {super.key, this.onTap});
+  const AppPlanTile(
+    this.name,
+    this.price,
+    this.limit, {
+    super.key,
+    this.onTap,
+    this.accentColor,
+  });
 
   final String name;
   final String price;
   final String limit;
   final VoidCallback? onTap;
 
+  /// Cor do selo e do fundo levemente tingido, mesmo padrao do
+  /// [AppActionTile] — usada pra listar varios planos lado a lado com uma
+  /// identidade visual propria (ver [appAccentColors]), em vez do card
+  /// neutro unico usado no catalogo do dono.
+  final Color? accentColor;
+
   @override
   Widget build(BuildContext context) {
+    final accent = accentColor;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      color: accent?.withValues(alpha: 0.08),
       child: ListTile(
-        leading: const Icon(Icons.workspace_premium),
-        title: Text(name),
+        leading: accent == null
+            ? const Icon(Icons.workspace_premium)
+            : CircleAvatar(
+                radius: 20,
+                backgroundColor: accent.withValues(alpha: 0.12),
+                foregroundColor: accent,
+                child: const Icon(Icons.workspace_premium),
+              ),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(limit),
         trailing: Text(price),
         onTap: onTap,
@@ -599,9 +695,7 @@ class AppMockSuccessPanel extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: onSecondary,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 52),
-                  ),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
                   child: Text(secondaryButtonLabel!),
                 ),
               ),
@@ -621,9 +715,7 @@ class AppMockSuccessPanel extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: onDone,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 52),
-                  ),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
                   child: Text(buttonLabel),
                 ),
               ),
@@ -680,11 +772,17 @@ class AppDayTimeline extends StatelessWidget {
 
     for (final appointment in appointments) {
       final key = formatTime(appointment.startsAt);
-      slots.putIfAbsent(key, () => _DaySlot(appointment.startsAt)).appointments.add(appointment);
+      slots
+          .putIfAbsent(key, () => _DaySlot(appointment.startsAt))
+          .appointments
+          .add(appointment);
     }
     for (final entry in waitlistEntries) {
       final key = formatTime(entry.createdAt);
-      slots.putIfAbsent(key, () => _DaySlot(entry.createdAt)).waitlistEntries.add(entry);
+      slots
+          .putIfAbsent(key, () => _DaySlot(entry.createdAt))
+          .waitlistEntries
+          .add(entry);
     }
 
     // Decrescente: horario mais tarde do dia primeiro, mais cedo por ultimo —
@@ -702,7 +800,9 @@ class AppDayTimeline extends StatelessWidget {
             _AppointmentCard(
               appointment: appointment,
               showClientNames: showClientNames,
-              onTap: showClientNames ? () => onAppointmentTap(appointment) : null,
+              onTap: showClientNames
+                  ? () => onAppointmentTap(appointment)
+                  : null,
             ),
           for (final entry in slots[key]!.waitlistEntries)
             Card(
@@ -754,20 +854,20 @@ class _AppointmentCard extends StatelessWidget {
       color: isCompleted
           ? colorScheme.primaryContainer.withValues(alpha: 0.45)
           : isCanceled
-              ? colorScheme.errorContainer.withValues(alpha: 0.35)
-              : null,
+          ? colorScheme.errorContainer.withValues(alpha: 0.35)
+          : null,
       child: ListTile(
         leading: Icon(
           isCompleted
               ? Icons.check_circle
               : isCanceled
-                  ? Icons.cancel_outlined
-                  : Icons.event,
+              ? Icons.cancel_outlined
+              : Icons.event,
           color: isCompleted
               ? colorScheme.primary
               : isCanceled
-                  ? colorScheme.error
-                  : null,
+              ? colorScheme.error
+              : null,
         ),
         title: Text(
           appointment.serviceName ?? 'Serviço',

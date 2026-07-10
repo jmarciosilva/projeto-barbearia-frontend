@@ -111,8 +111,29 @@ Future<void> scrollToText(WidgetTester tester, String text) async {
     await tester.pump();
     attempts++;
   }
-  await tester.drag(scrollable, const Offset(0, -150));
-  await tester.pump();
+  await tester.pumpAndSettle();
+
+  // O item pode montar colado numa borda mesmo ja "visivel" pro finder: a
+  // AppBar fixa em cima ou a barra de navegacao fixa embaixo cobrem a
+  // ponta da lista sem tirar o widget da arvore. Em vez de um empurrao
+  // fixo (que so funcionava quando o alvo ficava no meio da lista, e
+  // quebrava tanto pra item perto do topo quanto perto do fim), ajusta aos
+  // poucos ate o centro do texto cair numa faixa segura pra tocar.
+  const safeTop = 100.0;
+  final safeBottom = mobileSize.height - 140;
+  var safetyAttempts = 0;
+  while (finder.evaluate().isNotEmpty && safetyAttempts < 8) {
+    final dy = tester.getCenter(finder).dy;
+    if (dy < safeTop) {
+      await tester.drag(scrollable, const Offset(0, 80));
+    } else if (dy > safeBottom) {
+      await tester.drag(scrollable, const Offset(0, -80));
+    } else {
+      break;
+    }
+    await tester.pump();
+    safetyAttempts++;
+  }
   await tester.pumpAndSettle();
 }
 

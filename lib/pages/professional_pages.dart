@@ -103,6 +103,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
       return AppLoadingError(message: _errorMessage!, onRetry: _load);
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
     final finance = _monthFinance!;
     final avulsoAppointments = finance.appointments
         .where((appointment) => !appointment.hasSubscription)
@@ -148,6 +149,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               'Atendimentos',
               '${finance.completedCount}',
               Icons.event_available,
+              accentColor: colorScheme.primary,
               onTap: () =>
                   openMonthDetail('Atendimentos do mês', finance.appointments),
             ),
@@ -155,6 +157,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               'Avulso',
               '${finance.avulsoCount}',
               Icons.content_cut,
+              accentColor: colorScheme.tertiary,
               onTap: () => openMonthDetail(
                 'Atendimentos avulsos do mês',
                 avulsoAppointments,
@@ -164,6 +167,7 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               'Assinatura',
               '${finance.planoCount}',
               Icons.card_membership,
+              accentColor: colorScheme.secondary,
               onTap: () => openMonthDetail(
                 'Atendimentos por assinatura do mês',
                 planoAppointments,
@@ -173,20 +177,27 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
               'Receita gerada',
               formatCents(finance.grossCents),
               Icons.payments,
-              onTap: () =>
-                  openMonthDetail('Receita gerada no mês', finance.appointments),
-            ),
-            AppMetric(
-              'Comissão do Mês',
-              formatCents(finance.commissionCents),
-              Icons.percent,
+              accentColor: heroGoldAccent,
               onTap: () => openMonthDetail(
-                'Comissão do mês',
+                'Receita gerada no mês',
                 finance.appointments,
-                commissionPercentage: finance.commissionPercentage,
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        // Mesmo tratamento do "A receber" acima (`AppHeroMetric`, largura
+        // cheia e destaque), a pedido do usuario: a comissao do mes e o
+        // segundo numero mais importante dessa tela, nao deveria disputar
+        // espaco com os cards menores do grid.
+        AppHeroMetric(
+          label: 'Comissão do Mês',
+          value: formatCents(finance.commissionCents),
+          onTap: () => openMonthDetail(
+            'Comissão do mês',
+            finance.appointments,
+            commissionPercentage: finance.commissionPercentage,
+          ),
         ),
         const SizedBox(height: 16),
         const AppSectionTitle('Atendimentos de hoje'),
@@ -266,9 +277,7 @@ class ProfessionalMonthAppointmentsPage extends StatelessWidget {
                 for (final appointment in sortedAppointments)
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),
-                    color: colorScheme.primaryContainer.withValues(
-                      alpha: 0.45,
-                    ),
+                    color: colorScheme.primaryContainer.withValues(alpha: 0.45),
                     child: ListTile(
                       leading: Icon(
                         Icons.check_circle,
@@ -431,6 +440,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
     final professional = _professional!;
     final monthFinance = _monthFinance!;
     final weekFinance = _weekFinance!;
+    final accentColors = appAccentColors(context);
 
     return AppProfileSummary(
       title: 'Perfil profissional',
@@ -459,6 +469,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         const SizedBox(height: 16),
         AppActionTile(
           icon: Icons.edit,
+          accentColor: accentColors[0 % 3],
           title: 'Editar perfil',
           subtitle: 'Atualize nome, especialidade e dados de contato.',
           onTap: () async {
@@ -475,6 +486,7 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         ),
         AppActionTile(
           icon: Icons.schedule,
+          accentColor: accentColors[1 % 3],
           title: 'Ajuste de horário',
           subtitle: 'Registre quando chegou/saiu diferente do horário normal.',
           onTap: () async {
@@ -490,11 +502,13 @@ class _ProfessionalProfilePageState extends State<ProfessionalProfilePage> {
         ),
         AppActionTile(
           icon: Icons.lock_outline,
+          accentColor: accentColors[2 % 3],
           title: 'Meus dados de acesso',
           subtitle: 'Altere seu e-mail e/ou senha de login.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+              builder: (_) =>
+                  AccountSettingsPage(authSession: widget.authSession),
             ),
           ),
         ),
@@ -940,9 +954,7 @@ class _EditProfessionalProfilePageState
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'E-mail de contato',
-              ),
+              decoration: const InputDecoration(labelText: 'E-mail de contato'),
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),

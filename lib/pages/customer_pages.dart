@@ -47,6 +47,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
   bool _isLoading = true;
   String? _errorMessage;
   ClientModel? _client;
+  List<SubscriptionPlanModel> _plans = [];
 
   @override
   void initState() {
@@ -61,11 +62,17 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
     });
 
     try {
-      final client = await widget.clientsRepository.me();
+      final results = await Future.wait([
+        widget.clientsRepository.me(),
+        widget.plansRepository.index(),
+      ]);
+      final client = results[0] as ClientModel;
+      final plans = results[1] as List<SubscriptionPlanModel>;
 
       if (!mounted) return;
       setState(() {
         _client = client;
+        _plans = plans;
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -88,6 +95,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
     }
 
     final subscription = _client!.activeSubscription;
+    final accentColors = appAccentColors(context);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -109,26 +117,40 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
           },
         ),
         const SizedBox(height: 16),
-        const AppSectionTitle('Beneficios'),
-        if (subscription?.plan == null)
-          AppActionTile(
-            icon: Icons.info_outline,
-            title: 'Nenhum plano ativo',
-            subtitle: 'Toque para contratar uma assinatura.',
-            onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ChoosePlanPage(
-                    plansRepository: widget.plansRepository,
-                    clientSubscriptionsRepository:
-                        widget.clientSubscriptionsRepository,
-                  ),
-                ),
-              );
-              _load();
-            },
-          )
-        else
+        if (subscription?.plan == null) ...[
+          const AppSectionTitle('Planos disponíveis'),
+          if (_plans.isEmpty)
+            const AppActionTile(
+              icon: Icons.info_outline,
+              title: 'Nenhum plano ativo',
+              subtitle: 'Nenhum plano disponível no momento.',
+            )
+          else
+            // Um card colorido por plano (em vez do tile generico unico de
+            // antes) pra cliente ver de cara nome/preco/limite de cada opcao
+            // do salao, sem precisar entrar em "Escolher plano" as cegas —
+            // pedido explicito do usuario pra tela "ser mais inteligente".
+            for (var i = 0; i < _plans.length; i++)
+              AppPlanTile(
+                _plans[i].name,
+                '${formatCents(_plans[i].priceCents)}/mês',
+                _plans[i].usageLimitLabel,
+                accentColor: accentColors[i % accentColors.length],
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChoosePlanPage(
+                        plansRepository: widget.plansRepository,
+                        clientSubscriptionsRepository:
+                            widget.clientSubscriptionsRepository,
+                      ),
+                    ),
+                  );
+                  _load();
+                },
+              ),
+        ] else ...[
+          const AppSectionTitle('Beneficios'),
           for (final service in subscription!.plan!.services)
             AppActionTile(
               icon: Icons.check_circle,
@@ -139,6 +161,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                   ? '${service.discountPercentage}% de desconto'
                   : 'Incluso no seu plano',
             ),
+        ],
       ],
     );
   }
@@ -389,6 +412,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
 
     final client = _client!;
     final subscription = client.activeSubscription;
+    final accentColors = appAccentColors(context);
 
     return AppProfileSummary(
       title: 'Meu perfil',
@@ -409,6 +433,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         const SizedBox(height: 16),
         AppActionTile(
           icon: Icons.edit,
+          accentColor: accentColors[0 % 3],
           title: 'Editar dados pessoais',
           subtitle: 'Atualize nome, telefone e e-mail de contato.',
           onTap: () async {
@@ -425,11 +450,13 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
         ),
         AppActionTile(
           icon: Icons.lock_outline,
+          accentColor: accentColors[1 % 3],
           title: 'Meus dados de acesso',
           subtitle: 'Altere seu e-mail e/ou senha de login.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+              builder: (_) =>
+                  AccountSettingsPage(authSession: widget.authSession),
             ),
           ),
         ),
@@ -458,7 +485,9 @@ class EditClientProfilePage extends StatefulWidget {
 class _EditClientProfilePageState extends State<EditClientProfilePage> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(text: widget.client.name);
-  late final _phoneController = TextEditingController(text: widget.client.phone);
+  late final _phoneController = TextEditingController(
+    text: widget.client.phone,
+  );
   late final _emailController = TextEditingController(
     text: widget.client.email ?? '',
   );
@@ -538,8 +567,9 @@ class _EditClientProfilePageState extends State<EditClientProfilePage> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(11),
               ],
-              validator: (value) =>
-                  (value == null || value.isEmpty) ? 'Informe o telefone' : null,
+              validator: (value) => (value == null || value.isEmpty)
+                  ? 'Informe o telefone'
+                  : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -599,11 +629,14 @@ class BookingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColors = appAccentColors(context);
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         AppActionTile(
           icon: Icons.event_note,
+          accentColor: accentColors[0 % 3],
           title: 'Meus agendamentos',
           subtitle: 'Veja, cancele ou remarque seus horários.',
           onTap: () => Navigator.of(context).push(
@@ -617,6 +650,7 @@ class BookingPage extends StatelessWidget {
         ),
         AppActionTile(
           icon: Icons.groups,
+          accentColor: accentColors[1 % 3],
           title: 'Fila de espera',
           subtitle: 'Peça atendimento no estabelecimento sem escolher horário.',
           onTap: () => Navigator.of(context).push(
@@ -630,6 +664,7 @@ class BookingPage extends StatelessWidget {
         ),
         AppActionTile(
           icon: Icons.calendar_month,
+          accentColor: accentColors[2 % 3],
           title: 'Agenda do salão',
           subtitle: 'Veja os horários já ocupados para se programar.',
           onTap: () => Navigator.of(context).push(
@@ -642,18 +677,21 @@ class BookingPage extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const AppSectionTitle('Novo agendamento'),
-        const AppActionTile(
+        AppActionTile(
           icon: Icons.content_cut,
+          accentColor: accentColors[3],
           title: 'Escolher serviço',
           subtitle: 'Veja os serviços disponíveis no salão.',
         ),
-        const AppActionTile(
+        AppActionTile(
           icon: Icons.badge,
+          accentColor: accentColors[4],
           title: 'Escolher profissional',
           subtitle: 'Veja quem está disponível para atender.',
         ),
-        const AppActionTile(
+        AppActionTile(
           icon: Icons.event,
+          accentColor: accentColors[5],
           title: 'Confirmar horário',
           subtitle: 'Receba confirmação na hora.',
         ),
@@ -846,7 +884,10 @@ class _ChooseProfessionalPageState extends State<ChooseProfessionalPage> {
       // deixava escolher qualquer profissional e o erro real ("Profissional
       // nao realiza este servico") so aparecia depois, na confirmacao.
       final professionals = allProfessionals
-          .where((professional) => professional.serviceIds.contains(widget.service.id))
+          .where(
+            (professional) =>
+                professional.serviceIds.contains(widget.service.id),
+          )
           .toList();
 
       if (!mounted) return;
@@ -951,7 +992,15 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
     '16:00',
     '17:30',
   ];
-  static const _weekdayLabels = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+  static const _weekdayLabels = [
+    'seg',
+    'ter',
+    'qua',
+    'qui',
+    'sex',
+    'sáb',
+    'dom',
+  ];
   static const _slotStepMinutes = 30;
 
   final List<DateTime> _days = List.generate(
@@ -1042,7 +1091,9 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
     final professionalHours = _professionalWorkingHoursFor(day);
 
     final opensAtRaw =
-        override?.opensAt ?? professionalHours?.startsAt ?? _tenant?.openingTime;
+        override?.opensAt ??
+        professionalHours?.startsAt ??
+        _tenant?.openingTime;
     final closesAtRaw =
         override?.closesAt ?? professionalHours?.endsAt ?? _tenant?.closingTime;
 
@@ -1071,7 +1122,8 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
       cursor += _slotStepMinutes
     ) {
       final slotEnd = cursor + serviceDuration;
-      final overlapsBreak = breakStartMinutes != null &&
+      final overlapsBreak =
+          breakStartMinutes != null &&
           breakEndMinutes != null &&
           cursor < breakEndMinutes &&
           slotEnd > breakStartMinutes;
@@ -1221,7 +1273,8 @@ class _ChooseTimePageState extends State<ChooseTimePage> {
                             ChoiceChip(
                               label: Text(slot),
                               selected: _selected == slot,
-                              onSelected: (_) => setState(() => _selected = slot),
+                              onSelected: (_) =>
+                                  setState(() => _selected = slot),
                             ),
                         ],
                       ),
@@ -1398,6 +1451,7 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
   @override
   Widget build(BuildContext context) {
     final Widget body;
+    final accentColors = appAccentColors(context);
 
     if (_isLoading) {
       body = const Center(child: CircularProgressIndicator());
@@ -1505,10 +1559,11 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
                 child: ListTile(title: Text('Nenhum uso registrado ainda.')),
               )
             else
-              for (final usage in subscription.usages.toList()
-                // Decrescente: uso mais recente primeiro, mesmo padrao usado
-                // no resto do app (AppDayTimeline).
-                ..sort((a, b) => b.usedAt.compareTo(a.usedAt)))
+              for (final usage
+                  in subscription.usages.toList()
+                    // Decrescente: uso mais recente primeiro, mesmo padrao usado
+                    // no resto do app (AppDayTimeline).
+                    ..sort((a, b) => b.usedAt.compareTo(a.usedAt)))
                 Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
@@ -1524,12 +1579,14 @@ class _SubscriptionDetailPageState extends State<SubscriptionDetailPage> {
             const SizedBox(height: 16),
             AppActionTile(
               icon: Icons.swap_horiz,
+              accentColor: accentColors[0 % 3],
               title: 'Trocar de plano',
               subtitle: 'Veja outras opções disponíveis no salão.',
               onTap: _openChoosePlan,
             ),
             AppActionTile(
               icon: Icons.cancel_outlined,
+              accentColor: accentColors[1 % 3],
               title: 'Cancelar assinatura',
               subtitle: _isCanceling
                   ? 'Cancelando...'

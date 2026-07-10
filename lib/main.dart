@@ -170,7 +170,7 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
       locale: const Locale('pt', 'BR'),
       theme: ThemeData(
         colorScheme: colorScheme,
-        scaffoldBackgroundColor: const Color(0xFFFAF6EF),
+        scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
         fontFamily: 'Manrope',
         // Barra escura solida em vez de branca/transparente, em todo AppBar
@@ -183,19 +183,62 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
           foregroundColor: Colors.white,
           elevation: 0,
         ),
+        // Mesmo navy da AppBar em todo botao de acao preenchido e em todo
+        // FAB do app (hoje ~15 telas, de "Cadastrar cliente" a "Entrar" no
+        // login) — antes cada um caia no teal padrao do Material por
+        // ausencia de tema proprio, o que destoava da nova reformulacao
+        // (feedback do usuario apos ver o app: "o verde ficou fora do tom").
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF180F2B),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFF180F2B),
+          foregroundColor: Colors.white,
+        ),
         cardTheme: CardThemeData(
-          // Sem borda/preenchimento colorido — cor fica reservada pros cards
-          // de destaque (`AppHeroMetric`/`AppAlertMetric`), nao espalhada em
-          // todo card igual antes. `surfaceTintColor: transparent` evita o
-          // Material 3 tingir esse creme com a cor primaria em elevacoes
-          // maiores, o que desvirtuaria o tom.
+          // Neutro claro (nao mais o creme/bege antigo, que destoava do resto
+          // do app — navy no topo, branco no fundo, acentos vibrantes nos
+          // cards de acao) em vez de espalhar cor em todo card igual antes;
+          // cor fica reservada pros cards de destaque
+          // (`AppHeroMetric`/`AppAlertMetric`) ou acentuados
+          // (`AppActionTile`/`_MetricCard` com `accentColor`).
+          // `surfaceTintColor: transparent` evita o Material 3 tingir esse
+          // neutro com a cor primaria em elevacoes maiores.
           elevation: 2,
           surfaceTintColor: Colors.transparent,
           shadowColor: Colors.black.withValues(alpha: 0.12),
           margin: EdgeInsets.zero,
-          color: const Color(0xFFF1E7D4),
+          color: const Color(0xFFF7F6F9),
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(16)),
+          ),
+        ),
+        // Mesma cor escura solida da AppBar (nao a clara padrao do Material),
+        // senao a barra de navegacao vira um "segundo app" visualmente
+        // desconectado da barra de cima — feedback real do usuario vendo o
+        // app no aparelho.
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF180F2B),
+          indicatorColor: Colors.white.withValues(alpha: 0.16),
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.7),
+            ),
+          ),
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => TextStyle(
+              fontSize: 12,
+              fontWeight: states.contains(WidgetState.selected)
+                  ? FontWeight.w700
+                  : FontWeight.w500,
+              color: states.contains(WidgetState.selected)
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.7),
+            ),
           ),
         ),
       ),
@@ -302,7 +345,7 @@ class _LoginPageState extends State<LoginPage> {
             right: -60,
             child: _DecorativeBlob(
               size: 240,
-              color: colorScheme.primary.withValues(alpha: 0.10),
+              color: const Color(0xFF180F2B).withValues(alpha: 0.08),
             ),
           ),
           Positioned(
@@ -322,7 +365,9 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 child: Card(
                   elevation: 10,
-                  shadowColor: colorScheme.primary.withValues(alpha: 0.25),
+                  shadowColor: const Color(
+                    0xFF180F2B,
+                  ).withValues(alpha: 0.20),
                   color: colorScheme.surface,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(28),
@@ -339,7 +384,9 @@ class _LoginPageState extends State<LoginPage> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer,
+                                color: const Color(
+                                  0xFF180F2B,
+                                ).withValues(alpha: 0.08),
                                 shape: BoxShape.circle,
                               ),
                               child: Image.asset(
@@ -363,7 +410,7 @@ class _LoginPageState extends State<LoginPage> {
                           Text(
                             'Assinaturas, agenda e clientes em um único app.',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium
+                            style: Theme.of(context).textTheme.bodyLarge
                                 ?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                   height: 1.3,

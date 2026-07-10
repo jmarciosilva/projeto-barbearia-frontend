@@ -112,7 +112,8 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
     try {
       final summary = await widget.dashboardRepository.summary();
-      final teamPerformance = await widget.dashboardRepository.teamPerformance();
+      final teamPerformance = await widget.dashboardRepository
+          .teamPerformance();
       final tenant = await widget.tenantRepository.show();
       final professionals = await widget.professionalsRepository.index();
       final services = await widget.servicesRepository.index();
@@ -160,6 +161,8 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     }
 
     final subscription = _saasSubscription!;
+    final accentColors = appAccentColors(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -169,7 +172,8 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
             padding: EdgeInsets.only(bottom: 16),
             child: _FounderBadge(),
           ),
-        if (!_tenant!.isFounder && (subscription.isExpired || subscription.isTrial))
+        if (!_tenant!.isFounder &&
+            (subscription.isExpired || subscription.isTrial))
           Padding(
             padding: const EdgeInsets.only(bottom: 16),
             child: _SaasPlanBanner(
@@ -212,8 +216,9 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               onAddService: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) =>
-                        NewServicePage(servicesRepository: widget.servicesRepository),
+                    builder: (_) => NewServicePage(
+                      servicesRepository: widget.servicesRepository,
+                    ),
                   ),
                 );
                 _load();
@@ -244,108 +249,6 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               },
             ),
           ),
-        const AppSectionTitle('Hoje'),
-        AppMetricGrid(
-          metrics: [
-            AppMetric(
-              'Agendamentos',
-              '${_summary!.appointmentsToday}',
-              Icons.event_available,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TodayAppointmentsPage(
-                      appointmentsRepository: widget.appointmentsRepository,
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Confirmados',
-              '${_summary!.confirmedToday}',
-              Icons.check_circle_outline,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TodayAppointmentsPage(
-                      appointmentsRepository: widget.appointmentsRepository,
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Pendentes',
-              '${_summary!.pendingToday}',
-              Icons.warning_amber,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PendingPaymentsPage(
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Fila de espera',
-              '${_summary!.waitlistCount}',
-              Icons.people_outline,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ManageWaitlistPage(
-                      waitlistRepository: widget.waitlistRepository,
-                      professionalsRepository: widget.professionalsRepository,
-                      clientsRepository: widget.clientsRepository,
-                      servicesRepository: widget.servicesRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Cancelamentos',
-              '${_summary!.canceledToday}',
-              Icons.event_busy,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TodayAppointmentsPage(
-                      appointmentsRepository: widget.appointmentsRepository,
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Desempenho da equipe',
-              '$_teamCompletedCount',
-              Icons.leaderboard,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TeamPerformancePage(
-                      dashboardRepository: widget.dashboardRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
         const AppSectionTitle('Receita'),
         AppHeroMetric(
           label: 'Receita do mês',
@@ -416,9 +319,127 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
           ),
         ],
         const SizedBox(height: 16),
+        const AppSectionTitle('Hoje'),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: AppHeroMetric(
+                  label: 'Agendamentos',
+                  value: '${_summary!.appointmentsToday}',
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TodayAppointmentsPage(
+                          appointmentsRepository: widget.appointmentsRepository,
+                          paymentsRepository: widget.paymentsRepository,
+                        ),
+                      ),
+                    );
+                    _load();
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AppHeroMetric(
+                  label: 'Desempenho da equipe',
+                  value: '$_teamCompletedCount',
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TeamPerformancePage(
+                          dashboardRepository: widget.dashboardRepository,
+                        ),
+                      ),
+                    );
+                    _load();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        AppMetricGrid(
+          metrics: [
+            AppMetric(
+              'Confirmados',
+              '${_summary!.confirmedToday}',
+              Icons.check_circle_outline,
+              accentColor: colorScheme.primary,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayAppointmentsPage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Pendentes',
+              '${_summary!.pendingToday}',
+              Icons.warning_amber,
+              accentColor: heroGoldAccent,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => PendingPaymentsPage(
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Fila de espera',
+              '${_summary!.waitlistCount}',
+              Icons.people_outline,
+              accentColor: colorScheme.secondary,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ManageWaitlistPage(
+                      waitlistRepository: widget.waitlistRepository,
+                      professionalsRepository: widget.professionalsRepository,
+                      clientsRepository: widget.clientsRepository,
+                      servicesRepository: widget.servicesRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+            AppMetric(
+              'Cancelamentos',
+              '${_summary!.canceledToday}',
+              Icons.event_busy,
+              accentColor: colorScheme.error,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TodayAppointmentsPage(
+                      appointmentsRepository: widget.appointmentsRepository,
+                      paymentsRepository: widget.paymentsRepository,
+                    ),
+                  ),
+                );
+                _load();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         const AppSectionTitle('Próximas ações'),
         AppActionTile(
           icon: Icons.diamond,
+          accentColor: accentColors[0 % 3],
           title: 'Meu plano',
           subtitle: subscription.isTrial
               ? 'Trial - faltam ${subscription.trialDaysRemaining} dias'
@@ -437,6 +458,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.storefront,
+          accentColor: accentColors[1 % 3],
           title: 'Catálogo',
           subtitle: 'Gerencie serviços e profissionais do seu salão.',
           onTap: () async {
@@ -454,6 +476,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.schedule,
+          accentColor: accentColors[2 % 3],
           title: 'Horário de funcionamento',
           subtitle: 'Defina abertura, fechamento, pausas e exceções por data.',
           onTap: () => Navigator.of(context).push(
@@ -465,12 +488,13 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.bar_chart,
+          accentColor: accentColors[3 % 3],
           title: 'Ocupação da equipe',
-          subtitle: 'Veja o quanto da agenda de cada profissional está ocupada.',
+          subtitle:
+              'Veja o quanto da agenda de cada profissional está ocupada.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) =>
-                  OccupancyPage(
+              builder: (_) => OccupancyPage(
                 dashboardRepository: widget.dashboardRepository,
                 professionalsRepository: widget.professionalsRepository,
                 servicesRepository: widget.servicesRepository,
@@ -480,28 +504,33 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.favorite_border,
+          accentColor: accentColors[4 % 3],
           title: 'Clientes para reconquistar',
           subtitle:
               'Veja quem está no momento certo de voltar, segundo o histórico.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) =>
-                  ReturnRiskPage(dashboardRepository: widget.dashboardRepository),
+              builder: (_) => ReturnRiskPage(
+                dashboardRepository: widget.dashboardRepository,
+              ),
             ),
           ),
         ),
         AppActionTile(
           icon: Icons.lock_outline,
+          accentColor: accentColors[5 % 3],
           title: 'Meus dados de acesso',
           subtitle: 'Altere seu e-mail e/ou senha de login.',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (_) => AccountSettingsPage(authSession: widget.authSession),
+              builder: (_) =>
+                  AccountSettingsPage(authSession: widget.authSession),
             ),
           ),
         ),
         AppActionTile(
           icon: Icons.person_add,
+          accentColor: accentColors[6 % 3],
           title: 'Cadastrar cliente',
           subtitle: 'Nome, telefone, e-mail e senha de acesso.',
           onTap: () async {
@@ -516,6 +545,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.workspace_premium,
+          accentColor: accentColors[7 % 3],
           title: 'Criar plano de assinatura',
           subtitle: 'Defina serviços, limites, dias e horários permitidos.',
           onTap: () async {
@@ -533,6 +563,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.price_check,
+          accentColor: accentColors[8 % 3],
           title: 'Confirmar pagamento manual',
           subtitle: 'PIX, cartão, dinheiro ou fiado.',
           onTap: () async {
@@ -548,6 +579,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.receipt_long,
+          accentColor: accentColors[9 % 3],
           title: 'Gestão do fiado',
           subtitle: 'Acompanhe saldos pendentes e lance recebimentos parciais.',
           onTap: () async {
@@ -563,6 +595,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         AppActionTile(
           icon: Icons.account_balance_wallet,
+          accentColor: accentColors[10 % 3],
           title: 'Comissoes profissionais',
           subtitle: 'Veja produção, comissão e adiantamentos.',
           onTap: () async {
@@ -623,9 +656,9 @@ class _OnboardingChecklistCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Vamos configurar seu salão',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -635,20 +668,21 @@ class _OnboardingChecklistCard extends StatelessWidget {
                 ),
               ],
             ),
-           
+
             _ChecklistItem(
               done: hasService,
               label: 'Cadastre seu primeiro serviço',
               onTap: onAddService,
             ),
-             _ChecklistItem(
+            _ChecklistItem(
               done: hasProfessional,
               label: 'Cadastre seu primeiro profissional',
               onTap: onAddProfessional,
             ),
             _ChecklistItem(
               done: hasPlan,
-              label: 'Crie um plano de assinatura com os serviços e profissionais',
+              label:
+                  'Crie um plano de assinatura com os serviços e profissionais',
               onTap: onAddPlan,
             ),
             _ChecklistItem(
@@ -1036,7 +1070,8 @@ class _ChooseClientPageState extends State<ChooseClientPage> {
                         builder: (_) => ChooseServicePage(
                           clientsRepository: widget.clientsRepository,
                           servicesRepository: widget.servicesRepository,
-                          professionalsRepository: widget.professionalsRepository,
+                          professionalsRepository:
+                              widget.professionalsRepository,
                           appointmentsRepository: widget.appointmentsRepository,
                           tenantRepository: widget.tenantRepository,
                           client: _selected,
@@ -1493,9 +1528,8 @@ class _NewClientPageState extends State<NewClientPage> {
                   icon: Icon(
                     _obscurePassword ? Icons.visibility : Icons.visibility_off,
                   ),
-                  onPressed: () => setState(
-                    () => _obscurePassword = !_obscurePassword,
-                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
               obscureText: _obscurePassword,
@@ -1786,7 +1820,9 @@ class _EditPlanPageState extends State<EditPlanPage> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(text: widget.plan.name);
   late final _priceController = TextEditingController(
-    text: (widget.plan.priceCents / 100).toStringAsFixed(2).replaceAll('.', ','),
+    text: (widget.plan.priceCents / 100)
+        .toStringAsFixed(2)
+        .replaceAll('.', ','),
   );
   late final _limitController = TextEditingController(
     text: widget.plan.usageLimit?.toString() ?? '',
@@ -2206,7 +2242,8 @@ class _ActiveSubscribersPageState extends State<ActiveSubscribersPage> {
     } else {
       final totalCents = _subscribers.fold<int>(
         0,
-        (sum, client) => sum + (client.activeSubscription?.plan?.priceCents ?? 0),
+        (sum, client) =>
+            sum + (client.activeSubscription?.plan?.priceCents ?? 0),
       );
 
       body = ListView(
@@ -2383,12 +2420,13 @@ class _TodayRevenuePageState extends State<TodayRevenuePage> {
 
       if (!mounted) return;
       setState(() {
-        _appointments = appointments
-            .where((appointment) => appointment.countsTowardExpectedRevenue)
-            .toList()
-          // Decrescente: horario mais recente primeiro, mesmo padrao usado
-          // no resto do app (AppDayTimeline).
-          ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
+        _appointments =
+            appointments
+                .where((appointment) => appointment.countsTowardExpectedRevenue)
+                .toList()
+              // Decrescente: horario mais recente primeiro, mesmo padrao usado
+              // no resto do app (AppDayTimeline).
+              ..sort((a, b) => b.startsAt.compareTo(a.startsAt));
         _isLoading = false;
       });
     } on AppException catch (error) {
@@ -2503,8 +2541,7 @@ class WalkinRevenueMonthPage extends StatefulWidget {
   final PaymentsRepository paymentsRepository;
 
   @override
-  State<WalkinRevenueMonthPage> createState() =>
-      _WalkinRevenueMonthPageState();
+  State<WalkinRevenueMonthPage> createState() => _WalkinRevenueMonthPageState();
 }
 
 class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
@@ -2535,8 +2572,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
 
       for (final payment in payments) {
         final icon = payment.isAvulso ? Icons.content_cut : Icons.autorenew;
-        final origin =
-            payment.serviceName ?? payment.planName ?? 'Pagamento';
+        final origin = payment.serviceName ?? payment.planName ?? 'Pagamento';
 
         // Confirmado na hora, sem recibo: entra pelo valor cheio no mes do
         // paid_at. Se tiver recibo, ja e contado abaixo — senao contaria
@@ -2568,8 +2604,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
               _RevenueEntry(
                 paymentId: payment.id,
                 clientName: payment.clientName ?? 'Cliente',
-                description:
-                    '$origin - recebimento (${receipt.methodLabel})',
+                description: '$origin - recebimento (${receipt.methodLabel})',
                 amountCents: receipt.amountCents,
                 method: receipt.method,
                 date: receivedAt!,
@@ -2622,9 +2657,7 @@ class _WalkinRevenueMonthPageState extends State<WalkinRevenueMonthPage> {
     } else if (_errorMessage != null) {
       body = AppLoadingError(message: _errorMessage!, onRetry: _load);
     } else if (_entries.isEmpty) {
-      body = const Center(
-        child: Text('Nenhuma receita confirmada este mês.'),
-      );
+      body = const Center(child: Text('Nenhuma receita confirmada este mês.'));
     } else {
       final totalCents = _entries.fold<int>(
         0,
@@ -3489,8 +3522,9 @@ class _ProfessionalCommissionDetailPageState
           else
             // Decrescente: adiantamento mais recente primeiro, mesmo padrao
             // usado no resto do app (AppDayTimeline).
-            for (final advance in finance.advances.toList()
-              ..sort((a, b) => b.paidAt.compareTo(a.paidAt)))
+            for (final advance
+                in finance.advances.toList()
+                  ..sort((a, b) => b.paidAt.compareTo(a.paidAt)))
               Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
@@ -3603,12 +3637,15 @@ class ClientDetailPage extends StatefulWidget {
 class _ClientDetailPageState extends State<ClientDetailPage> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(text: widget.client.name);
-  late final _phoneController = TextEditingController(text: widget.client.phone);
+  late final _phoneController = TextEditingController(
+    text: widget.client.phone,
+  );
   late final _notesController = TextEditingController(
     text: widget.client.notes ?? '',
   );
   late bool _isActive = widget.client.status != 'inactive';
-  late ClientSubscriptionModel? _subscription = widget.client.activeSubscription;
+  late ClientSubscriptionModel? _subscription =
+      widget.client.activeSubscription;
 
   bool _isSaving = false;
   bool _isRegisteringPayment = false;
@@ -3651,10 +3688,14 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       // Recarrega o cliente para refletir o novo status de pagamento da
       // assinatura, ja sincronizado no backend pelo fluxo de confirmacao.
       final clients = await widget.clientsRepository.index();
-      final refreshed = clients.where((c) => c.id == widget.client.id).firstOrNull;
+      final refreshed = clients
+          .where((c) => c.id == widget.client.id)
+          .firstOrNull;
 
       if (!mounted) return;
-      setState(() => _subscription = refreshed?.activeSubscription ?? subscription);
+      setState(
+        () => _subscription = refreshed?.activeSubscription ?? subscription,
+      );
     } on AppException catch (error) {
       if (!mounted) return;
       setState(() => _errorMessage = error.userMessage);
@@ -3758,7 +3799,9 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                 children: [
                   ListTile(
                     title: const Text('Plano'),
-                    trailing: Text(subscription?.plan?.name ?? 'Sem plano ativo'),
+                    trailing: Text(
+                      subscription?.plan?.name ?? 'Sem plano ativo',
+                    ),
                   ),
                   if (subscription != null) ...[
                     ListTile(
@@ -4153,7 +4196,9 @@ class _EditServicePageState extends State<EditServicePage> {
   late final _priceController = TextEditingController(
     text: widget.service.priceCents == null
         ? ''
-        : (widget.service.priceCents! / 100).toStringAsFixed(2).replaceAll('.', ','),
+        : (widget.service.priceCents! / 100)
+              .toStringAsFixed(2)
+              .replaceAll('.', ','),
   );
   late final _descriptionController = TextEditingController(
     text: widget.service.description ?? '',
@@ -5693,8 +5738,7 @@ class _AddClientToWaitlistPageState extends State<AddClientToWaitlistPage> {
                 ChoiceChip(
                   label: Text(service.name),
                   selected: _selectedService?.id == service.id,
-                  onSelected: (_) =>
-                      setState(() => _selectedService = service),
+                  onSelected: (_) => setState(() => _selectedService = service),
                 ),
             ],
           ),
@@ -5978,9 +6022,7 @@ class _FounderBadge extends StatelessWidget {
               color: Theme.of(context).colorScheme.onPrimaryContainer,
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: Text('Salão Fundador do Clube do Salão'),
-            ),
+            const Expanded(child: Text('Salão Fundador do Clube do Salão')),
           ],
         ),
       ),
