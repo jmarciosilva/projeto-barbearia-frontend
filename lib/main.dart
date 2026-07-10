@@ -153,6 +153,13 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
     ).copyWith(
       secondary: const Color(0xFFFC3C6C),
       tertiary: const Color(0xFFFC9C30),
+      // `.copyWith` so troca o papel exato passado — tertiaryContainer e
+      // onTertiaryContainer sao campos separados de tertiary, e continuariam
+      // vindo da tonalidade derivada do teal (nao do laranja) se nao fossem
+      // sobrescritos tambem. E o tertiaryContainer que da o tom de fundo
+      // fraquinho usado nos cards (CardThemeData abaixo).
+      tertiaryContainer: const Color(0xFFFFDFB8),
+      onTertiaryContainer: const Color(0xFF4A2800),
     );
 
     return MaterialApp(
@@ -176,10 +183,13 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
         cardTheme: CardThemeData(
           elevation: 0,
           margin: EdgeInsets.zero,
-          color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+          // Tom alaranjado bem fraquinho (pedido do usuario, pra dar
+          // destaque sem carregar a tela) — tertiaryContainer/tertiary ja
+          // sao os tons de laranja derivados da nova paleta de marca.
+          color: colorScheme.tertiaryContainer.withValues(alpha: 0.28),
           shape: RoundedRectangleBorder(
             borderRadius: const BorderRadius.all(Radius.circular(12)),
-            side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.25)),
+            side: BorderSide(color: colorScheme.tertiary.withValues(alpha: 0.20)),
           ),
         ),
       ),
@@ -495,12 +505,39 @@ class _DashboardShellState extends State<DashboardShell> {
           children: [
             Image.asset(_logoMarkAsset, width: 22, height: 22),
             const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                '${role.label} • ${_firstName(user.name)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Expanded(
+              child: user.tenantName == null
+                  // Administrador da plataforma nao pertence a nenhum
+                  // salao — mantem a linha unica de antes.
+                  ? Text(
+                      '${role.label} • ${_firstName(user.name)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          user.tenantName!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          '${role.label} • ${_firstName(user.name)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
