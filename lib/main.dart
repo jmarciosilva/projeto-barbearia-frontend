@@ -140,9 +140,19 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Paleta extraida da nova logo (mais vida/cor, pedido explicito de donos
+    // de salao que acharam a versao anterior "muito verde" numa demo): teal
+    // como base (Material deriva toda a tonalidade a partir dela), rosa e
+    // laranja vibrantes como acentos pontuais (secondary/tertiary). O
+    // degrade completo da logo fica só como imagem estatica (icone, tela de
+    // login) — reproduzi-lo inteiro em cada botao/card brigaria com o
+    // Material Design e poluiria telas de lista ja carregadas de informacao.
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF176B5B),
+      seedColor: const Color(0xFF00A8A8),
       brightness: Brightness.light,
+    ).copyWith(
+      secondary: const Color(0xFFFC3C6C),
+      tertiary: const Color(0xFFFC9C30),
     );
 
     return MaterialApp(
@@ -160,7 +170,7 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
       locale: const Locale('pt', 'BR'),
       theme: ThemeData(
         colorScheme: colorScheme,
-        scaffoldBackgroundColor: const Color(0xFFEFF7F1),
+        scaffoldBackgroundColor: const Color(0xFFFAF6EF),
         useMaterial3: true,
         fontFamily: 'Manrope',
         cardTheme: CardThemeData(
