@@ -153,13 +153,6 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
     ).copyWith(
       secondary: const Color(0xFFFC3C6C),
       tertiary: const Color(0xFFFC9C30),
-      // `.copyWith` so troca o papel exato passado — tertiaryContainer e
-      // onTertiaryContainer sao campos separados de tertiary, e continuariam
-      // vindo da tonalidade derivada do teal (nao do laranja) se nao fossem
-      // sobrescritos tambem. E o tertiaryContainer que da o tom de fundo
-      // fraquinho usado nos cards (CardThemeData abaixo).
-      tertiaryContainer: const Color(0xFFFFDFB8),
-      onTertiaryContainer: const Color(0xFF4A2800),
     );
 
     return MaterialApp(
@@ -180,16 +173,29 @@ class _ClubeDoSalaoAppState extends State<ClubeDoSalaoApp> {
         scaffoldBackgroundColor: const Color(0xFFFAF6EF),
         useMaterial3: true,
         fontFamily: 'Manrope',
-        cardTheme: CardThemeData(
+        // Barra escura solida em vez de branca/transparente, em todo AppBar
+        // do app (nenhuma das ~40 telas que usam `AppBar(title: ...)` define
+        // cor propria, entao esse unico ponto resolve todas de uma vez) —
+        // direcao aprovada pelo usuario num mockup comparando "hoje" vs
+        // "proposta" antes de codar.
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF180F2B),
+          foregroundColor: Colors.white,
           elevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          // Sem borda/preenchimento colorido — cor fica reservada pros cards
+          // de destaque (`AppHeroMetric`/`AppAlertMetric`), nao espalhada em
+          // todo card igual antes. `surfaceTintColor: transparent` evita o
+          // Material 3 tingir esse creme com a cor primaria em elevacoes
+          // maiores, o que desvirtuaria o tom.
+          elevation: 2,
+          surfaceTintColor: Colors.transparent,
+          shadowColor: Colors.black.withValues(alpha: 0.12),
           margin: EdgeInsets.zero,
-          // Tom alaranjado bem fraquinho (pedido do usuario, pra dar
-          // destaque sem carregar a tela) — tertiaryContainer/tertiary ja
-          // sao os tons de laranja derivados da nova paleta de marca.
-          color: colorScheme.tertiaryContainer.withValues(alpha: 0.28),
-          shape: RoundedRectangleBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(12)),
-            side: BorderSide(color: colorScheme.tertiary.withValues(alpha: 0.20)),
+          color: const Color(0xFFF1E7D4),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
           ),
         ),
       ),
@@ -531,9 +537,10 @@ class _DashboardShellState extends State<DashboardShell> {
                           '${role.label} • ${_firstName(user.name)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
+                            color: Colors.white.withValues(alpha: 0.62),
                           ),
                         ),
                       ],

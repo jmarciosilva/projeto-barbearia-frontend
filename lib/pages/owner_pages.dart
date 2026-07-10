@@ -347,6 +347,21 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         ),
         const SizedBox(height: 16),
         const AppSectionTitle('Receita'),
+        AppHeroMetric(
+          label: 'Receita do mês',
+          value: formatCents(_summary!.walkinRevenueMonthCents),
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => WalkinRevenueMonthPage(
+                  paymentsRepository: widget.paymentsRepository,
+                ),
+              ),
+            );
+            _load();
+          },
+        ),
+        const SizedBox(height: 10),
         AppMetricGrid(
           metrics: [
             AppMetric(
@@ -380,38 +395,26 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
                 _load();
               },
             ),
-            AppMetric(
-              'Receita do mês',
-              formatCents(_summary!.walkinRevenueMonthCents),
-              Icons.point_of_sale,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => WalkinRevenueMonthPage(
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
-            AppMetric(
-              'Fiado em aberto',
-              formatCents(_summary!.openDebtCents),
-              Icons.receipt_long,
-              onTap: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => DebtManagementPage(
-                      paymentsRepository: widget.paymentsRepository,
-                    ),
-                  ),
-                );
-                _load();
-              },
-            ),
           ],
         ),
+        if (_summary!.openDebtCents > 0) ...[
+          const SizedBox(height: 10),
+          AppAlertMetric(
+            icon: Icons.receipt_long,
+            title: '${formatCents(_summary!.openDebtCents)} em fiado',
+            subtitle: 'Toque para gerenciar',
+            onTap: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => DebtManagementPage(
+                    paymentsRepository: widget.paymentsRepository,
+                  ),
+                ),
+              );
+              _load();
+            },
+          ),
+        ],
         const SizedBox(height: 16),
         const AppSectionTitle('Próximas ações'),
         AppActionTile(

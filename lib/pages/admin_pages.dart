@@ -69,6 +69,22 @@ class _AdminHomePageState extends State<AdminHomePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const AppSectionTitle('Numeros'),
+        AppHeroMetric(
+          label: 'Receita projetada',
+          value: formatCents(summary.projectedRevenueCents),
+        ),
+        const SizedBox(height: 10),
+        AppMetricGrid(
+          metrics: [
+            AppMetric(
+              'Usuarios cadastrados',
+              '${summary.totalUsers}',
+              Icons.people_outline,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
         const AppSectionTitle('Saloes'),
         AppMetricGrid(
           metrics: [
@@ -80,33 +96,20 @@ class _AdminHomePageState extends State<AdminHomePage> {
             ),
             AppMetric('Em trial', '${summary.trialTenants}', Icons.schedule),
             AppMetric(
-              'Vencidos',
-              '${summary.expiredTenants}',
-              Icons.warning_amber,
-            ),
-            AppMetric(
               'Fundadores',
               '${summary.founderTenants}',
               Icons.workspace_premium,
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const AppSectionTitle('Numeros'),
-        AppMetricGrid(
-          metrics: [
-            AppMetric(
-              'Receita projetada',
-              formatCents(summary.projectedRevenueCents),
-              Icons.payments,
-            ),
-            AppMetric(
-              'Usuarios cadastrados',
-              '${summary.totalUsers}',
-              Icons.people_outline,
-            ),
-          ],
-        ),
+        if (summary.expiredTenants > 0) ...[
+          const SizedBox(height: 10),
+          AppAlertMetric(
+            icon: Icons.warning_amber,
+            title: '${summary.expiredTenants} salão(ões) vencido(s)',
+            subtitle: 'Assinatura SaaS expirada',
+          ),
+        ],
       ],
     );
   }

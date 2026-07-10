@@ -159,10 +159,9 @@ void main() {
 
       await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
-      await scrollToText(tester, 'Fiado em aberto');
-      expect(find.text('R\$ 149,90'), findsOneWidget);
+      await scrollToText(tester, 'R\$ 149,90 em fiado');
 
-      await tester.tap(find.text('Fiado em aberto'));
+      await tester.tap(find.text('R\$ 149,90 em fiado'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppBar, 'Gestão do fiado'), findsOneWidget);
@@ -318,6 +317,7 @@ void main() {
 
       await loginAs(tester, email: 'ana.souza@clubedosalao.com', password: 'demo12345');
 
+      await scrollToText(tester, 'Corte masculino');
       await tester.tap(find.text('Corte masculino'));
       await tester.pumpAndSettle();
 
@@ -976,6 +976,7 @@ void main() {
 
       await loginAs(tester, email: 'owner@clubedosalao.com', password: 'demo12345');
 
+      await scrollToText(tester, 'Prevista hoje');
       await tester.tap(find.text('Prevista hoje'));
       await tester.pumpAndSettle();
 

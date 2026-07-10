@@ -4,8 +4,10 @@ import 'package:clube_do_salao/models/professional_model.dart';
 import 'package:clube_do_salao/models/waitlist_entry_model.dart';
 import 'package:flutter/material.dart';
 
-/// Scaffold padrao do app: aplica o mesmo degrade verde bem claro atras do
-/// conteudo em todas as telas, mantendo a identidade visual consistente.
+/// Scaffold padrao do app: chao liso (`scaffoldBackgroundColor`) atras do
+/// conteudo em todas as telas — antes um degrade `primaryContainer`, trocado
+/// pelo chao liso da direcao visual aprovada (cor fica reservada pros cards
+/// de destaque, nao espalhada no fundo da tela inteira).
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
     super.key,
@@ -20,27 +22,10 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Scaffold(
       appBar: appBar,
       bottomNavigationBar: bottomNavigationBar,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              colorScheme.primaryContainer.withValues(alpha: 0.45),
-              theme.scaffoldBackgroundColor,
-            ],
-          ),
-        ),
-        child: body,
-      ),
+      body: body,
     );
   }
 }
@@ -124,7 +109,12 @@ class AppActionTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: Icon(icon, color: colorScheme.primary),
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+          foregroundColor: colorScheme.primary,
+          child: Icon(icon),
+        ),
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
@@ -197,6 +187,194 @@ class _MetricCard extends StatelessWidget {
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               Text(metric.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cor fixa (nao deriva do `ColorScheme`) do card de destaque — e uma
+/// identidade propria desse "bloco heroi", nao um papel reaproveitavel do
+/// tema em outro lugar.
+const _heroBackground = Color(0xFF180F2B);
+
+/// Card de destaque: um por tela, reservado pro numero mais importante do
+/// momento (ex: "Receita do mês" pro dono, "A receber" pro profissional).
+/// Fundo escuro solido com um brilho ambar sutil, numero grande — o
+/// contraste com os cards planos ao redor e o que da a hierarquia que faltava
+/// (antes todo card tinha o mesmo contorno/preenchimento palido, nada
+/// se destacava).
+class AppHeroMetric extends StatelessWidget {
+  const AppHeroMetric({
+    super.key,
+    required this.label,
+    required this.value,
+    this.trend,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+
+  /// Variacao vs. periodo anterior (ex: "+18% que o mês passado"). Nenhuma
+  /// tela do app calcula esse dado hoje (precisaria de historico que a API
+  /// nao expoe ainda) — o campo existe pronto pro dia em que existir.
+  final String? trend;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.only(bottom: 10),
+      color: _heroBackground,
+      elevation: 3,
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          children: [
+            Positioned(
+              right: -28,
+              top: -28,
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      colorScheme.tertiary.withValues(alpha: 0.35),
+                      colorScheme.tertiary.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    // Sem uppercase de proposito: o rotulo e o mesmo texto
+                    // ja usado como `AppMetric.label` noutras telas (ex:
+                    // "Receita do mês"), e varios testes/telas dependem do
+                    // texto exato pra localizar/tocar o card.
+                    label,
+                    style: TextStyle(
+                      color: colorScheme.tertiary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 30,
+                      height: 1.1,
+                    ),
+                  ),
+                  if (trend != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      trend!,
+                      style: const TextStyle(
+                        color: Color(0xFF7FE6C4),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                  if (onTap != null) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        Icons.chevron_right,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card de alerta: cor reservada so pro que pede atencao genuina (ex: "Fiado
+/// em aberto" pro dono, "Saloes vencidos" pro admin). Quem usa decide quando
+/// mostrar (normalmente condicionado a um valor > 0) — nao deve aparecer
+/// vazio so pra preencher espaco, senao a cor perde o sentido de alerta.
+class AppAlertMetric extends StatelessWidget {
+  const AppAlertMetric({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: colorScheme.secondary.withValues(alpha: 0.12),
+      elevation: 0,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: colorScheme.secondary,
+                foregroundColor: Colors.white,
+                child: Icon(icon, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),

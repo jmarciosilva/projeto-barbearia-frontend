@@ -131,6 +131,17 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
       padding: const EdgeInsets.all(16),
       children: [
         const AppSectionTitle('Este mês'),
+        AppHeroMetric(
+          label: 'A receber',
+          value: formatCents(finance.netCents),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  ProfessionalAdvancesPage(advances: finance.advances),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         AppMetricGrid(
           metrics: [
             AppMetric(
@@ -173,17 +184,6 @@ class _ProfessionalHomePageState extends State<ProfessionalHomePage> {
                 'Comissão do mês',
                 finance.appointments,
                 commissionPercentage: finance.commissionPercentage,
-              ),
-            ),
-            AppMetric(
-              'A receber',
-              formatCents(finance.netCents),
-              Icons.wallet,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      ProfessionalAdvancesPage(advances: finance.advances),
-                ),
               ),
             ),
           ],
