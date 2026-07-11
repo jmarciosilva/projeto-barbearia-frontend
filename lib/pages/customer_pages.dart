@@ -135,6 +135,7 @@ class _CustomerHomePageState extends State<CustomerHomePage> {
                 _plans[i].name,
                 '${formatCents(_plans[i].priceCents)}/mês',
                 _plans[i].usageLimitLabel,
+                description: _plans[i].description,
                 accentColor: accentColors[i % accentColors.length],
                 onTap: () async {
                   await Navigator.of(context).push(
@@ -1708,9 +1709,23 @@ class _ChoosePlanPageState extends State<ChoosePlanPage> {
             Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
+                isThreeLine: plan.description != null &&
+                    plan.description!.trim().isNotEmpty,
                 leading: const Icon(Icons.workspace_premium),
                 title: Text(plan.name),
-                subtitle: Text(plan.usageLimitLabel),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(plan.usageLimitLabel),
+                    if (plan.description != null &&
+                        plan.description!.trim().isNotEmpty)
+                      Text(
+                        plan.description!.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
                 trailing: _subscribingPlanId == plan.id
                     ? const SizedBox(
                         width: 20,

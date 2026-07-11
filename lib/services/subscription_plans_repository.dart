@@ -22,6 +22,7 @@ class SubscriptionPlansRepository {
   Future<SubscriptionPlanModel> create({
     required String name,
     required int priceCents,
+    String? description,
     int? usageLimit,
     List<int>? allowedWeekdays,
     String? allowedStartTime,
@@ -35,6 +36,7 @@ class SubscriptionPlansRepository {
               body: {
                 'name': name,
                 'price_cents': priceCents,
+                'description': ?description,
                 'usage_limit': ?usageLimit,
                 'allowed_weekdays': ?allowedWeekdays,
                 'allowed_start_time': ?allowedStartTime,
@@ -58,6 +60,7 @@ class SubscriptionPlansRepository {
     required int id,
     String? name,
     int? priceCents,
+    String? description,
     int? usageLimit,
     bool? isActive,
     List<int>? serviceIds,
@@ -69,6 +72,7 @@ class SubscriptionPlansRepository {
               body: {
                 'name': ?name,
                 'price_cents': ?priceCents,
+                'description': ?description,
                 'usage_limit': ?usageLimit,
                 'is_active': ?isActive,
                 'services': ?serviceIds?.map((serviceId) => {'id': serviceId}).toList(),

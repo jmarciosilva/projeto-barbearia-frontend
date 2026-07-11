@@ -462,6 +462,7 @@ class AppPlanTile extends StatelessWidget {
     this.price,
     this.limit, {
     super.key,
+    this.description,
     this.onTap,
     this.accentColor,
   });
@@ -469,6 +470,11 @@ class AppPlanTile extends StatelessWidget {
   final String name;
   final String price;
   final String limit;
+
+  /// Descricao livre do plano (cadastrada pelo dono) — exibida abaixo do
+  /// limite de uso pra cliente entender o que o plano oferece antes de
+  /// assinar, sem precisar abrir o detalhe.
+  final String? description;
   final VoidCallback? onTap;
 
   /// Cor do selo e do fundo levemente tingido, mesmo padrao do
@@ -480,23 +486,56 @@ class AppPlanTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = accentColor;
+    final hasDescription = description != null && description!.trim().isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       color: accent?.withValues(alpha: 0.08),
-      child: ListTile(
-        leading: accent == null
-            ? const Icon(Icons.workspace_premium)
-            : CircleAvatar(
-                radius: 20,
-                backgroundColor: accent.withValues(alpha: 0.12),
-                foregroundColor: accent,
-                child: const Icon(Icons.workspace_premium),
-              ),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text(limit),
-        trailing: Text(price),
+      child: InkWell(
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              accent == null
+                  ? const Icon(Icons.workspace_premium)
+                  : CircleAvatar(
+                      radius: 20,
+                      backgroundColor: accent.withValues(alpha: 0.12),
+                      foregroundColor: accent,
+                      child: const Icon(Icons.workspace_premium),
+                    ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(limit),
+                    if (hasDescription) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        description!.trim(),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(price, style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
       ),
     );
   }

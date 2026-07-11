@@ -1192,6 +1192,7 @@ class _PlansPageState extends State<PlansPage> {
               plan.name,
               '${formatCents(plan.priceCents)}/mes',
               plan.usageLimitLabel,
+              description: plan.description,
               onTap: () => _openPlan(plan),
             ),
         ],
@@ -1589,6 +1590,7 @@ class _NewPlanPageState extends State<NewPlanPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final _limitController = TextEditingController();
   final Set<int> _selectedServiceIds = {};
   final Set<int> _selectedProfessionalIds = {};
@@ -1638,6 +1640,7 @@ class _NewPlanPageState extends State<NewPlanPage> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _descriptionController.dispose();
     _limitController.dispose();
     super.dispose();
   }
@@ -1654,6 +1657,9 @@ class _NewPlanPageState extends State<NewPlanPage> {
       await widget.plansRepository.create(
         name: _nameController.text.trim(),
         priceCents: parsePriceToCents(_priceController.text),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
         usageLimit: _limitController.text.trim().isEmpty
             ? null
             : int.tryParse(_limitController.text.trim()),
@@ -1714,6 +1720,18 @@ class _NewPlanPageState extends State<NewPlanPage> {
                 labelText: 'Limite de usos mensais (opcional)',
               ),
               keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Descricao / condicoes (opcional)',
+                hintText:
+                    'Ex: valido somente para escova, uso pessoal e intransferivel',
+                alignLabelWithHint: true,
+              ),
+              minLines: 3,
+              maxLines: 5,
             ),
             const SizedBox(height: 16),
             const AppSectionTitle('Serviços inclusos'),
@@ -1827,6 +1845,9 @@ class _EditPlanPageState extends State<EditPlanPage> {
   late final _limitController = TextEditingController(
     text: widget.plan.usageLimit?.toString() ?? '',
   );
+  late final _descriptionController = TextEditingController(
+    text: widget.plan.description ?? '',
+  );
   late final Set<int> _selectedServiceIds = {
     for (final service in widget.plan.services) service.id,
   };
@@ -1880,6 +1901,7 @@ class _EditPlanPageState extends State<EditPlanPage> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _descriptionController.dispose();
     _limitController.dispose();
     super.dispose();
   }
@@ -1897,6 +1919,7 @@ class _EditPlanPageState extends State<EditPlanPage> {
         id: widget.plan.id,
         name: _nameController.text.trim(),
         priceCents: parsePriceToCents(_priceController.text),
+        description: _descriptionController.text.trim(),
         usageLimit: _limitController.text.trim().isEmpty
             ? null
             : int.tryParse(_limitController.text.trim()),
@@ -1958,6 +1981,18 @@ class _EditPlanPageState extends State<EditPlanPage> {
                 labelText: 'Limite de usos mensais (opcional)',
               ),
               keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Descricao / condicoes (opcional)',
+                hintText:
+                    'Ex: valido somente para escova, uso pessoal e intransferivel',
+                alignLabelWithHint: true,
+              ),
+              minLines: 3,
+              maxLines: 5,
             ),
             const SizedBox(height: 8),
             SwitchListTile(
